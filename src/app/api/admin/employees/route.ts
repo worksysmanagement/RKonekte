@@ -4,6 +4,7 @@ import { listEmployees, createEmployee } from "@/lib/services/employees";
 import { employeeSchema } from "@/lib/validation/schemas";
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
 import { sendEmployeeInvitation } from "@/lib/services/employee-invitations";
+import { resolveAppOrigin } from "@/lib/notifications/email";
 
 export async function GET(req: NextRequest) {
   try {
@@ -15,30 +16,54 @@ export async function GET(req: NextRequest) {
 
     const employeesList = await listEmployees(organizationId, search, status, branchId);
 
-    // Fetch user accounts to cross-reference connection status (CONNECTE vs NON_CONNECTE)
+    // Fetch user accounts to cross-reference connection status and access role
     let userStatusMap = new Map<string, "CONNECTE" | "NON_CONNECTE">();
+    let userRoleMap = new Map<string, string>();
     try {
       const supabase = getSupabaseAdminClient();
       const { data: orgUsers } = await supabase
         .from("users")
-        .select("email, password_hash")
+        .select("email, role, password_hash")
         .eq("organization_id", organizationId);
 
       for (const u of orgUsers || []) {
         if (u.email) {
           const isConnected = !!(u.password_hash && u.password_hash !== "NO_PASSWORD_SET");
-          userStatusMap.set(u.email.toLowerCase().trim(), isConnected ? "CONNECTE" : "NON_CONNECTE");
+          const norm = u.email.toLowerCase().trim();
+          userStatusMap.set(norm, isConnected ? "CONNECTE" : "NON_CONNECTE");
+          if (u.role) userRoleMap.set(norm, u.role);
         }
       }
     } catch (e) {
       console.warn("Could not fetch user connection statuses:", e);
     }
 
+    // Fallback SQLite if Supabase was unavailable
+    if (userRoleMap.size === 0) {
+      try {
+        const { getDb } = await import("@/lib/db/client");
+        const { users } = await import("@/db/schema");
+        const { eq } = await import("drizzle-orm");
+        const db = getDb();
+        const orgUsers = await db
+          .select({ email: users.email, role: users.role })
+          .from(users)
+          .where(eq(users.organizationId, organizationId));
+        for (const u of orgUsers) {
+          if (u.email && u.role) {
+            userRoleMap.set(u.email.toLowerCase().trim(), u.role);
+          }
+        }
+      } catch (_) {}
+    }
+
     const enrichedEmployees = employeesList.map((emp) => {
       const normEmail = emp.email ? emp.email.toLowerCase().trim() : "";
       const connectionStatus = normEmail ? (userStatusMap.get(normEmail) || "SANS_COMPTE") : "SANS_COMPTE";
+      const assignedRole = normEmail ? userRoleMap.get(normEmail) : undefined;
       return {
         ...emp,
+        role: assignedRole || (emp as any).role || "EMPLOYEE",
         connectionStatus,
       };
     });
@@ -70,9 +95,7 @@ export async function POST(req: NextRequest) {
     let inviteLink = "";
     let emailSent = false;
     if (shouldCreateAccount) {
-      const host = req.headers.get("host") || "localhost:3000";
-      const protocol = host.includes("localhost") ? "http" : "https";
-      const origin = `${protocol}://${host}`;
+      const origin = resolveAppOrigin(req.headers);
 
       const inviteResult = await sendEmployeeInvitation({
         organizationId,

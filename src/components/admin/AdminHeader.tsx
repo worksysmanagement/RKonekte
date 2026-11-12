@@ -6,55 +6,106 @@ import Link from "next/link";
 import { LogOut, Bell, Check, ExternalLink, ChevronDown } from "lucide-react";
 import { APP_CONFIG } from "@/config/app";
 import { useSidebar, MenuDotsIcon, CloseTicksIcon } from "./SidebarContext";
+import { LogoutConfirmModal } from "@/components/ui/LogoutConfirmModal";
 
 interface AdminHeaderProps {
   userName?: string;
   userEmail?: string;
   role?: string;
   organizationName?: string;
+  userBranchId?: string | null;
+  userBranchName?: string;
 }
 
 interface HeaderBranch {
   id: string;
   name: string;
   city: string;
-  code?: string;
 }
 
-export function AdminHeader({ userName, userEmail, role, organizationName }: AdminHeaderProps) {
+export function AdminHeader({
+  userName,
+  userEmail,
+  role,
+  organizationName,
+  userBranchId,
+  userBranchName,
+}: AdminHeaderProps) {
   const router = useRouter();
   const { isCollapsed, toggleSidebar } = useSidebar();
+  const isSuperAdmin = role === "SUPER_ADMIN";
+  const isOrgAdmin =
+    role === "ORGANIZATION_ADMIN" ||
+    (typeof role === "string" &&
+      (role.toLowerCase().includes("admin") ||
+        role.toLowerCase().includes("propriétaire") ||
+        role.toLowerCase().includes("owner") ||
+        role.toLowerCase().includes("direction")));
+
+  // Only organization administrators can switch branch context; SuperAdmin doesn't use tenant branches
+  const canChangeBranch = isOrgAdmin;
+
   const [availableBranches, setAvailableBranches] = useState<HeaderBranch[]>([
     { id: "all", name: "Toutes les succursales", city: "Consolidé" },
+    ...(userBranchId && userBranchName
+      ? [{ id: userBranchId, name: userBranchName, city: "" }]
+      : []),
   ]);
-  const [selectedBranch, setSelectedBranch] = useState("all");
+  const [selectedBranch, setSelectedBranch] = useState(
+    !canChangeBranch && userBranchId ? userBranchId : "all"
+  );
   const [isBranchOpen, setIsBranchOpen] = useState(false);
   const branchRef = useRef<HTMLDivElement>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
 
-  // Fetch dynamic branches from organization
+  // Non-admins are locked to their assigned branch
   useEffect(() => {
+    if (!isSuperAdmin && !canChangeBranch && userBranchId) {
+      setSelectedBranch(userBranchId);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("rk_active_branch", userBranchId);
+        document.cookie = `rk_active_branch=${encodeURIComponent(userBranchId)}; path=/; max-age=31536000`;
+        window.dispatchEvent(new CustomEvent("branchChange", { detail: { branchId: userBranchId } }));
+      }
+    }
+  }, [canChangeBranch, userBranchId]);
+
+  // Fetch dynamic branches from organization (tenant accounts only)
+  useEffect(() => {
+    if (isSuperAdmin) return;
     async function loadBranches() {
       try {
         const res = await fetch("/api/admin/branches");
         if (res.ok) {
           const data = await res.json();
-          if (data.branches && Array.isArray(data.branches) && data.branches.length > 0) {
+          if (data.branches && Array.isArray(data.branches)) {
             const list: HeaderBranch[] = [
               { id: "all", name: "Toutes les succursales", city: "Consolidé" },
               ...data.branches.map((b: any) => ({
                 id: b.id,
                 name: b.name,
                 city: b.city,
-                code: b.code,
               })),
             ];
             setAvailableBranches(list);
 
-            // Restore saved branch or default to all
-            const saved = typeof window !== "undefined" ? localStorage.getItem("rk_active_branch") : null;
-            if (saved && list.some((b) => b.id === saved)) {
-              setSelectedBranch(saved);
+            if (canChangeBranch) {
+              // Restore saved branch or default to all for administrators
+              const saved = typeof window !== "undefined" ? localStorage.getItem("rk_active_branch") : null;
+              if (saved && list.some((b) => b.id === saved)) {
+                setSelectedBranch(saved);
+              } else {
+                setSelectedBranch("all");
+              }
+            } else if (userBranchId) {
+              // Non-admins are strictly locked to their assigned branch
+              setSelectedBranch(userBranchId);
+              if (typeof window !== "undefined") {
+                localStorage.setItem("rk_active_branch", userBranchId);
+                document.cookie = `rk_active_branch=${encodeURIComponent(userBranchId)}; path=/; max-age=31536000`;
+              }
             }
           }
         }
@@ -63,7 +114,7 @@ export function AdminHeader({ userName, userEmail, role, organizationName }: Adm
       }
     }
     loadBranches();
-  }, []);
+  }, [canChangeBranch, isSuperAdmin, userBranchId]);
 
   const handleSelectBranch = (bId: string) => {
     setSelectedBranch(bId);
@@ -87,7 +138,9 @@ export function AdminHeader({ userName, userEmail, role, organizationName }: Adm
 
   const currentBranch =
     availableBranches.find((b) => b.id === selectedBranch) ||
-    availableBranches[0];
+    (!canChangeBranch && userBranchName
+      ? { id: userBranchId || selectedBranch, name: userBranchName, city: "" }
+      : availableBranches[0]);
 
   interface HeaderNotification {
     id: string;
@@ -104,22 +157,89 @@ export function AdminHeader({ userName, userEmail, role, organizationName }: Adm
   useEffect(() => {
     let isMounted = true;
     async function fetchPendingNotifications() {
+      if (isSuperAdmin) {
+        if (isMounted) setNotificationsList([]);
+        return;
+      }
       const isEmployeeRole =
         role === "EMPLOYEE" ||
+        role === "COLLABORATEUR" ||
+        role === "CASHIER" ||
+        role === "CAISSIER" ||
         role?.toLowerCase().includes("employ") ||
         role?.toLowerCase().includes("collab") ||
+        role?.toLowerCase().includes("caissier") ||
+        role?.toLowerCase().includes("cashier") ||
         role?.toLowerCase().includes("operat");
 
       if (isEmployeeRole) {
+        try {
+          const evRes = await fetch("/api/admin/events");
+          if (evRes.ok && isMounted) {
+            const evData = await evRes.json();
+            const readIds = new Set<string>(
+              JSON.parse(localStorage.getItem("rkonekte_read_event_notifs") || "[]")
+            );
+            const alertEvents = (Array.isArray(evData?.events) ? evData.events : [])
+              .filter((ev: any) => !ev.isPersonal && ev.notifyImmediate !== false)
+              .slice(0, 6);
+            const mapped: HeaderNotification[] = alertEvents.map((ev: any) => ({
+              id: ev.id,
+              title: `Planification — ${ev.title}`,
+              time: ev.date || "À venir",
+              type: ev.audienceTargetName || "Administration",
+              link: "/admin/events",
+              unread: !readIds.has(ev.id),
+            }));
+            setNotificationsList(mapped);
+            return;
+          }
+        } catch (_) {}
         if (isMounted) setNotificationsList([]);
         return;
       }
 
       try {
-        const res = await fetch("/api/admin/requests?status=PENDING&limit=5");
-        if (res.ok) {
-          const data = await res.json();
-          if (isMounted && data?.requests && Array.isArray(data.requests)) {
+        const readIds = new Set<string>(
+          JSON.parse(localStorage.getItem("rkonekte_read_event_notifs") || "[]")
+        );
+
+        const [reqRes, meRes] = await Promise.all([
+          fetch("/api/admin/requests?status=PENDING&limit=5"),
+          role === "ORGANIZATION_ADMIN"
+            ? fetch("/api/auth/me", { cache: "no-store" })
+            : Promise.resolve(null),
+        ]);
+
+        const combined: HeaderNotification[] = [];
+
+        if (meRes && meRes.ok) {
+          const meData = await meRes.json();
+          const summary = meData?.subscriptionSummary;
+          if (
+            summary?.shouldShowCountdownBanner &&
+            !summary?.isExpired &&
+            !summary?.isAccessBlocked
+          ) {
+            const notifId = `sub-alert-${summary.subscriptionExpiresAt ?? "exp"}-${summary.daysRemaining ?? "none"}`;
+            const title =
+              summary.daysRemaining === 0
+                ? "Votre plan se termine aujourd'hui (J-0)"
+                : `Votre plan se termine dans ${summary.daysRemaining} jour${summary.daysRemaining > 1 ? "s" : ""} (J-${summary.daysRemaining})`;
+            combined.push({
+              id: notifId,
+              title,
+              time: `J-${summary.daysRemaining ?? 0}`,
+              type: "Abonnement",
+              link: "/admin/subscription",
+              unread: !readIds.has(notifId),
+            });
+          }
+        }
+
+        if (reqRes.ok) {
+          const data = await reqRes.json();
+          if (data?.requests && Array.isArray(data.requests)) {
             const mapped: HeaderNotification[] = data.requests.map((r: any) => ({
               id: r.id,
               title: `Demande de congé — ${r.employeeName || "Employé"}`,
@@ -128,8 +248,12 @@ export function AdminHeader({ userName, userEmail, role, organizationName }: Adm
               link: "/admin/requests",
               unread: true,
             }));
-            setNotificationsList(mapped);
+            combined.push(...mapped);
           }
+        }
+
+        if (isMounted) {
+          setNotificationsList(combined);
         }
       } catch (err) {
         console.warn("Notifications fetch error:", err);
@@ -144,21 +268,32 @@ export function AdminHeader({ userName, userEmail, role, organizationName }: Adm
   const unreadCount = notificationsList.filter((n) => n.unread).length;
 
   const handleLogout = async () => {
+    setIsLoggingOut(true);
     try {
       await fetch("/api/auth/logout", { method: "POST" });
+      setShowLogoutConfirm(false);
       router.push("/login");
       router.refresh();
     } catch (err) {
       console.error("Logout failed:", err);
+      setIsLoggingOut(false);
     }
   };
 
   const markAllAsRead = () => {
+    try {
+      const existing = new Set<string>(
+        JSON.parse(localStorage.getItem("rkonekte_read_event_notifs") || "[]")
+      );
+      notificationsList.forEach((n) => existing.add(n.id));
+      localStorage.setItem("rkonekte_read_event_notifs", JSON.stringify(Array.from(existing)));
+    } catch (_) {}
     setNotificationsList((prev) => prev.map((n) => ({ ...n, unread: false })));
   };
 
   return (
-    <header className="h-16 bg-white border-b border-[#DCE2EA] px-6 flex items-center justify-between shrink-0 sticky top-0 z-20">
+    <>
+      <header className="h-16 bg-white border-b border-[#DCE2EA] px-6 flex items-center justify-between shrink-0 sticky top-0 z-20 print:hidden">
       {/* 1. LEFT SECTION: Sidebar Toggle Button, System Title & Active Branch Selector */}
       <div className="flex items-center gap-3 sm:gap-5">
         {/* Sidebar Toggle Button (Menu 4-dots / Close 4-ticks + Ctrl+B) */}
@@ -185,57 +320,80 @@ export function AdminHeader({ userName, userEmail, role, organizationName }: Adm
         </button>
 
 
-        {/* Branch Selector Custom Dropdown */}
+        {/* Branch Selector (Hidden for SUPER_ADMIN; Only Org Admin can change branches; read-only for employees/cashiers) */}
+        {!isSuperAdmin && (
         <div className="relative flex items-center gap-2" ref={branchRef}>
           <span className="text-xs font-semibold text-[#64748B] hidden md:inline">
             Succursale :
           </span>
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setIsBranchOpen(!isBranchOpen)}
-              className={`h-9 px-3 bg-[#F4F6F9] hover:bg-slate-100 border rounded-xl text-xs font-semibold text-[#062653] flex items-center gap-2 transition-all cursor-pointer ${
-                isBranchOpen ? "border-[#062653] ring-1 ring-[#062653]/30" : "border-[#DCE2EA]"
-              }`}
-            >
-              <span>{currentBranch.name} ({currentBranch.city})</span>
-              <ChevronDown className={`w-3.5 h-3.5 text-[#64748B] transition-transform duration-200 ${isBranchOpen ? "rotate-180" : ""}`} />
-            </button>
-
-            {isBranchOpen && (
-              <div
-                role="listbox"
-                className="absolute top-full left-0 mt-1.5 w-64 bg-white border border-[#DCE2EA] rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-50 zoom-in-95 duration-150 overflow-hidden"
+          {canChangeBranch ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setIsBranchOpen(!isBranchOpen)}
+                className={`h-9 px-3 bg-[#F4F6F9] hover:bg-slate-100 border rounded-xl text-xs font-semibold text-[#062653] flex items-center gap-2 transition-all cursor-pointer ${
+                  isBranchOpen ? "border-[#062653] ring-1 ring-[#062653]/30" : "border-[#DCE2EA]"
+                }`}
+                title="Changer la succursale active (réservé aux administrateurs)"
               >
-                {availableBranches.map((b) => {
-                  const isSelected = selectedBranch === b.id;
-                  return (
-                    <button
-                      key={b.id}
-                      type="button"
-                      role="option"
-                      aria-selected={isSelected}
-                      onClick={() => handleSelectBranch(b.id)}
-                      className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between transition-colors cursor-pointer ${
-                        isSelected
-                          ? "bg-[#062653] text-white font-bold"
-                          : "text-[#263445] hover:bg-slate-100 font-medium"
-                      }`}
-                    >
-                      <div className="flex flex-col">
-                        <span>{b.name}</span>
-                        <span className={`text-[10px] ${isSelected ? "text-slate-300" : "text-[#64748B]"}`}>
-                          {b.city}
-                        </span>
-                      </div>
-                      {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0 ml-2" />}
-                    </button>
-                  );
-                })}
-              </div>
-            )}
-          </div>
+                <span>{currentBranch.name} ({currentBranch.city})</span>
+                <ChevronDown className={`w-3.5 h-3.5 text-[#64748B] transition-transform duration-200 ${isBranchOpen ? "rotate-180" : ""}`} />
+              </button>
+
+              {isBranchOpen && (
+                <div
+                  role="listbox"
+                  className="absolute top-full left-0 mt-1.5 w-64 bg-white border border-[#DCE2EA] rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-50 zoom-in-95 duration-150 overflow-hidden"
+                >
+                  {availableBranches.map((b) => {
+                    const isSelected = selectedBranch === b.id;
+                    return (
+                      <button
+                        key={b.id}
+                        type="button"
+                        role="option"
+                        aria-selected={isSelected}
+                        onClick={() => handleSelectBranch(b.id)}
+                        className={`w-full px-3.5 py-2.5 text-left text-xs flex items-center justify-between transition-colors cursor-pointer ${
+                          isSelected
+                            ? "bg-[#062653] text-white font-bold"
+                            : "text-[#263445] hover:bg-slate-100 font-medium"
+                        }`}
+                      >
+                        <div className="flex flex-col">
+                          <span>{b.name}</span>
+                          <span className={`text-[10px] ${isSelected ? "text-slate-300" : "text-[#64748B]"}`}>
+                            {b.city}
+                          </span>
+                        </div>
+                        {isSelected && <Check className="w-3.5 h-3.5 text-white shrink-0 ml-2" />}
+                      </button>
+                    );
+                  })}
+                  {availableBranches.length <= 1 && (
+                    <div className="px-3.5 py-2 text-[11px] text-[#64748B] border-t border-slate-100">
+                      Aucune succursale enregistrée
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ) : (
+            <div
+              className="h-9 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs font-semibold text-[#062653] flex items-center gap-2 select-none cursor-default"
+              title="Votre succursale d'affectation (seul un administrateur peut modifier votre affectation)"
+            >
+              <span>
+                {userBranchName
+                  ? userBranchName
+                  : currentBranch && currentBranch.id !== "all"
+                  ? `${currentBranch.name}${currentBranch.city ? ` (${currentBranch.city})` : ""}`
+                  : "Aucune succursale"}
+              </span>
+            </div>
+          )}
         </div>
+        )}
       </div>
 
       {/* 2. RIGHT SECTION: Notifications & User Profile */}
@@ -307,37 +465,51 @@ export function AdminHeader({ userName, userEmail, role, organizationName }: Adm
                 )}
               </div>
 
-              <div className="pt-2 border-t border-[#DCE2EA] text-center">
-                <Link
-                  href="/admin/notifications"
-                  onClick={() => setShowNotifications(false)}
-                  className="text-xs font-bold text-[#062653] hover:text-[#FF7900] transition-colors"
-                >
-                  Voir toutes les notifications →
-                </Link>
-              </div>
+              {!isSuperAdmin && (
+                <div className="pt-2 border-t border-[#DCE2EA] text-center">
+                  <Link
+                    href="/admin/notifications"
+                    onClick={() => setShowNotifications(false)}
+                    className="text-xs font-bold text-[#062653] hover:text-[#FF7900] transition-colors"
+                  >
+                    Voir toutes les notifications →
+                  </Link>
+                </div>
+              )}
             </div>
           )}
         </div>
 
         {/* User Profile Info */}
         <div className="flex items-center gap-3 pl-3 border-l border-[#DCE2EA]">
-          <Link
-            href="/admin/configuration?tab=profile"
-            className="text-right hidden sm:block group cursor-pointer"
-            title="Consulter et compléter mon dossier personnel"
-          >
-            <div className="text-xs font-bold text-[#263445] group-hover:text-[#FF7900] transition-colors leading-none">
-              {userName || "Collaborateur"}
+          {isSuperAdmin ? (
+            <div className="text-right hidden sm:block">
+              <div className="text-xs font-bold text-[#263445] leading-none">
+                {userName || "Super Administrateur"}
+              </div>
+              <div className="text-[11px] text-[#64748B] mt-1">
+                {userEmail || ""}
+              </div>
             </div>
-            <div className="text-[11px] text-[#64748B] group-hover:text-[#263445] transition-colors mt-1">
-              {userEmail || ""}
-            </div>
-          </Link>
+          ) : (
+            <Link
+              href="/admin/configuration?tab=profile"
+              className="text-right hidden sm:block group cursor-pointer"
+              title="Consulter et compléter mon dossier personnel"
+            >
+              <div className="text-xs font-bold text-[#263445] group-hover:text-[#FF7900] transition-colors leading-none">
+                {userName || "Collaborateur"}
+              </div>
+              <div className="text-[11px] text-[#64748B] group-hover:text-[#263445] transition-colors mt-1">
+                {userEmail || ""}
+              </div>
+            </Link>
+          )}
 
           <button
-            onClick={handleLogout}
-            className="p-2 text-[#64748B] hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors"
+            type="button"
+            onClick={() => setShowLogoutConfirm(true)}
+            className="p-2 text-[#64748B] hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
             title="Se déconnecter"
             aria-label="Se déconnecter"
           >
@@ -345,6 +517,16 @@ export function AdminHeader({ userName, userEmail, role, organizationName }: Adm
           </button>
         </div>
       </div>
-    </header>
+      </header>
+
+      <LogoutConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        userName={userName}
+        userEmail={userEmail}
+        isLoggingOut={isLoggingOut}
+      />
+    </>
   );
 }

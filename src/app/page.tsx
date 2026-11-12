@@ -12,7 +12,12 @@ export default async function HomePage() {
     redirect("/super-admin");
   }
 
-  if (session.role === "EMPLOYEE" || session.role === "COLLABORATEUR") {
+  if (
+    session.role === "EMPLOYEE" ||
+    session.role === "COLLABORATEUR" ||
+    session.role === "CASHIER" ||
+    session.role === "CAISSIER"
+  ) {
     redirect("/admin/requests");
   }
 

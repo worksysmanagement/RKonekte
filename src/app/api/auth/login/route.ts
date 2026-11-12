@@ -3,9 +3,21 @@ import { getDb } from "@/lib/db/client";
 import { users, organizations } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import { verifyPassword } from "@/lib/auth/password";
-import { setSessionCookie } from "@/lib/auth/session";
+import {
+  clearSessionCookie,
+  clearStoppedNoticeCookie,
+  setSessionCookie,
+  setStoppedNoticeCookie,
+  StoppedNoticePayload,
+} from "@/lib/auth/session";
 import { loginSchema } from "@/lib/validation/schemas";
 import { checkRateLimit } from "@/lib/security/rate-limit";
+import { buildStoppedClientContext } from "@/lib/services/stopped-context";
+import { recordUserLoginActivity } from "@/lib/services/user-activity";
+import {
+  computeSubscriptionState,
+  isSubscriptionAccessBlocked,
+} from "@/lib/utils/subscription";
 
 export async function POST(req: NextRequest) {
   try {
@@ -67,7 +79,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // 2. If organization user, check organization is active
+    // 2. Verify password hash BEFORE exposing any organization subscription status
+    const isValid = await verifyPassword(password, user.passwordHash);
+    if (!isValid) {
+      return NextResponse.json(
+        { error: "Identifiants invalides" },
+        { status: 401 }
+      );
+    }
+
+    // 3. If organization user, load organization and verify activation / service status
     let organizationName: string | undefined;
     let organizationSlug: string | undefined;
 
@@ -96,24 +117,79 @@ export async function POST(req: NextRequest) {
         org = dbOrg;
       }
 
-      if (!org || org.status !== "ACTIVE") {
+      if (!org) {
+        return NextResponse.json(
+          { error: "L'organisation associée à ce compte est introuvable" },
+          { status: 403 }
+        );
+      }
+
+      if (org.status !== "ACTIVE") {
         return NextResponse.json(
           { error: "L'organisation associée à ce compte est désactivée" },
           { status: 403 }
         );
       }
+
+      if (isSubscriptionAccessBlocked(org)) {
+        await clearSessionCookie();
+        const isOrgAdmin = user.role === "ORGANIZATION_ADMIN";
+        const subState = computeSubscriptionState(org);
+        const noticePayload: StoppedNoticePayload = {
+          purpose: "SERVICE_STOPPED_NOTICE",
+          organizationId: org.id,
+          organizationName: org.name,
+          userId: user.id,
+          userName: user.name,
+          userEmail: user.email,
+          isAdmin: isOrgAdmin,
+        };
+        await setStoppedNoticeCookie(noticePayload);
+
+        const defaultEmployeeMessage =
+          subState.isExpired && !org.serviceStopped
+            ? "L'abonnement de votre entreprise a expiré. Veuillez contacter votre administrateur pour la réactivation."
+            : "Veuillez contacter votre administrateur pour cet arrêt de service.";
+
+        let stoppedContext: any;
+        try {
+          stoppedContext = await buildStoppedClientContext(noticePayload);
+        } catch (_) {
+          stoppedContext = isOrgAdmin
+            ? {
+                resumed: false,
+                serviceStopped: true,
+                isAdmin: true,
+                organizationName: org.name,
+                state: subState,
+              }
+            : {
+                resumed: false,
+                serviceStopped: true,
+                isAdmin: false,
+                organizationName: org.name,
+                message: defaultEmployeeMessage,
+              };
+        }
+
+        return NextResponse.json(
+          {
+            error: isOrgAdmin
+              ? "Votre abonnement a expiré et l'accès est suspendu jusqu'à la réactivation."
+              : defaultEmployeeMessage,
+            code: isOrgAdmin ? "SERVICE_STOPPED_ADMIN" : "SERVICE_STOPPED_EMPLOYEE",
+            isAdmin: isOrgAdmin,
+            stoppedContext,
+          },
+          { status: 403 }
+        );
+      }
+
       organizationName = org.name;
       organizationSlug = org.slug;
     }
 
-    // 3. Verify password hash
-    const isValid = await verifyPassword(password, user.passwordHash);
-    if (!isValid) {
-      return NextResponse.json(
-        { error: "Identifiants invalides" },
-        { status: 401 }
-      );
-    }
+    await clearStoppedNoticeCookie();
 
     let branchName: string | undefined;
     if (user.branchId && user.organizationId) {
@@ -128,7 +204,15 @@ export async function POST(req: NextRequest) {
       } catch (_) {}
     }
 
-    // 4. Set session cookie
+    // 4. Record real login activity & set session cookie
+    await recordUserLoginActivity({
+      userId: user.id,
+      organizationId: user.organizationId,
+      role: user.role,
+      email: user.email,
+      source: "LOGIN",
+    });
+
     await setSessionCookie({
       id: user.id,
       name: user.name,

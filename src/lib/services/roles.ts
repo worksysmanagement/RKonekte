@@ -167,6 +167,29 @@ export function getDefaultSystemRoles(organizationId: string): RoleModel[] {
       createdAt: now,
       updatedAt: now,
     },
+    {
+      id: "role-cashier",
+      organizationId,
+      name: "Caissier(e)",
+      description: "Compte caissier(e) : accès identique au collaborateur (requêtes, événements, profil personnel).",
+      hierarchyLevel: "OPERATIONAL",
+      isSystem: true,
+      permissions: {
+        dashboard: { view: false, create: false, edit: false, delete: false },
+        requests: { view: true, create: true, edit: true, delete: false },
+        employees: { view: false, create: false, edit: false, delete: false },
+        branches: { view: false, create: false, edit: false, delete: false },
+        financial_ops: { view: false, create: false, edit: false, delete: false },
+        financial_reports: { view: true, create: true, edit: true, delete: false },
+        events: { view: true, create: false, edit: false, delete: false },
+        customer_space: { view: false, create: false, edit: false, delete: false },
+        users: { view: false, create: false, edit: false, delete: false },
+        notifications: { view: true, create: false, edit: false, delete: false },
+        configuration: { view: true, create: false, edit: true, delete: false },
+      },
+      createdAt: now,
+      updatedAt: now,
+    },
   ];
 }
 
@@ -487,4 +510,60 @@ export async function deleteOrgRole(
       (r) => r.id !== roleId
     );
   }
+}
+
+export function matchOrgRole(roles: RoleModel[], roleValue: string): RoleModel | undefined {
+  const normalized = (roleValue || "").trim();
+  const userRole = normalized.toUpperCase();
+  if (!userRole) return undefined;
+
+  return roles.find((r) => {
+    const rName = r.name.toUpperCase();
+    const rId = r.id.toUpperCase();
+    if (userRole === "ORGANIZATION_ADMIN") {
+      return rId === "ROLE-PDG" || r.isDefaultOwner === true;
+    }
+    if (userRole === "ADMINISTRATEUR") {
+      return rId === "ROLE-ADMIN" || rName === "ADMINISTRATEUR";
+    }
+    if (userRole === "RH") {
+      return rId === "ROLE-RH" || rName.includes("RESSOURCES HUMAINES") || rName === "RH";
+    }
+    if (userRole === "EMPLOYEE" || userRole === "COLLABORATEUR") {
+      return (
+        rId === "ROLE-EMPLOYEE" ||
+        rName.includes("COLLABORATEUR") ||
+        rName.includes("EMPLOYÉ") ||
+        rName.includes("EMPLOYE")
+      );
+    }
+    if (userRole === "CASHIER" || userRole === "CAISSIER") {
+      return (
+        rId === "ROLE-CASHIER" ||
+        rName.includes("CAISSIER") ||
+        rName.includes("CASHIER")
+      );
+    }
+    if (userRole === "SECRETARY") {
+      return (
+        rId === "ROLE-SECRETARY" ||
+        rName.includes("SECRÉTAIRE") ||
+        rName.includes("SECRETAIRE")
+      );
+    }
+    if (userRole === "FINANCIAL_MANAGER") {
+      return (
+        rId === "ROLE-FINANCE" ||
+        rName.includes("FINANCIER") ||
+        rName.includes("COMPTABLE")
+      );
+    }
+    if (userRole === "BRANCH_MANAGER") {
+      return rId === "ROLE-BRANCH-MGR" || rName.includes("SUCCURSALE");
+    }
+    return (
+      r.id.toLowerCase() === normalized.toLowerCase() ||
+      r.name.toLowerCase() === normalized.toLowerCase()
+    );
+  });
 }

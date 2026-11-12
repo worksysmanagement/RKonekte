@@ -1,0 +1,239 @@
+{
+  "rubriques": [
+    {
+      "id": "rub-preset-1-0b20b4",
+      "organizationId": "org-e-biznis-3541",
+      "name": "PAIEMENT HTG",
+      "currency": "HTG",
+      "orderIndex": 1,
+      "isActive": true,
+      "createdAt": 1793198960736,
+      "updatedAt": 1793198960736
+    },
+    {
+      "id": "rub-preset-2-654398",
+      "organizationId": "org-e-biznis-3541",
+      "name": "PAIEMENT USD",
+      "currency": "USD",
+      "orderIndex": 2,
+      "isActive": true,
+      "createdAt": 1793198960736,
+      "updatedAt": 1793198960736
+    },
+    {
+      "id": "rub-preset-3-111790",
+      "organizationId": "org-e-biznis-3541",
+      "name": "ZELLE OU CASH APP",
+      "currency": "USD",
+      "orderIndex": 3,
+      "isActive": true,
+      "createdAt": 1793198960736,
+      "updatedAt": 1793198960736
+    },
+    {
+      "id": "rub-preset-4-ebe3f6",
+      "organizationId": "org-e-biznis-3541",
+      "name": "WALLET",
+      "currency": "HTG",
+      "orderIndex": 4,
+      "isActive": true,
+      "createdAt": 1793198960736,
+      "updatedAt": 1793198960736
+    },
+    {
+      "id": "rub-preset-5-5e85a1",
+      "organizationId": "org-e-biznis-3541",
+      "name": "EZIPAY",
+      "currency": "USD",
+      "orderIndex": 5,
+      "isActive": true,
+      "createdAt": 1793198960736,
+      "updatedAt": 1793198960736
+    },
+    {
+      "id": "rub-preset-6-0d449b",
+      "organizationId": "org-e-biznis-3541",
+      "name": "VIREMENT UB HTG",
+      "currency": "HTG",
+      "orderIndex": 6,
+      "isActive": true,
+      "createdAt": 1793198960736,
+      "updatedAt": 1793198960736
+    },
+    {
+      "id": "rub-preset-7-58a7f5",
+      "organizationId": "org-e-biznis-3541",
+      "name": "VIREMENT UB USD",
+      "currency": "USD",
+      "orderIndex": 7,
+      "isActive": true,
+      "createdAt": 1793198960736,
+      "updatedAt": 1793198960736
+    },
+    {
+      "id": "rub-preset-8-f185a6",
+      "organizationId": "org-e-biznis-3541",
+      "name": "VIREMENT SOG HTG",
+      "currency": "HTG",
+      "orderIndex": 8,
+      "isActive": true,
+      "createdAt": 1793198960736,
+      "updatedAt": 1793198960736
+    },
+    {
+      "id": "rub-preset-9-7768e2",
+      "organizationId": "org-e-biznis-3541",
+      "name": "VIREMENT SOG USD",
+      "currency": "USD",
+      "orderIndex": 9,
+      "isActive": true,
+      "createdAt": 1793198960736,
+      "updatedAt": 1793198960736
+    },
+    {
+      "id": "rub-preset-10-94ffd8",
+      "organizationId": "org-e-biznis-3541",
+      "name": "VIREMENT BNC USD",
+      "currency": "USD",
+      "orderIndex": 10,
+      "isActive": true,
+      "createdAt": 1793198960736,
+      "updatedAt": 1793198960736
+    },
+    {
+      "id": "rub-7b54a9db",
+      "organizationId": "org-e-biznis-3541",
+      "name": "Cheque",
+      "currency": "HTG",
+      "orderIndex": 11,
+      "isActive": true,
+      "createdAt": 1793215730923,
+      "updatedAt": 1793215730923
+    },
+    {
+      "id": "rub-preset-1-8a1e28",
+      "organizationId": "org-jeff-int-0554",
+      "name": "PAIEMENT HTG",
+      "currency": "HTG",
+      "orderIndex": 1,
+      "isActive": true,
+      "createdAt": 1794401917838,
+      "updatedAt": 1794401917838
+    },
+    {
+      "id": "rub-preset-2-9eec7f",
+      "organizationId": "org-jeff-int-0554",
+      "name": "PAIEMENT USD",
+      "currency": "USD",
+      "orderIndex": 2,
+      "isActive": true,
+      "createdAt": 1794401917838,
+      "updatedAt": 1794401917838
+    },
+    {
+      "id": "rub-preset-3-677ba0",
+      "organizationId": "org-jeff-int-0554",
+      "name": "ZELLE OU CASH APP",
+      "currency": "USD",
+      "orderIndex": 3,
+      "isActive": true,
+      "createdAt": 1794401917838,
+      "updatedAt": 1794401917838
+    },
+    {
+      "id": "rub-preset-4-3e09fd",
+      "organizationId": "org-jeff-int-0554",
+      "name": "VIREMENT UB HTG",
+      "currency": "HTG",
+      "orderIndex": 4,
+      "isActive": true,
+      "createdAt": 1794401917838,
+      "updatedAt": 1794401917838
+    },
+    {
+      "id": "rub-preset-5-f1e64f",
+      "organizationId": "org-jeff-int-0554",
+      "name": "VIREMENT UB USD",
+      "currency": "USD",
+      "orderIndex": 5,
+      "isActive": true,
+      "createdAt": 1794401917838,
+      "updatedAt": 1794401917838
+    },
+    {
+      "id": "rub-preset-6-361842",
+      "organizationId": "org-jeff-int-0554",
+      "name": "VIREMENT SOG HTG",
+      "currency": "HTG",
+      "orderIndex": 6,
+      "isActive": true,
+      "createdAt": 1794401917838,
+      "updatedAt": 1794401917838
+    },
+    {
+      "id": "rub-preset-7-877e4e",
+      "organizationId": "org-jeff-int-0554",
+      "name": "VIREMENT SOG USD",
+      "currency": "USD",
+      "orderIndex": 7,
+      "isActive": true,
+      "createdAt": 1794401917838,
+      "updatedAt": 1794401917838
+    }
+  ],
+  "entries": [
+    {
+      "id": "entry-6e320aa2",
+      "organizationId": "org-e-biznis-3541",
+      "branchId": "br-org-e-biznis-3541-siege",
+      "cashierId": "usr-29db46c6-0464-46c5-9455-942ea45d504c",
+      "cashierName": "Rodjy Emmanuel",
+      "cashierMatricule": "EB-SIEGE-001",
+      "entryDate": "2026-10-28",
+      "amounts": {
+        "rub-preset-1-0b20b4": 1000,
+        "rub-preset-4-ebe3f6": 1000,
+        "rub-preset-6-0d449b": 15000,
+        "rub-preset-8-f185a6": 3000,
+        "rub-preset-2-654398": 300,
+        "rub-preset-3-111790": 500,
+        "rub-preset-5-5e85a1": 50,
+        "rub-preset-7-58a7f5": 60,
+        "rub-preset-9-7768e2": 19,
+        "rub-preset-10-94ffd8": 34
+      },
+      "totalHtg": 20000,
+      "totalUsd": 963,
+      "notes": null,
+      "createdAt": 1793213503600,
+      "updatedAt": 1793213503600
+    },
+    {
+      "id": "entry-899b4f58",
+      "organizationId": "org-e-biznis-3541",
+      "branchId": "br-1793220360926-0cee",
+      "cashierId": "usr-553371ec-d705-49e4-9ecf-befcc96ff4d2",
+      "cashierName": "Rodjensky Emmanuel Piton",
+      "cashierMatricule": "EB-JEREMIE-884",
+      "entryDate": "2026-10-28",
+      "amounts": {
+        "rub-preset-1-0b20b4": 1000,
+        "rub-preset-2-654398": 200,
+        "rub-preset-4-ebe3f6": 200,
+        "rub-preset-6-0d449b": 624,
+        "rub-preset-8-f185a6": 6700,
+        "rub-7b54a9db": 123,
+        "rub-preset-3-111790": 222,
+        "rub-preset-5-5e85a1": 213,
+        "rub-preset-7-58a7f5": 124,
+        "rub-preset-9-7768e2": 22,
+        "rub-preset-10-94ffd8": 78
+      },
+      "totalHtg": 8647,
+      "totalUsd": 859,
+      "notes": null,
+      "createdAt": 1793221854117,
+      "updatedAt": 1793221854117
+    }
+  ]
+}

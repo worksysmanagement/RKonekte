@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Poppins } from "next/font/google";
 import "./globals.css";
+import { SystemToastContainer } from "@/components/ui/SystemToast";
 
 const poppins = Poppins({
   subsets: ["latin"],
@@ -28,7 +29,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="fr" className={`h-full bg-slate-50 ${poppins.variable}`}>
+    <html lang="fr" className={`h-full bg-white ${poppins.variable}`}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
@@ -38,6 +39,7 @@ export default function RootLayout({
         />
       </head>
       <body className={`h-full flex flex-col antialiased text-slate-900 selection:bg-blue-100 selection:text-blue-900 ${poppins.className}`}>
+        <SystemToastContainer />
         {children}
       </body>
     </html>

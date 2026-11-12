@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantUser, handleApiError } from "@/lib/auth/guard";
 import { getEmployeeById } from "@/lib/services/employees";
 import { sendEmployeeInvitation } from "@/lib/services/employee-invitations";
+import { resolveAppOrigin } from "@/lib/notifications/email";
 
 export async function POST(
   req: NextRequest,
@@ -36,9 +37,7 @@ export async function POST(
       employee.email = targetEmail;
     }
 
-    const host = req.headers.get("host") || "localhost:3000";
-    const protocol = host.includes("localhost") ? "http" : "https";
-    const origin = `${protocol}://${host}`;
+    const origin = resolveAppOrigin(req.headers);
 
     const inviteResult = await sendEmployeeInvitation({
       organizationId,

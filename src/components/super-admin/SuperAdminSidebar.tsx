@@ -48,16 +48,6 @@ export function SuperAdminSidebar() {
               Entreprises clientes
             </Link>
             <Link
-              href="/super-admin/onboarding-requests"
-              className={`block px-3 py-2 text-xs transition-colors rounded-lg ${
-                isLinkActive("/super-admin/onboarding-requests")
-                  ? "bg-white/10 text-white font-bold"
-                  : "text-slate-300 hover:text-white hover:bg-white/5"
-              }`}
-            >
-              Demandes d'adhésion en ligne
-            </Link>
-            <Link
               href="/super-admin/organizations/new"
               className={`block px-3 py-2 text-xs transition-colors rounded-lg ${
                 isLinkActive("/super-admin/organizations/new")
@@ -66,6 +56,16 @@ export function SuperAdminSidebar() {
               }`}
             >
               Ajouter une entreprise
+            </Link>
+            <Link
+              href="/super-admin/subscription-settings"
+              className={`block px-3 py-2 text-xs transition-colors rounded-lg ${
+                isLinkActive("/super-admin/subscription-settings")
+                  ? "bg-white/10 text-white font-bold"
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Tarifs & Comptes
             </Link>
           </div>
         </div>

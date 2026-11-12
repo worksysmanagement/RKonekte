@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
-import { sendEmail } from "@/lib/notifications/email";
+import {
+  sendEmail,
+  resolveAppOrigin,
+  generatePasswordResetEmail,
+} from "@/lib/notifications/email";
 import { getDb } from "@/lib/db/client";
 import { users, organizations, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -17,10 +21,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const rawAppUrl = process.env.APP_URL;
-    const origin = (rawAppUrl && !rawAppUrl.includes("localhost"))
-      ? rawAppUrl.replace(/\/+$/, "")
-      : `${req.headers.get("host")?.includes("localhost") ? "http" : "https"}://${req.headers.get("host") || "localhost:3000"}`;
+    const origin = resolveAppOrigin(req.headers);
     const now = Date.now();
 
     let matchedUser: any = null;
@@ -129,64 +130,23 @@ export async function POST(req: NextRequest) {
       }
 
       const activationLink = `${origin}/verify-company?token=${newToken}`;
-      const emailSubject = `[RKonekte] Définition de votre mot de passe`;
-      const emailHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <link rel="preconnect" href="https://fonts.googleapis.com" />
-            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-            <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-            <style>
-              @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-              body, table, td, p, a, h1, h2, h3, span { font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; }
-              body { background-color: #ffffff; margin: 0; padding: 20px; color: #263445; }
-              .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E2E8F0; }
-              .content { padding: 36px 32px; line-height: 1.6; background: #ffffff; }
-              .badge { display: inline-block; color: #FF7900; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-              .nb-section { margin: 20px 0; background: transparent; }
-              .btn { display: inline-block; background-color: #FF7900; color: #ffffff !important; text-decoration: none; font-weight: 600; font-size: 15px; padding: 14px 28px; border-radius: 10px; margin: 22px 0; text-align: center; box-shadow: 0 2px 6px rgba(255,121,0,0.25); }
-              .footer { background: #ffffff; padding: 24px; text-align: center; font-size: 11px; color: #94A3B8; border-top: 1px solid #F1F5F9; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="content">
-                <span class="badge">Activation de compte</span>
-                <h2 style="color: #062653; margin-top: 0; font-size: 19px; font-weight: 700;">Bonjour ${matchedUser.name},</h2>
-                <p style="margin: 12px 0; color: #334155; font-size: 14px;">Vous avez demandé la réinitialisation de votre mot de passe, mais votre compte n'a pas encore de mot de passe configuré.</p>
-                
-                <div class="nb-section">
-                  <p style="margin: 0; font-size: 13px; line-height: 1.55; color: #334155;">
-                    <strong style="color: #FF7900; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px;">Important (N.B.) —</strong> Veuillez définir votre mot de passe pour finaliser l'accès à votre espace entreprise sécurisé.
-                  </p>
-                </div>
-
-                <p style="margin: 18px 0 10px 0; font-size: 14px; color: #334155;">Cliquez sur le bouton ci-dessous pour choisir votre mot de passe fort et finaliser l'accès à votre espace :</p>
-                
-                <div style="text-align: center;">
-                  <a href="${activationLink}" class="btn" target="_blank">Définir mon mot de passe →</a>
-                </div>
-
-                <p style="font-size: 11px; color: #64748B; margin-top: 20px;">
-                  Si le bouton ne fonctionne pas :<br/>
-                  <a href="${activationLink}" style="color: #062653; word-break: break-all;">${activationLink}</a>
-                </p>
-              </div>
-              <div class="footer">
-                © 2026 RKonekte. Tous droits réservés.
-              </div>
-            </div>
-          </body>
-        </html>
-      `;
+      const {
+        subject: emailSubject,
+        html: emailHtml,
+        text: emailPlainText,
+      } = generatePasswordResetEmail({
+        recipientName: matchedUser.name,
+        email: matchedUser.email,
+        companyName: matchedOrg?.name,
+        actionUrl: activationLink,
+        isInitialSetup: true,
+      });
 
       await sendEmail({
         to: matchedUser.email,
         subject: emailSubject,
         html: emailHtml,
+        text: emailPlainText,
       });
 
       return NextResponse.json({
@@ -253,64 +213,24 @@ export async function POST(req: NextRequest) {
     } catch (_) {}
 
     const resetLink = `${origin}/reset-password?token=${resetToken}`;
-    const emailSubject = `Réinitialisation de votre accès — RKonekte`;
-    const emailHtml = `
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-          <link rel="preconnect" href="https://fonts.googleapis.com" />
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-          <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-          <style>
-            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-            body, table, td, p, a, h1, h2, h3, span { font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; }
-            body { background-color: #ffffff; margin: 0; padding: 20px; color: #263445; }
-            .container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E2E8F0; }
-            .content { padding: 36px 32px; line-height: 1.6; background: #ffffff; }
-            .badge { display: inline-block; color: #FF7900; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-            .nb-section { margin: 20px 0; background: transparent; }
-            .btn { display: inline-block; background-color: #FF7900; color: #ffffff !important; text-decoration: none; font-weight: 600; font-size: 15px; padding: 14px 28px; border-radius: 10px; margin: 22px 0; text-align: center; box-shadow: 0 2px 6px rgba(255,121,0,0.25); }
-            .footer { background: #ffffff; padding: 24px; text-align: center; font-size: 11px; color: #94A3B8; border-top: 1px solid #F1F5F9; }
-          </style>
-        </head>
-        <body>
-          <div class="container">
-            <div class="content">
-              <span class="badge">Sécurité du Compte</span>
-              <h2 style="color: #062653; margin-top: 0; font-size: 19px; font-weight: 700;">Bonjour ${matchedUser.name},</h2>
-              <p style="margin: 12px 0; color: #334155; font-size: 14px;">Une demande de réinitialisation de mot de passe a été effectuée pour votre compte <strong>${matchedUser.email}</strong>.</p>
-              
-              <div class="nb-section">
-                <p style="margin: 0; font-size: 13px; line-height: 1.55; color: #334155;">
-                  <strong style="color: #FF7900; text-transform: uppercase; font-size: 12px; letter-spacing: 0.5px;">Important (N.B.) —</strong> Ce lien de réinitialisation est valable pendant <strong>1 heure</strong>. Si vous n'êtes pas à l'origine de cette demande, vous pouvez ignorer cet e-mail en toute sécurité.
-                </p>
-              </div>
-
-              <p style="margin: 18px 0 10px 0; font-size: 14px; color: #334155;">Pour choisir votre nouveau mot de passe fort, cliquez sur le bouton ci-dessous :</p>
-              
-              <div style="text-align: center;">
-                <a href="${resetLink}" class="btn" target="_blank">Réinitialiser mon mot de passe →</a>
-              </div>
-
-              <p style="font-size: 11px; color: #64748B; margin-top: 20px;">
-                Si le bouton ne fonctionne pas, copiez ce lien :<br/>
-                <a href="${resetLink}" style="color: #062653; word-break: break-all;">${resetLink}</a>
-              </p>
-            </div>
-            <div class="footer">
-              © 2026 RKonekte. Tous droits réservés.
-            </div>
-          </div>
-        </body>
-      </html>
-    `;
+    const {
+      subject: emailSubject,
+      html: emailHtml,
+      text: emailPlainText,
+    } = generatePasswordResetEmail({
+      recipientName: matchedUser.name,
+      email: matchedUser.email,
+      companyName: matchedOrg?.name,
+      actionUrl: resetLink,
+      isInitialSetup: false,
+      expiresInLabel: "1 heure",
+    });
 
     await sendEmail({
       to: matchedUser.email,
       subject: emailSubject,
       html: emailHtml,
+      text: emailPlainText,
     });
 
     return NextResponse.json({

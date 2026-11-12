@@ -14,8 +14,20 @@ export interface SessionUser {
 }
 
 const COOKIE_NAME = "lm_session";
+const STOPPED_COOKIE_NAME = "rk_stopped_notice";
 const DEFAULT_SECRET = "dev-secret-key-change-in-production-min-32-chars-long";
 const SESSION_DURATION = 24 * 60 * 60; // 24 hours in seconds
+const STOPPED_NOTICE_DURATION = 30 * 60; // 30 minutes in seconds
+
+export interface StoppedNoticePayload {
+  purpose: "SERVICE_STOPPED_NOTICE";
+  organizationId: string;
+  organizationName: string;
+  userId: string;
+  userName: string;
+  userEmail: string;
+  isAdmin: boolean;
+}
 
 function getSecretKey(): Uint8Array {
   const secret = process.env.SESSION_SECRET || DEFAULT_SECRET;
@@ -68,6 +80,67 @@ export async function setSessionCookie(user: SessionUser): Promise<string> {
 export async function clearSessionCookie(): Promise<void> {
   const cookieStore = await cookies();
   cookieStore.set(COOKIE_NAME, "", {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: 0,
+  });
+}
+
+export async function createStoppedNoticeToken(payload: StoppedNoticePayload): Promise<string> {
+  const secret = getSecretKey();
+  return new SignJWT({ ...payload })
+    .setProtectedHeader({ alg: "HS256" })
+    .setIssuedAt()
+    .setExpirationTime(`${STOPPED_NOTICE_DURATION}s`)
+    .sign(secret);
+}
+
+export async function verifyStoppedNoticeToken(
+  token: string
+): Promise<StoppedNoticePayload | null> {
+  try {
+    const secret = getSecretKey();
+    const { payload } = await jwtVerify(token, secret);
+    if ((payload as any)?.purpose !== "SERVICE_STOPPED_NOTICE") {
+      return null;
+    }
+    return payload as unknown as StoppedNoticePayload;
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function setStoppedNoticeCookie(
+  payload: StoppedNoticePayload
+): Promise<string> {
+  const token = await createStoppedNoticeToken(payload);
+  const cookieStore = await cookies();
+  cookieStore.set(STOPPED_COOKIE_NAME, token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    path: "/",
+    maxAge: STOPPED_NOTICE_DURATION,
+  });
+  return token;
+}
+
+export async function getStoppedNoticeFromCookies(): Promise<StoppedNoticePayload | null> {
+  try {
+    const cookieStore = await cookies();
+    const token = cookieStore.get(STOPPED_COOKIE_NAME)?.value;
+    if (!token) return null;
+    return await verifyStoppedNoticeToken(token);
+  } catch (_) {
+    return null;
+  }
+}
+
+export async function clearStoppedNoticeCookie(): Promise<void> {
+  const cookieStore = await cookies();
+  cookieStore.set(STOPPED_COOKIE_NAME, "", {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",

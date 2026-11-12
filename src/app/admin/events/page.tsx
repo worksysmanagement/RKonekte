@@ -13,13 +13,15 @@ import {
   CheckCircle2,
   AlertCircle,
   Filter,
-  X,
   Building,
   UserCheck,
   Briefcase,
   Layers,
   Trash2,
+  Search,
+  Mail,
 } from "lucide-react";
+import { SlideOver } from "@/components/ui/SlideOver";
 import { showSystemToast } from "@/components/ui/SystemToast";
 
 export interface EmployeeProfile {
@@ -29,8 +31,29 @@ export interface EmployeeProfile {
   employeeNumber: string;
   department: string;
   position: string;
+  branchId?: string | null;
   branch: string;
   email?: string;
+}
+
+export interface SystemBranch {
+  id: string;
+  name: string;
+  city: string;
+  status?: string;
+}
+
+export interface SystemEmployee {
+  id: string;
+  firstName: string;
+  lastName: string;
+  employeeNumber: string;
+  department?: string | null;
+  position?: string | null;
+  branchId?: string | null;
+  email?: string | null;
+  phone?: string | null;
+  status?: string;
 }
 
 export type EventType =
@@ -49,7 +72,7 @@ export type PersonalCategory =
   | "PERSONAL_LEAVE"
   | "OTHER";
 
-export const PERSONAL_CATEGORY_LABELS: Record<PersonalCategory, string> = {
+const PERSONAL_CATEGORY_LABELS: Record<PersonalCategory, string> = {
   RDV: "Rendez-vous personnel",
   REMINDER: "Rappel / Mémo",
   TASK: "Tâche personnelle",
@@ -75,12 +98,19 @@ export interface ScheduledEvent {
   location: string;
   audienceType?: AudienceType;
   audienceTargetName?: string;
+  audienceBranchId?: string;
+  targetEmployeeIds?: string[];
   notifyImmediate?: boolean;
   reminder24h?: boolean;
   isPersonal?: boolean;
   personalCategory?: PersonalCategory;
+  creatorUserId?: string;
+  creatorEmployeeId?: string;
   creatorEmployeeNumber?: string;
   creatorName?: string;
+  recipientsCount?: number;
+  emailsSentCount?: number;
+  emailsFailedCount?: number;
   createdAt: string;
 }
 
@@ -155,21 +185,27 @@ export default function EventsCalendarPage() {
     today.toISOString().split("T")[0]
   );
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [successToast, setSuccessToast] = useState<string | null>(null);
 
   // User role & profile
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [profile, setProfile] = useState<EmployeeProfile | null>(() => getCachedProfile());
   const [loadingUser, setLoadingUser] = useState(true);
 
-  // Events list: Default to empty [] as requested by user ("mets y aucun evenement pour le moment parce que l'administration n'a rien de prévu")
+  // Events list + Company directory (branches & employees)
   const [events, setEvents] = useState<ScheduledEvent[]>([]);
+  const [branches, setBranches] = useState<SystemBranch[]>([]);
+  const [systemEmployees, setSystemEmployees] = useState<SystemEmployee[]>([]);
+  const [loadingDirectory, setLoadingDirectory] = useState(false);
 
   useEffect(() => {
     // 1. Get user role
     fetch("/api/auth/me")
       .then((res) => res.json())
       .then((data) => {
+        if (data.user?.id) {
+          setCurrentUserId(data.user.id);
+        }
         if (data.user?.role) {
           setCurrentUserRole(data.user.role);
         } else {
@@ -192,61 +228,131 @@ export default function EventsCalendarPage() {
       })
       .catch(() => {});
 
-    // 3. Load events from localStorage (default: empty array [])
-    try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (Array.isArray(parsed)) {
-          setEvents(parsed);
+    // 3. Load events from backend API (database-backed, fallback to localStorage if needed)
+    fetch("/api/admin/events")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.events && Array.isArray(data.events)) {
+          setEvents(data.events);
+        } else {
+          try {
+            const saved = localStorage.getItem(STORAGE_KEY);
+            if (saved) {
+              const parsed = JSON.parse(saved);
+              if (Array.isArray(parsed)) setEvents(parsed);
+            }
+          } catch (_) {}
         }
-      } else {
-        setEvents([]);
-      }
-    } catch (_) {
-      setEvents([]);
-    }
+      })
+      .catch(() => {
+        try {
+          const saved = localStorage.getItem(STORAGE_KEY);
+          if (saved) {
+            const parsed = JSON.parse(saved);
+            if (Array.isArray(parsed)) setEvents(parsed);
+          }
+        } catch (_) {}
+      });
   }, []);
 
   const isEmployee =
     currentUserRole === "EMPLOYEE" ||
+    currentUserRole === "COLLABORATEUR" ||
+    currentUserRole === "CASHIER" ||
+    currentUserRole === "CAISSIER" ||
     currentUserRole?.toLowerCase().includes("employ") ||
     currentUserRole?.toLowerCase().includes("collab") ||
+    currentUserRole?.toLowerCase().includes("caissier") ||
+    currentUserRole?.toLowerCase().includes("cashier") ||
     currentUserRole?.toLowerCase().includes("operat");
 
   const isAdmin = !isEmployee && currentUserRole !== null;
 
+  // Fetch company branches & all employees for Admin audience selection
+  useEffect(() => {
+    if (!isAdmin) return;
+    let isMounted = true;
+    setLoadingDirectory(true);
+    Promise.all([
+      fetch("/api/admin/branches").then((r) => (r.ok ? r.json() : null)),
+      fetch("/api/admin/employees").then((r) => (r.ok ? r.json() : null)),
+    ])
+      .then(([branchData, empData]) => {
+        if (!isMounted) return;
+        if (Array.isArray(branchData?.branches)) {
+          setBranches(branchData.branches);
+        }
+        const rawEmps = Array.isArray(empData)
+          ? empData
+          : Array.isArray(empData?.employees)
+          ? empData.employees
+          : [];
+        setSystemEmployees(rawEmps);
+      })
+      .catch(() => {})
+      .finally(() => {
+        if (isMounted) setLoadingDirectory(false);
+      });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [isAdmin]);
+
   // Filter events:
   // 1. Personal events are strictly private to the user who created them
-  // 2. Enterprise events: Admin sees all; Collaborators see events for ALL_EMPLOYEES or targeted to their dept/branch
+  // 2. Enterprise events: Admin sees all; Collaborators see events for ALL_EMPLOYEES or targeted to their dept/branch/ID
   const visibleEvents = useMemo(() => {
     return events.filter((ev) => {
       // Personal event check
       if (ev.isPersonal || ev.type === "PERSONAL") {
-        if (!profile?.employeeNumber && !ev.creatorEmployeeNumber) return true;
-        return ev.creatorEmployeeNumber === profile?.employeeNumber;
+        if (ev.creatorUserId && currentUserId && ev.creatorUserId === currentUserId) {
+          return true;
+        }
+        if (ev.creatorEmployeeId && profile?.id && ev.creatorEmployeeId === profile.id) {
+          return true;
+        }
+        if (!profile?.employeeNumber && !ev.creatorEmployeeNumber && !ev.creatorUserId) {
+          return true;
+        }
+        return (
+          Boolean(profile?.employeeNumber) &&
+          ev.creatorEmployeeNumber === profile?.employeeNumber
+        );
       }
 
       // Enterprise / Administration event check
       if (isAdmin) {
         return true;
       }
-      if (ev.audienceType === "ALL_EMPLOYEES") return true;
+      if (!ev.audienceType || ev.audienceType === "ALL_EMPLOYEES") return true;
       if (ev.audienceType === "DEPARTMENT") {
-        if (!profile?.department) return true;
-        return ev.audienceTargetName
-          ?.toLowerCase()
-          .includes(profile.department.toLowerCase());
+        if (!profile?.department || !ev.audienceTargetName) return false;
+        return (
+          profile.department.trim().toLowerCase() ===
+          ev.audienceTargetName.trim().toLowerCase()
+        );
       }
       if (ev.audienceType === "BRANCH") {
-        if (!profile?.branch) return true;
-        return ev.audienceTargetName
-          ?.toLowerCase()
-          .includes(profile.branch.toLowerCase());
+        if (ev.audienceBranchId && profile?.branchId) {
+          return ev.audienceBranchId === profile.branchId;
+        }
+        if (!profile?.branch || !ev.audienceTargetName) return false;
+        return (
+          profile.branch.trim().toLowerCase() ===
+          ev.audienceTargetName.trim().toLowerCase()
+        );
       }
-      return true;
+      if (ev.audienceType === "CUSTOM") {
+        return Boolean(
+          profile?.id &&
+            Array.isArray(ev.targetEmployeeIds) &&
+            ev.targetEmployeeIds.includes(profile.id)
+        );
+      }
+      return false;
     });
-  }, [events, isAdmin, profile]);
+  }, [events, isAdmin, profile, currentUserId]);
 
   // Modal form states
   const [title, setTitle] = useState("");
@@ -263,8 +369,71 @@ export default function EventsCalendarPage() {
   const [audienceType, setAudienceType] =
     useState<AudienceType>("ALL_EMPLOYEES");
   const [audienceTargetName, setAudienceTargetName] = useState("");
+  const [audienceBranchId, setAudienceBranchId] = useState("");
+  const [selectedEmployeeIds, setSelectedEmployeeIds] = useState<string[]>([]);
+  const [employeeSearch, setEmployeeSearch] = useState("");
   const [notifyImmediate, setNotifyImmediate] = useState(true);
   const [reminder24h, setReminder24h] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Derived active employees & branch map
+  const activeEmployees = useMemo(() => {
+    return [...systemEmployees]
+      .filter((e) => e.status !== "INACTIVE")
+      .sort((a, b) =>
+        `${a.firstName} ${a.lastName}`.localeCompare(
+          `${b.firstName} ${b.lastName}`,
+          "fr"
+        )
+      );
+  }, [systemEmployees]);
+
+  const branchNameMap = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const b of branches) {
+      map.set(b.id, b.name);
+    }
+    return map;
+  }, [branches]);
+
+  const filteredDirectoryEmployees = useMemo(() => {
+    const q = employeeSearch.trim().toLowerCase();
+    if (!q) return activeEmployees;
+    return activeEmployees.filter((emp) => {
+      const fullName = `${emp.firstName} ${emp.lastName}`.toLowerCase();
+      const bName = (emp.branchId ? branchNameMap.get(emp.branchId) : "") || "";
+      return (
+        fullName.includes(q) ||
+        (emp.employeeNumber || "").toLowerCase().includes(q) ||
+        (emp.email || "").toLowerCase().includes(q) ||
+        (emp.department || "").toLowerCase().includes(q) ||
+        bName.toLowerCase().includes(q)
+      );
+    });
+  }, [activeEmployees, employeeSearch, branchNameMap]);
+
+  const activeWithEmailCount = useMemo(() => {
+    return activeEmployees.filter(
+      (e) => Boolean(e.email && e.email.trim().includes("@"))
+    ).length;
+  }, [activeEmployees]);
+
+  const selectedBranchEmployees = useMemo(() => {
+    if (!audienceBranchId) return [];
+    return activeEmployees.filter((e) => e.branchId === audienceBranchId);
+  }, [activeEmployees, audienceBranchId]);
+
+  const selectedBranchWithEmailCount = useMemo(() => {
+    return selectedBranchEmployees.filter(
+      (e) => Boolean(e.email && e.email.trim().includes("@"))
+    ).length;
+  }, [selectedBranchEmployees]);
+
+  const toggleEmployeeSelection = (empId: string) => {
+    setSelectedEmployeeIds((prev) =>
+      prev.includes(empId) ? prev.filter((id) => id !== empId) : [...prev, empId]
+    );
+  };
 
   // Month navigation
   const prevMonth = () => {
@@ -384,34 +553,78 @@ export default function EventsCalendarPage() {
   }, [visibleEvents, selectedDate]);
 
 
-  // Submit handler: Supports both Administrative Events (for Admin) and Personal Events (for Collaborator)
-  const handleCreateEvent = (e: React.FormEvent) => {
+  // Submit handler: Supports both Administrative Events (DB + Email) and Personal Events (DB)
+  const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || !eventDate) return;
+    if (!title.trim() || !eventDate || isSubmitting) return;
 
     if (isAdmin) {
-      // 1. Administration Event (Official Enterprise Planning)
-      const newEvent: ScheduledEvent = {
-        id: `ev-${Date.now()}`,
-        title: title.trim(),
-        description: description.trim(),
-        date: eventDate,
-        startTime: startTime || "09:00",
-        endTime: endTime || "10:00",
-        type,
-        location: location.trim() || "Bureaux de l'entreprise",
-        audienceType,
-        audienceTargetName:
-          audienceType !== "ALL_EMPLOYEES"
-            ? audienceTargetName.trim() || "Cible sélectionnée"
-            : undefined,
-        notifyImmediate,
-        reminder24h,
-        isPersonal: false,
-        createdAt: new Date().toISOString(),
-      };
+      if (audienceType === "BRANCH" && !audienceBranchId) {
+        showSystemToast("Veuillez sélectionner une succursale destinataire.", "error");
+        return;
+      }
+      if (audienceType === "CUSTOM" && selectedEmployeeIds.length === 0) {
+        showSystemToast("Veuillez sélectionner au moins un employé dans la liste.", "error");
+        return;
+      }
+    }
 
-      const updated = [...events, newEvent];
+    setIsSubmitting(true);
+    try {
+      const selectedBranchObj = branches.find((b) => b.id === audienceBranchId);
+
+      const res = await fetch("/api/admin/events", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(
+          isAdmin
+            ? {
+                title: title.trim(),
+                description: description.trim(),
+                date: eventDate,
+                startTime: startTime || "09:00",
+                endTime: endTime || "10:00",
+                type,
+                location: location.trim() || "Bureaux de l'entreprise",
+                audienceType,
+                audienceBranchId:
+                  audienceType === "BRANCH" ? audienceBranchId : undefined,
+                audienceTargetName:
+                  audienceType === "BRANCH"
+                    ? selectedBranchObj?.name || audienceTargetName.trim()
+                    : undefined,
+                targetEmployeeIds:
+                  audienceType === "CUSTOM" ? selectedEmployeeIds : undefined,
+                notifyImmediate,
+                reminder24h,
+                isPersonal: false,
+              }
+            : {
+                title: title.trim(),
+                description: description.trim(),
+                date: eventDate,
+                startTime: startTime || "09:00",
+                endTime: endTime || "10:00",
+                type: "PERSONAL",
+                personalCategory,
+                location: location.trim() || "Personnel",
+                reminder24h,
+                isPersonal: true,
+              }
+        ),
+      });
+
+      const data = await res.json();
+      if (!res.ok || !data?.event) {
+        showSystemToast(
+          data?.error || "Impossible d'enregistrer l'événement.",
+          "error"
+        );
+        return;
+      }
+
+      const created: ScheduledEvent = data.event;
+      const updated = [created, ...events];
       setEvents(updated);
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
@@ -425,65 +638,54 @@ export default function EventsCalendarPage() {
       setDescription("");
       setLocation("");
       setAudienceTargetName("");
-
-      const targetDesc =
-        audienceType === "ALL_EMPLOYEES"
-          ? "tous les employés de l'entreprise"
-          : `${audienceTargetName || "le groupe sélectionné"}`;
-      showSystemToast(
-        `Événement d'administration « ${newEvent.title} » programmé ! Alertes activées pour ${targetDesc}.`
-      );
-    } else {
-      // 2. Personal Event (Collaborator Private Planning)
-      const newEvent: ScheduledEvent = {
-        id: `ev-perso-${Date.now()}`,
-        title: title.trim(),
-        description: description.trim(),
-        date: eventDate,
-        startTime: startTime || "09:00",
-        endTime: endTime || "10:00",
-        type: "PERSONAL",
-        personalCategory,
-        location: location.trim() || "Personnel",
-        isPersonal: true,
-        creatorEmployeeNumber: profile?.employeeNumber || "current-user",
-        creatorName: profile
-          ? `${profile.firstName} ${profile.lastName}`
-          : "Collaborateur",
-        notifyImmediate: false,
-        reminder24h,
-        createdAt: new Date().toISOString(),
-      };
-
-      const updated = [...events, newEvent];
-      setEvents(updated);
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-      } catch (_) {}
-
-      setSelectedDate(eventDate);
-      setIsModalOpen(false);
-
-      // Reset fields
-      setTitle("");
-      setDescription("");
-      setLocation("");
+      setAudienceBranchId("");
+      setSelectedEmployeeIds([]);
+      setEmployeeSearch("");
       setPersonalCategory("RDV");
 
-      showSystemToast(
-        `Événement personnel « ${newEvent.title} » enregistré dans votre calendrier privé !`
-      );
+      if (isAdmin) {
+        const stats = data.emailStats || {};
+        if (notifyImmediate) {
+          if (stats.sent > 0) {
+            showSystemToast(
+              `Événement « ${created.title} » programmé ! ${stats.sent} e-mail(s) envoyé(s) sur ${stats.totalTargeted} employé(s) ciblé(s).`
+            );
+          } else if (stats.totalTargeted === 0) {
+            showSystemToast(
+              `Événement « ${created.title} » enregistré (aucun employé actif trouvé pour cette cible).`
+            );
+          } else {
+            showSystemToast(
+              `Événement « ${created.title} » enregistré (aucune adresse e-mail valide disponible pour l'envoi).`
+            );
+          }
+        } else {
+          showSystemToast(`Événement « ${created.title} » programmé dans le calendrier !`);
+        }
+      } else {
+        showSystemToast(
+          `Événement personnel « ${created.title} » enregistré dans votre calendrier privé !`
+        );
+      }
+    } catch (err) {
+      console.error("Create event failed:", err);
+      showSystemToast("Erreur réseau lors de l'enregistrement de l'événement.", "error");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
-  const handleDeleteEvent = (id: string, e?: React.MouseEvent) => {
+  const handleDeleteEvent = async (id: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     const evToDelete = events.find((ev) => ev.id === id);
     if (!evToDelete) return;
 
     const isOwner =
       evToDelete.isPersonal &&
-      evToDelete.creatorEmployeeNumber === profile?.employeeNumber;
+      ((evToDelete.creatorUserId && evToDelete.creatorUserId === currentUserId) ||
+        (evToDelete.creatorEmployeeId && profile?.id && evToDelete.creatorEmployeeId === profile.id) ||
+        (Boolean(profile?.employeeNumber) &&
+          evToDelete.creatorEmployeeNumber === profile?.employeeNumber));
     if (!isAdmin && !isOwner) {
       alert("Vous n'êtes pas autorisé à supprimer cet événement.");
       return;
@@ -497,6 +699,20 @@ export default function EventsCalendarPage() {
       )
     )
       return;
+
+    try {
+      const res = await fetch(`/api/admin/events/${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        showSystemToast(
+          errData?.error || "Impossible de supprimer cet événement.",
+          "error"
+        );
+        return;
+      }
+    } catch (_) {}
 
     const updated = events.filter((ev) => ev.id !== id);
     setEvents(updated);
@@ -513,20 +729,6 @@ export default function EventsCalendarPage() {
 
   return (
     <div className="space-y-6 max-w-7xl mx-auto">
-      {/* Toast Notification */}
-      {successToast && (
-        <div className="flex items-center gap-3 p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl shadow-md transition-all">
-          <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-          <div className="text-sm font-medium flex-1">{successToast}</div>
-          <button
-            onClick={() => setSuccessToast(null)}
-            className="text-emerald-700 hover:text-emerald-900 text-sm font-semibold p-1"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       {/* Header Bar: Distinct for Non-Administrative vs Administrative Accounts */}
       {loadingUser ? (
         <div className="p-6 bg-white rounded-2xl border border-slate-200 animate-pulse flex items-center justify-between">
@@ -602,7 +804,7 @@ export default function EventsCalendarPage() {
               setEventDate(selectedDate);
               setIsModalOpen(true);
             }}
-            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-[#031B3A] hover:bg-[#042854] text-white text-sm font-semibold rounded-xl shadow-sm transition-colors cursor-pointer shrink-0"
+            className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-sm font-semibold rounded-xl shadow-sm transition-colors cursor-pointer shrink-0"
             title="Planification de l'administration"
           >
             <Plus className="w-4 h-4" />
@@ -843,9 +1045,9 @@ export default function EventsCalendarPage() {
                             <button
                               onClick={(e) => handleDeleteEvent(ev.id, e)}
                               title="Supprimer l'événement"
-                              className="text-slate-400 hover:text-rose-600 p-1 rounded hover:bg-rose-50 transition-colors opacity-0 group-hover:opacity-100 cursor-pointer"
+                              className="w-6 h-6 rounded-md bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all shadow-xs opacity-0 group-hover:opacity-100 cursor-pointer"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-3.5 h-3.5 text-white" />
                             </button>
                           )}
                         </div>
@@ -894,6 +1096,12 @@ export default function EventsCalendarPage() {
                             </span>
                           </div>
                         )}
+                        {isAdmin && !ev.isPersonal && (ev.emailsSentCount ?? 0) > 0 && (
+                          <div className="flex items-center gap-1 text-emerald-700 font-semibold">
+                            <Mail className="w-3 h-3 text-emerald-600" />
+                            <span>{ev.emailsSentCount} e-mail(s)</span>
+                          </div>
+                        )}
                       </div>
                     </div>
                   );
@@ -928,58 +1136,30 @@ export default function EventsCalendarPage() {
         </div>
       </div>
 
-      {/* MODAL: Planification d'Événement (Admin: Planification de l'administration | Collaborateur: Événement Personnel) */}
-      {isModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4">
-          <div className="bg-white rounded-2xl shadow-2xl border border-slate-200 w-full max-w-xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            {/* Modal Header */}
-            <div
-              className={`px-6 py-4 text-white flex items-center justify-between ${
-                isAdmin ? "bg-[#031B3A]" : "bg-[#114C5A]"
-              }`}
-            >
-              <div className="flex items-center gap-2.5">
-                {isAdmin ? (
-                  <img
-                    src="/icons/sidebar/calendar-white.png"
-                    alt=""
-                    aria-hidden="true"
-                    className="w-5 h-5 object-contain"
-                  />
-                ) : (
-                  <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center">
-                    <UserCheck className="w-5 h-5 text-white" />
-                  </div>
-                )}
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="text-base font-bold">
-                      {isAdmin
-                        ? "Planification de l'administration"
-                        : "Planifier un événement personnel"}
-                    </h3>
-                    <span className="text-[10px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider bg-white/20 text-white">
-                      {isAdmin ? "Administration" : "Privé"}
-                    </span>
-                  </div>
-                  <p className="text-xs text-slate-200">
-                    {isAdmin
-                      ? "Définissez l'événement officiel et les employés à alerter"
-                      : "Événement privé — visible uniquement par vous dans votre calendrier"}
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsModalOpen(false)}
-                className="text-slate-300 hover:text-white p-1 rounded-lg hover:bg-white/10 transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            {/* Modal Form */}
-            <form onSubmit={handleCreateEvent} className="p-6 space-y-4 max-h-[80vh] overflow-y-auto">
+      {/* SLIDE-OVER: Planification d'Événement (Admin: Planification de l'administration | Collaborateur: Événement Personnel) */}
+      <SlideOver
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        title={
+          isAdmin
+            ? "Planification de l'administration"
+            : "Planifier un événement personnel"
+        }
+        subtitle={
+          isAdmin
+            ? "Définissez l'événement officiel et les employés à alerter"
+            : "Événement privé — visible uniquement par vous dans votre calendrier"
+        }
+        icon={
+          isAdmin ? (
+            <CalendarIcon className="w-5 h-5 text-[#062653]" />
+          ) : (
+            <UserCheck className="w-5 h-5 text-[#114C5A]" />
+          )
+        }
+        width="xl"
+      >
+        <form onSubmit={handleCreateEvent} className="space-y-4">
               {/* Title */}
               <div>
                 <label className="block text-xs font-bold text-slate-700 uppercase tracking-wider mb-1">
@@ -1119,95 +1299,252 @@ export default function EventsCalendarPage() {
                       Employés ciblés / Destinataires de l'alerte
                     </label>
 
-                    <div className="space-y-2 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
-                      <label className="flex items-center gap-2.5 text-sm cursor-pointer">
+                    <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                      {/* 1. Tous les employés */}
+                      <label className="flex items-start gap-2.5 text-sm cursor-pointer">
                         <input
                           type="radio"
                           name="audienceType"
                           checked={audienceType === "ALL_EMPLOYEES"}
                           onChange={() => setAudienceType("ALL_EMPLOYEES")}
-                          className="text-[#031B3A] focus:ring-[#031B3A]"
+                          className="mt-1 text-[#031B3A] focus:ring-[#031B3A]"
                         />
-                        <div>
+                        <div className="flex-1">
                           <span className="font-semibold text-slate-800">
                             Tous les employés du système
                           </span>
                           <p className="text-xs text-slate-500">
-                            Notification diffusée à tous les collaborateurs de l'entreprise
+                            Notification et e-mail envoyés à tous les employés actifs enregistrés
                           </p>
+                          {audienceType === "ALL_EMPLOYEES" && (
+                            <div className="mt-2 px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs flex flex-wrap items-center gap-2">
+                              <Mail className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                              <span className="font-semibold text-slate-700">
+                                {activeEmployees.length} employé(s) actif(s)
+                              </span>
+                              <span className="text-slate-300">•</span>
+                              <span className="text-emerald-700 font-semibold">
+                                {activeWithEmailCount} avec adresse e-mail enregistrée
+                              </span>
+                            </div>
+                          )}
                         </div>
                       </label>
 
-                      <label className="flex items-center gap-2.5 text-sm cursor-pointer">
-                        <input
-                          type="radio"
-                          name="audienceType"
-                          checked={audienceType === "DEPARTMENT"}
-                          onChange={() => setAudienceType("DEPARTMENT")}
-                          className="text-[#031B3A] focus:ring-[#031B3A]"
-                        />
-                        <div>
-                          <span className="font-semibold text-slate-800">
-                            Par département spécifique
-                          </span>
-                          <p className="text-xs text-slate-500">
-                            Ex : Finance, Comptabilité, RH, Opérations, Sécurité...
-                          </p>
-                        </div>
-                      </label>
-
-                      <label className="flex items-center gap-2.5 text-sm cursor-pointer">
+                      {/* 2. Par succursale */}
+                      <label className="flex items-start gap-2.5 text-sm cursor-pointer">
                         <input
                           type="radio"
                           name="audienceType"
                           checked={audienceType === "BRANCH"}
                           onChange={() => setAudienceType("BRANCH")}
-                          className="text-[#031B3A] focus:ring-[#031B3A]"
+                          className="mt-1 text-[#031B3A] focus:ring-[#031B3A]"
                         />
                         <div>
                           <span className="font-semibold text-slate-800">
                             Par succursale
                           </span>
                           <p className="text-xs text-slate-500">
-                            Limité aux collaborateurs rattachés à une agence donnée
+                            Choisissez la succursale : tous ses employés recevront cette planification
                           </p>
                         </div>
                       </label>
 
-                      <label className="flex items-center gap-2.5 text-sm cursor-pointer">
+                      {audienceType === "BRANCH" && (
+                        <div className="pl-6 space-y-2">
+                          <select
+                            required
+                            value={audienceBranchId}
+                            onChange={(e) => {
+                              const bId = e.target.value;
+                              setAudienceBranchId(bId);
+                              const bObj = branches.find((b) => b.id === bId);
+                              setAudienceTargetName(bObj?.name || "");
+                            }}
+                            className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#031B3A] cursor-pointer"
+                          >
+                            <option value="">
+                              {loadingDirectory
+                                ? "Chargement des succursales..."
+                                : "Sélectionner une succursale..."}
+                            </option>
+                            {branches.map((b) => {
+                              const count = activeEmployees.filter(
+                                (emp) => emp.branchId === b.id
+                              ).length;
+                              return (
+                                <option key={b.id} value={b.id}>
+                                  {b.name} — {b.city} ({count} employé{count > 1 ? "s" : ""})
+                                </option>
+                              );
+                            })}
+                          </select>
+
+                          {audienceBranchId && (
+                            <div
+                              className={`px-3 py-2 rounded-lg border text-xs flex flex-wrap items-center gap-2 ${
+                                selectedBranchEmployees.length > 0
+                                  ? "bg-white border-slate-200 text-slate-700"
+                                  : "bg-amber-50 border-amber-200 text-amber-800"
+                              }`}
+                            >
+                              <Mail
+                                className={`w-3.5 h-3.5 shrink-0 ${
+                                  selectedBranchWithEmailCount > 0
+                                    ? "text-emerald-600"
+                                    : "text-amber-600"
+                                }`}
+                              />
+                              {selectedBranchEmployees.length > 0 ? (
+                                <span>
+                                  <strong>{selectedBranchEmployees.length}</strong> employé(s) rattaché(s) •{" "}
+                                  <strong className="text-emerald-700">
+                                    {selectedBranchWithEmailCount} adresse(s) e-mail à notifier
+                                  </strong>
+                                </span>
+                              ) : (
+                                <span>
+                                  Aucun employé actif rattaché à cette succursale pour le moment.
+                                </span>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* 3. Groupe d'employés personnalisé */}
+                      <label className="flex items-start gap-2.5 text-sm cursor-pointer">
                         <input
                           type="radio"
                           name="audienceType"
                           checked={audienceType === "CUSTOM"}
                           onChange={() => setAudienceType("CUSTOM")}
-                          className="text-[#031B3A] focus:ring-[#031B3A]"
+                          className="mt-1 text-[#031B3A] focus:ring-[#031B3A]"
                         />
                         <div>
                           <span className="font-semibold text-slate-800">
                             Groupe d'employés personnalisé
                           </span>
                           <p className="text-xs text-slate-500">
-                            Sélection précise par noms ou rôles
+                            Sélectionnez les employés destinataires dans la liste complète du système
                           </p>
                         </div>
                       </label>
 
-                      {audienceType !== "ALL_EMPLOYEES" && (
-                        <div className="pt-2">
-                          <input
-                            type="text"
-                            required
-                            placeholder={
-                              audienceType === "DEPARTMENT"
-                                ? "Nom du département (ex : Ressources Humaines)"
-                                : audienceType === "BRANCH"
-                                ? "Nom de la succursale (ex : Succursale Principale)"
-                                : "Noms ou identifiants des employés ciblés"
-                            }
-                            value={audienceTargetName}
-                            onChange={(e) => setAudienceTargetName(e.target.value)}
-                            className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#031B3A]"
-                          />
+                      {audienceType === "CUSTOM" && (
+                        <div className="pl-6 space-y-2.5 pt-1">
+                          {/* Search + Quick Actions */}
+                          <div className="relative">
+                            <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-2.5" />
+                            <input
+                              type="text"
+                              placeholder="Rechercher un employé (nom, matricule, e-mail, succursale)..."
+                              value={employeeSearch}
+                              onChange={(e) => setEmployeeSearch(e.target.value)}
+                              className="w-full pl-8 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#031B3A]"
+                            />
+                          </div>
+
+                          <div className="flex items-center justify-between text-[11px] text-slate-600">
+                            <span className="font-semibold">
+                              {selectedEmployeeIds.length} sélectionné(s) sur {activeEmployees.length} employé(s)
+                            </span>
+                            <div className="flex items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  setSelectedEmployeeIds(
+                                    filteredDirectoryEmployees.map((e) => e.id)
+                                  )
+                                }
+                                className="font-semibold text-[#062653] hover:underline cursor-pointer"
+                              >
+                                Tout cocher
+                              </button>
+                              <span className="text-slate-300">|</span>
+                              <button
+                                type="button"
+                                onClick={() => setSelectedEmployeeIds([])}
+                                className="font-semibold text-slate-500 hover:text-slate-800 hover:underline cursor-pointer"
+                              >
+                                Effacer
+                              </button>
+                            </div>
+                          </div>
+
+                          {/* Complete List of System Employees */}
+                          <div className="max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
+                            {loadingDirectory ? (
+                              <div className="p-4 text-center text-xs text-slate-500">
+                                Chargement de la liste des employés...
+                              </div>
+                            ) : filteredDirectoryEmployees.length === 0 ? (
+                              <div className="p-4 text-center text-xs text-slate-500">
+                                Aucun employé trouvé dans le système.
+                              </div>
+                            ) : (
+                              filteredDirectoryEmployees.map((emp) => {
+                                const isChecked = selectedEmployeeIds.includes(emp.id);
+                                const bName = emp.branchId
+                                  ? branchNameMap.get(emp.branchId)
+                                  : undefined;
+                                const hasEmail = Boolean(
+                                  emp.email && emp.email.trim().includes("@")
+                                );
+                                return (
+                                  <label
+                                    key={emp.id}
+                                    className={`flex items-start gap-2.5 p-2.5 cursor-pointer transition-colors ${
+                                      isChecked
+                                        ? "bg-emerald-50/70"
+                                        : "hover:bg-slate-50"
+                                    }`}
+                                  >
+                                    <input
+                                      type="checkbox"
+                                      checked={isChecked}
+                                      onChange={() => toggleEmployeeSelection(emp.id)}
+                                      className="mt-0.5 rounded text-emerald-600 focus:ring-emerald-600 cursor-pointer"
+                                    />
+                                    <div className="min-w-0 flex-1">
+                                      <div className="flex flex-wrap items-center gap-1.5">
+                                        <span className="text-xs font-bold text-slate-800">
+                                          {emp.firstName} {emp.lastName}
+                                        </span>
+                                        {emp.employeeNumber && (
+                                          <span className="text-[10px] font-mono font-semibold px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                                            {emp.employeeNumber}
+                                          </span>
+                                        )}
+                                        {bName && (
+                                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium">
+                                            {bName}
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-2 mt-0.5 text-[11px]">
+                                        {emp.department && (
+                                          <span className="text-slate-500">
+                                            {emp.department}
+                                          </span>
+                                        )}
+                                        {hasEmail ? (
+                                          <span className="text-emerald-700 flex items-center gap-1 truncate">
+                                            <Mail className="w-3 h-3 shrink-0" />
+                                            {emp.email}
+                                          </span>
+                                        ) : (
+                                          <span className="text-amber-600">
+                                            Aucun e-mail enregistré
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </label>
+                                );
+                              })
+                            )}
+                          </div>
                         </div>
                       )}
                     </div>
@@ -1280,30 +1617,33 @@ export default function EventsCalendarPage() {
                 />
               </div>
 
-              {/* Modal Actions */}
-              <div className="pt-4 border-t border-slate-200 flex items-center justify-end gap-3">
+              {/* Actions */}
+              <div className="pt-4 border-t border-[#DCE2EA] flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-lg transition-colors cursor-pointer"
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
                 >
                   Annuler
                 </button>
                 <button
                   type="submit"
-                  className={`px-5 py-2 text-sm font-semibold text-white rounded-lg shadow-sm transition-colors cursor-pointer ${
+                  disabled={isSubmitting}
+                  className={`px-5 py-2 text-sm font-semibold text-white rounded-xl shadow-xs transition-colors cursor-pointer disabled:opacity-60 ${
                     isAdmin
                       ? "bg-[#031B3A] hover:bg-[#042854]"
                       : "bg-[#114C5A] hover:bg-[#0d3b46]"
                   }`}
                 >
-                  {isAdmin ? "Enregistrer et Alerter" : "Enregistrer mon événement"}
+                  {isSubmitting
+                    ? "Envoi en cours..."
+                    : isAdmin
+                    ? "Enregistrer et Alerter"
+                    : "Enregistrer mon événement"}
                 </button>
               </div>
             </form>
-          </div>
-        </div>
-      )}
+      </SlideOver>
     </div>
   );
 }

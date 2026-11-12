@@ -19,8 +19,18 @@ import {
   Upload,
   Type,
   Plus,
+  Eye,
+  ArrowLeft,
+  Printer,
+  Download,
+  ShieldCheck,
+  RotateCw,
+  FileSignature,
+  Trash2,
 } from "lucide-react";
 import { processTransparentImage } from "@/lib/utils/signature";
+import { showSystemToast } from "@/components/ui/SystemToast";
+import { generateLeaveRequestPdfBlob, downloadPdfBlob, printPdfDocument } from "@/lib/utils/pdf";
 
 interface EmployeeProfile {
   id?: string;
@@ -56,6 +66,7 @@ const LEAVE_TYPES = [
 ];
 
 const PROFILE_STORAGE_KEY = "rkonekte_cached_employee_profile";
+const HIDDEN_LEAVE_STORAGE_KEY = "rkonekte_hidden_leave_requests";
 
 function getCachedProfile(): EmployeeProfile | null {
   if (typeof window === "undefined") return null;
@@ -73,6 +84,33 @@ export function EmployeeLeaveView() {
   const [myRequests, setMyRequests] = useState<LeaveRequestItem[]>([]);
   const [loadingProfile, setLoadingProfile] = useState(() => !getCachedProfile());
   const [loadingRequests, setLoadingRequests] = useState(false);
+  const [hiddenIds, setHiddenIds] = useState<string[]>(() => {
+    if (typeof window === "undefined") return [];
+    try {
+      const saved = localStorage.getItem(HIDDEN_LEAVE_STORAGE_KEY);
+      return saved ? JSON.parse(saved) : [];
+    } catch (_) {
+      return [];
+    }
+  });
+
+  const handleHideFromView = (id: string, reqNum?: string) => {
+    if (
+      !confirm(
+        `Voulez-vous supprimer cette demande (${reqNum || id}) de votre affichage ?\n\nRemarque : Elle ne sera pas supprimée de la base de données et restera archivée dans le système.`
+      )
+    ) {
+      return;
+    }
+    const updated = [...hiddenIds, id];
+    setHiddenIds(updated);
+    try {
+      localStorage.setItem(HIDDEN_LEAVE_STORAGE_KEY, JSON.stringify(updated));
+    } catch (_) {}
+    showSystemToast(`La demande ${reqNum || id} a été retirée de votre interface.`);
+  };
+
+  const visibleRequests = myRequests.filter((r) => !hiddenIds.includes(r.id));
 
   // Form State (5 Sections Officielles)
   // Section 1 : Informations sur l'Employé
@@ -98,14 +136,25 @@ export function EmployeeLeaveView() {
 
   // Section 5 : Signature de l'Employé (Modes : Upload image sans fond, Écrire son nom)
   const [signatureMode, setSignatureMode] = useState<"upload" | "type">("upload");
-  const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
+  const [uploadedSignature, setUploadedSignature] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("rkonekte_user_signature") || null;
+    }
+    return null;
+  });
   const [typedSignatureText, setTypedSignatureText] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [confirmed, setConfirmed] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
+  // Auto-sync saved user signature if present
+  useEffect(() => {
+    if (typeof window !== "undefined" && !uploadedSignature) {
+      const saved = localStorage.getItem("rkonekte_user_signature");
+      if (saved) setUploadedSignature(saved);
+    }
+  }, []);
 
   const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -204,6 +253,109 @@ export function EmployeeLeaveView() {
     loadMyRequests();
   }, []);
 
+  // Visualisation feuille officielle & PDF
+  const [selectedRequest, setSelectedRequest] = useState<any>(null);
+  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
+  const [printingPdf, setPrintingPdf] = useState(false);
+  const sheetRef = useRef<HTMLDivElement>(null);
+
+  const formatDateDisplay = (dateVal: string | number | null | undefined) => {
+    if (!dateVal) return "Non précisé";
+    if (typeof dateVal === "string" && dateVal.includes("-")) {
+      const parts = dateVal.split("-");
+      if (parts.length === 3) {
+        return `${parts[2]}/${parts[1]}/${parts[0]}`;
+      }
+    }
+    const d = new Date(dateVal);
+    if (isNaN(d.getTime())) return String(dateVal);
+    return d.toLocaleDateString("fr-FR", {
+      day: "2-digit",
+      month: "long",
+      year: "numeric",
+    });
+  };
+
+  const formatRoleLabel = (role?: string) => {
+    if (!role) return "Direction";
+    const upper = role.toUpperCase();
+    if (upper === "ORGANIZATION_ADMIN") return "Administrateur";
+    if (upper === "SUPER_ADMIN") return "Super Admin";
+    if (upper === "SECRETARY") return "Secrétariat RH";
+    if (upper === "FINANCIAL_MANAGER") return "Directeur Financier";
+    if (upper === "BRANCH_MANAGER") return "Responsable Succursale";
+    if (upper === "EMPLOYEE") return "Collaborateur";
+    return role;
+  };
+
+  const handleViewRequest = async (reqSummary: any) => {
+    setLoadingDetail(true);
+    try {
+      const res = await fetch(`/api/admin/requests/${reqSummary.id}`);
+      const data = await res.json();
+      if (res.ok && data.request) {
+        let fullReq = data.request;
+        // Fallback signature si absente du record
+        if (!fullReq.employeeSignature) {
+          try {
+            const sigs = JSON.parse(localStorage.getItem("rkonekte_employee_signatures") || "{}");
+            const found = sigs[fullReq.requestNumber];
+            if (found?.signature) {
+              fullReq.employeeSignature = found.signature;
+              fullReq.signatureMode = found.mode || "upload";
+            }
+          } catch (_) {}
+          if (!fullReq.employeeSignature && uploadedSignature) {
+            fullReq.employeeSignature = uploadedSignature;
+          }
+        }
+        // Fallback logo entreprise
+        if (!fullReq.organizationLogo && typeof window !== "undefined") {
+          fullReq.organizationLogo = localStorage.getItem("rk_company_logo") || undefined;
+        }
+        setSelectedRequest(fullReq);
+      } else {
+        setSelectedRequest(reqSummary);
+      }
+    } catch (err) {
+      setSelectedRequest(reqSummary);
+    } finally {
+      setLoadingDetail(false);
+    }
+  };
+
+  const handleDownloadPdf = async () => {
+    if (!sheetRef.current || !selectedRequest) return;
+    setDownloadingPdf(true);
+    try {
+      const fileName = `Feuille_Conge_${selectedRequest.requestNumber}.pdf`;
+      const { blob } = await generateLeaveRequestPdfBlob(sheetRef.current, fileName);
+      downloadPdfBlob(blob, fileName);
+      showSystemToast("Feuille PDF téléchargée avec succès !");
+    } catch (err) {
+      console.error("Erreur PDF:", err);
+      window.print();
+    } finally {
+      setDownloadingPdf(false);
+    }
+  };
+
+  const handlePrintPdf = async () => {
+    if (!sheetRef.current || !selectedRequest) return;
+    setPrintingPdf(true);
+    try {
+      const fileName = `Feuille_Conge_${selectedRequest.requestNumber}.pdf`;
+      const { blob } = await generateLeaveRequestPdfBlob(sheetRef.current, fileName);
+      printPdfDocument(blob);
+    } catch (err) {
+      console.error("Erreur impression PDF:", err);
+      window.print();
+    } finally {
+      setPrintingPdf(false);
+    }
+  };
+
   const isSignatureValid =
     signatureMode === "upload"
       ? Boolean(uploadedSignature)
@@ -227,21 +379,19 @@ export function EmployeeLeaveView() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg(null);
-    setSuccessMsg(null);
 
     if (!startDate || !endDate) {
-      setErrorMsg("Veuillez sélectionner la date de début et la date de fin.");
+      showSystemToast("Veuillez sélectionner la date de début et la date de fin.", "error");
       return;
     }
 
     if (requestedDays <= 0) {
-      setErrorMsg("La date de fin doit être égale ou postérieure à la date de début.");
+      showSystemToast("La date de fin doit être égale ou postérieure à la date de début.", "error");
       return;
     }
 
     if (leaveType === "OTHER" && !leaveTypeOther.trim()) {
-      setErrorMsg("Veuillez préciser le motif de votre demande de congé.");
+      showSystemToast("Veuillez préciser le motif de votre demande de congé.", "error");
       return;
     }
 
@@ -251,10 +401,11 @@ export function EmployeeLeaveView() {
         : Boolean(typedSignatureText.trim());
 
     if (!hasValidSignature) {
-      setErrorMsg(
+      showSystemToast(
         signatureMode === "upload"
           ? "Veuillez importer une photo ou un scan de votre signature."
-          : "Veuillez renseigner votre nom complet pour la signature calligraphique."
+          : "Veuillez renseigner votre nom complet pour la signature calligraphique.",
+        "error"
       );
       return;
     }
@@ -276,6 +427,10 @@ export function EmployeeLeaveView() {
         replacementName: replacementName.trim() || undefined,
         contactPhone: contactPhone.trim() || profile?.phone || "N/A",
         contactEmail: contactEmail.trim() || profile?.email || undefined,
+        branch: profile?.branch || "Siège",
+        signatureMode,
+        employeeSignature: uploadedSignature || (signatureMode === "type" ? typedSignatureText : undefined),
+        typedSignatureText: signatureMode === "type" ? typedSignatureText : undefined,
       };
 
       const res = await fetch("/api/admin/requests", {
@@ -287,11 +442,27 @@ export function EmployeeLeaveView() {
       const data = await res.json();
 
       if (!res.ok) {
-        setErrorMsg(data.error || "Une erreur est survenue lors de l'envoi.");
+        showSystemToast(data.error || "Une erreur est survenue lors de l'envoi.", "error");
         return;
       }
 
-      setSuccessMsg(`Votre formulaire de demande de congé a été enregistré avec succès (Réf: ${data.leaveRequest?.requestNumber || "Enregistrée"}).`);
+      // Persist in client-side storage for instant offline / fallback rendering
+      if (data.leaveRequest?.requestNumber) {
+        try {
+          const sigs = JSON.parse(localStorage.getItem("rkonekte_employee_signatures") || "{}");
+          sigs[data.leaveRequest.requestNumber] = {
+            signature: uploadedSignature || typedSignatureText,
+            mode: signatureMode,
+            name: `${firstName} ${lastName}`.trim(),
+          };
+          localStorage.setItem("rkonekte_employee_signatures", JSON.stringify(sigs));
+        } catch (_) {}
+      }
+
+      showSystemToast(
+        `Votre formulaire de demande de congé a été enregistré avec succès (Réf: ${data.leaveRequest?.requestNumber || "Enregistrée"}).`,
+        "success"
+      );
       // Reset form
       setStartDate("");
       setEndDate("");
@@ -306,7 +477,7 @@ export function EmployeeLeaveView() {
       loadMyRequests();
       setActiveTab("history");
     } catch (err: any) {
-      setErrorMsg("Erreur réseau. Veuillez réessayer.");
+      showSystemToast("Erreur réseau. Veuillez réessayer.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -346,7 +517,7 @@ export function EmployeeLeaveView() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Profil Header Collaborateur */}
-      <div className="bg-white rounded-2xl p-5 border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl p-5 border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
             Mon Espace Congés
@@ -390,7 +561,7 @@ export function EmployeeLeaveView() {
       </div>
 
       {/* Navigation Onglets Très Simple */}
-      <div className="flex items-center gap-2 border-b border-[#DCE2EA] pb-1">
+      <div className="flex items-center gap-2 border-b border-[#DCE2EA] pb-1 print:hidden">
         <button
           onClick={() => setActiveTab("form")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
@@ -419,7 +590,7 @@ export function EmployeeLeaveView() {
             <path d="M8 4V8.2L10.8 9.8" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
           <span>Mes demandes</span>
-          {myRequests.length > 0 && (
+          {visibleRequests.length > 0 && (
             <span
               className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
                 activeTab === "history"
@@ -427,42 +598,11 @@ export function EmployeeLeaveView() {
                   : "bg-slate-200 text-slate-700"
               }`}
             >
-              {myRequests.length}
+              {visibleRequests.length}
             </span>
           )}
         </button>
       </div>
-
-      {/* Messages d'alerte */}
-      {successMsg && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-          <button
-            onClick={() => setSuccessMsg(null)}
-            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {errorMsg && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-900 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-          <button
-            onClick={() => setErrorMsg(null)}
-            className="text-rose-700 hover:text-rose-900 text-xs font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
 
       {/* TAB 1: FORMULAIRE OFFICIEL DE L'ENTREPRISE */}
       {activeTab === "form" && (
@@ -841,9 +981,9 @@ export function EmployeeLeaveView() {
                               <button
                                 type="button"
                                 onClick={() => setUploadedSignature(null)}
-                                className="text-[11px] text-rose-600 hover:text-rose-700 font-bold inline-flex items-center gap-0.5 cursor-pointer"
+                                className="px-2 py-0.5 text-[11px] text-white bg-red-500 hover:bg-red-600 font-bold rounded flex items-center gap-1 cursor-pointer shadow-2xs transition-colors"
                               >
-                                <Eraser className="w-3 h-3" /> Supprimer
+                                <Eraser className="w-3 h-3 text-white" /> Supprimer
                               </button>
                             </div>
                           </div>
@@ -927,95 +1067,547 @@ export function EmployeeLeaveView() {
       {/* TAB 2: MES DEMANDES (HISTORIQUE ET STATUT) */}
       {activeTab === "history" && (
         <div className="space-y-4 animate-in fade-in">
-          <div className="flex items-center justify-between">
-            <h2 className="text-base font-bold text-[#062653]">
-              Historique et statut de mes demandes
-            </h2>
-            <button
-              onClick={loadMyRequests}
-              className="text-xs text-[#64748B] hover:text-[#062653] flex items-center gap-1 font-semibold"
-            >
-              <RefreshCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin" : ""}`} />
-              <span>Actualiser</span>
-            </button>
-          </div>
-
-          {loadingRequests ? (
-            <div className="bg-white rounded-2xl p-12 text-center border border-[#DCE2EA]">
-              <RefreshCw className="w-6 h-6 animate-spin text-[#062653] mx-auto mb-2" />
-              <p className="text-xs text-[#64748B]">Chargement de vos demandes...</p>
-            </div>
-          ) : myRequests.length === 0 ? (
-            <div className="bg-white rounded-2xl p-12 text-center border border-[#DCE2EA] shadow-xs">
-              <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
-                <FileText className="w-6 h-6" />
-              </div>
-              <h3 className="text-sm font-bold text-[#062653]">Aucune demande pour le moment</h3>
-              <p className="text-xs text-[#64748B] mt-1 max-w-sm mx-auto">
-                Vous n'avez pas encore soumis de demande de congé. Cliquez sur "Nouvelle demande" pour en formuler une.
-              </p>
-              <button
-                onClick={() => setActiveTab("form")}
-                className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs"
-              >
-                Faire une demande de congé
-              </button>
-            </div>
-          ) : (
-            <div className="grid grid-cols-1 gap-3">
-              {myRequests.map((req) => (
-                <div
-                  key={req.id}
-                  className="bg-white p-5 rounded-2xl border border-[#DCE2EA] shadow-xs hover:border-slate-300 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
-                >
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs font-bold text-[#062653] bg-slate-100 px-2 py-0.5 rounded-md">
-                        {req.requestNumber}
-                      </span>
-                      <span className="text-xs font-bold text-[#062653]">
-                        {getLeaveTypeLabel(req.leaveType)}
-                      </span>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-3 text-xs text-[#64748B]">
-                      <div className="flex items-center gap-1.5 text-slate-700 font-medium">
-                        <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                        <span>
-                          Du <strong>{req.startDate}</strong> au <strong>{req.endDate}</strong>
-                        </span>
-                      </div>
-                      <span>•</span>
-                      <span>
-                        Durée : <strong>{req.requestedDays} jour(s)</strong>
-                      </span>
-                      {req.replacementName && (
-                        <>
-                          <span>•</span>
-                          <span>Remplaçant : {req.replacementName}</span>
-                        </>
-                      )}
-                    </div>
-
-                    {req.status === "REJECTED" && req.rejectionReason && (
-                      <div className="mt-2 text-xs text-rose-700 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
-                        <strong>Motif du refus :</strong> {req.rejectionReason}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="shrink-0 flex items-center md:flex-col md:items-end gap-2">
-                    {getStatusBadge(req.status)}
-                    <span className="text-[11px] text-[#64748B]">
-                      Soumis le {new Date(req.submittedAt).toLocaleDateString("fr-FR")}
-                    </span>
+          {selectedRequest ? (
+            /* RENDU DE LA FEUILLE OFFICIELLE (AVEC RIEN D'INCHANGÉ) */
+            <div className="space-y-6">
+              {/* TOP TOOLBAR DE LA FEUILLE */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 print:hidden">
+                <div>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedRequest(null)}
+                    className="inline-flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-[#062653] transition-colors mb-2 cursor-pointer"
+                  >
+                    <ArrowLeft className="w-3.5 h-3.5" />
+                    Retour à mes demandes
+                  </button>
+                  <div className="flex items-center gap-3">
+                    <h1 className="text-xl sm:text-2xl font-bold font-mono text-[#062653]">
+                      {selectedRequest.requestNumber}
+                    </h1>
+                    {getStatusBadge(selectedRequest.status)}
                   </div>
                 </div>
-              ))}
+
+                <div className="flex flex-wrap items-center gap-2.5">
+                  <button
+                    type="button"
+                    onClick={handleDownloadPdf}
+                    disabled={downloadingPdf}
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75 border border-red-600"
+                    title="Télécharger la feuille officielle en fichier PDF"
+                  >
+                    {downloadingPdf ? (
+                      <RotateCw className="w-4 h-4 text-white animate-spin" />
+                    ) : (
+                      <Download className="w-4 h-4 text-white" />
+                    )}
+                    <span>{downloadingPdf ? "Création du PDF..." : "Télécharger le PDF"}</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={handlePrintPdf}
+                    disabled={printingPdf}
+                    className="px-4 py-2 bg-black hover:bg-zinc-800 border border-black text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75"
+                    title="Imprimer directement la feuille officielle"
+                  >
+                    {printingPdf ? (
+                      <RotateCw className="w-4 h-4 text-white animate-spin" />
+                    ) : (
+                      <Printer className="w-4 h-4 text-white" />
+                    )}
+                    <span>{printingPdf ? "Préparation..." : "Imprimer"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* FEUILLE OFFICIELLE DÛMENT REMPLIE */}
+              <div
+                ref={sheetRef}
+                className="bg-white rounded-2xl border border-slate-300 shadow-xl p-6 sm:p-10 space-y-6 max-w-4xl mx-auto print:border-none print:shadow-none print:p-0 print:m-0 print:max-w-none print:w-full print-sheet"
+              >
+                {/* EN-TÊTE OFFICIEL DE LA FEUILLE */}
+                <div className="pb-3 border-b border-slate-200">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="flex items-center gap-3.5">
+                      {selectedRequest.organizationLogo && (
+                        <img
+                          src={selectedRequest.organizationLogo}
+                          alt={selectedRequest.organizationName || "Logo Entreprise"}
+                          className="max-h-14 max-w-[190px] object-contain drop-shadow-xs"
+                        />
+                      )}
+                      <div>
+                        <h2 className="text-base sm:text-lg font-black uppercase tracking-wide text-[#062653]">
+                          {selectedRequest.organizationName || "ENTREPRISE PARTENAIRE"}
+                        </h2>
+                        <p className="text-[11px] text-slate-500 font-medium uppercase tracking-wider">
+                          Direction des Ressources Humaines • Gestion des Absences & Congés
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="text-right">
+                      <span className="inline-block px-3 py-1 bg-slate-100 border border-slate-300 rounded-lg font-mono font-bold text-xs text-[#062653]">
+                        {selectedRequest.requestNumber}
+                      </span>
+                      <p className="text-[10px] text-slate-500 mt-1">
+                        Déposée le {formatDateDisplay(selectedRequest.submittedAt)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 text-center">
+                    <h1 className="text-sm sm:text-base font-black uppercase tracking-wider text-[#062653]">
+                      Formulaire Officiel de Demande de Congé & d'Absence
+                    </h1>
+                  </div>
+                </div>
+
+                {/* SECTION I : IDENTIFICATION DU COLLABORATEUR (DEMANDEUR) */}
+                <div>
+                  <div
+                    data-pdf-navy-header="true"
+                    className="bg-[#062653] text-white px-3.5 py-1.5 rounded-t-lg font-bold text-xs uppercase tracking-wider flex items-center justify-between"
+                    style={{ backgroundColor: "#062653", color: "#ffffff" }}
+                  >
+                    <span>I. Identification du Collaborateur (Demandeur)</span>
+                    <span className="text-[10px] text-slate-300 font-normal" style={{ color: "#cbd5e1" }}>Fiche Individuelle</span>
+                  </div>
+                  <div className="border border-slate-300 border-t-0 rounded-b-lg divide-y divide-slate-200 text-xs">
+                    <div className="grid grid-cols-2 divide-x divide-slate-200">
+                      <div className="p-3 bg-slate-50/40">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                          Nom & Prénom de l'Employé
+                        </span>
+                        <span className="text-sm font-bold text-[#062653]">
+                          {selectedRequest.firstName} {selectedRequest.lastName}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50/40">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                          Numéro de Matricule Officiel
+                        </span>
+                        <span className="text-sm font-mono font-extrabold text-[#FF7900]">
+                          {selectedRequest.employeeNumber}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-3 divide-x divide-slate-200">
+                      <div className="p-3">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                          Département / Service
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {selectedRequest.department}
+                        </span>
+                      </div>
+                      <div className="p-3">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                          Fonction / Poste Occupé
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {selectedRequest.position}
+                        </span>
+                      </div>
+                      <div className="p-3">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                          Succursale d'Affectation
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {selectedRequest.branch || "Non assignée"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="grid grid-cols-2 divide-x divide-slate-200">
+                      <div className="p-3">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                          Téléphone de Contact (WhatsApp)
+                        </span>
+                        <span className="font-mono font-semibold text-slate-800">
+                          {selectedRequest.contactPhone || "Non renseigné"}
+                        </span>
+                      </div>
+                      <div className="p-3">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                          Courrier Électronique
+                        </span>
+                        <span className="font-semibold text-slate-800">
+                          {selectedRequest.contactEmail || "Non renseigné"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION II : MODALITÉS DU CONGÉ & PÉRIODE D'ABSENCE */}
+                <div>
+                  <div
+                    data-pdf-navy-header="true"
+                    className="bg-[#062653] text-white px-3.5 py-1.5 rounded-t-lg font-bold text-xs uppercase tracking-wider flex items-center justify-between"
+                    style={{ backgroundColor: "#062653", color: "#ffffff" }}
+                  >
+                    <span>II. Modalités du Congé & Période d'Absence</span>
+                    <span className="text-[10px] text-slate-300 font-normal" style={{ color: "#cbd5e1" }}>Dispositions Statutaires</span>
+                  </div>
+                  <div className="border border-slate-300 border-t-0 rounded-b-lg divide-y divide-slate-200 text-xs">
+                    <div className="grid grid-cols-3 divide-x divide-slate-200">
+                      <div className="p-3 bg-slate-50/40">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                          Nature / Type de Congé
+                        </span>
+                        <span className="text-xs font-bold text-[#062653]">
+                          {getLeaveTypeLabel(selectedRequest.leaveType)}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50/40">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                          Période Sollicitée (Dates incluses)
+                        </span>
+                        <span className="font-bold text-slate-800">
+                          Du {formatDateDisplay(selectedRequest.startDate)} au {formatDateDisplay(selectedRequest.endDate)}
+                        </span>
+                      </div>
+                      <div className="p-3 bg-slate-50/40">
+                        <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                          Nombre de Jours Demandés
+                        </span>
+                        <span className="text-sm font-black text-[#062653]">
+                          {selectedRequest.requestedDays} {selectedRequest.requestedDays > 1 ? "jours ouvrés" : "jour ouvré"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="p-3">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                        Remplaçant Proposé pour l'Intérim / Service
+                      </span>
+                      <span className="font-medium text-slate-700">
+                        {selectedRequest.replacementName || "Aucun remplaçant désigné (Prise en charge interne par l'équipe)"}
+                      </span>
+                    </div>
+
+                    <div className="p-3 bg-slate-50/30">
+                      <span className="block text-[10px] font-bold uppercase tracking-wider text-slate-500 mb-0.5">
+                        Motif & Justification de la Demande
+                      </span>
+                      <p className="text-xs text-slate-700 leading-relaxed italic">
+                        « Demande formelle de {getLeaveTypeLabel(selectedRequest.leaveType).toLowerCase()} introduite par le collaborateur dans le cadre des prévisions statutaires en vigueur. »
+                      </p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* SECTION III : CADRE OFFICIEL DES SIGNATURES & VISAS */}
+                <div>
+                  <div
+                    data-pdf-navy-header="true"
+                    className="bg-[#062653] text-white px-3.5 py-1.5 rounded-t-lg font-bold text-xs uppercase tracking-wider flex items-center justify-between"
+                    style={{ backgroundColor: "#062653", color: "#ffffff" }}
+                  >
+                    <span>III. Approbation de l'administration</span>
+                  </div>
+
+                  <div
+                    data-pdf-signatures="true"
+                    className="border border-slate-300 border-t-0 rounded-b-lg p-4 grid grid-cols-2 gap-4 text-xs"
+                    style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "16px" }}
+                  >
+                    {/* À GAUCHE : SIGNATURE DE L'EMPLOYÉ */}
+                    <div className="p-3.5 sm:p-4 rounded-xl border border-slate-300 bg-white flex flex-col justify-between min-h-[175px] shadow-2xs">
+                      <div>
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5 mb-1.5">
+                          <span className="text-[11px] font-bold text-[#062653] flex items-center gap-1.5 shrink-0">
+                            <FileSignature className="w-3.5 h-3.5 text-[#FF7900] shrink-0" />
+                            Signature de l'Employé
+                          </span>
+                          <span className="text-[10px] text-slate-500 font-medium shrink-0">
+                            {formatDateDisplay(selectedRequest.submittedAt)}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-700 leading-normal pt-1">
+                          Fait par : <strong className="text-slate-900 font-bold">{selectedRequest.firstName} {selectedRequest.lastName}</strong>{" "}
+                          <span className="text-slate-500 font-mono text-[11px]">({selectedRequest.employeeNumber})</span>
+                        </div>
+                      </div>
+
+                      {/* Contenu Signature Employé */}
+                      <div className="py-2 flex flex-col items-center justify-center min-h-[70px]">
+                        {selectedRequest.employeeSignature ? (
+                          <img
+                            src={selectedRequest.employeeSignature}
+                            alt={`Signature de ${selectedRequest.firstName} ${selectedRequest.lastName}`}
+                            className="h-16 max-w-[200px] object-contain my-1 drop-shadow-xs"
+                          />
+                        ) : (
+                          <div className="text-center">
+                            <div className="font-windsong text-3xl sm:text-4xl text-[#062653] italic select-none py-1">
+                              {selectedRequest.typedSignatureText || `${selectedRequest.firstName} ${selectedRequest.lastName}`}
+                            </div>
+                            <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider">
+                              Signature officielle certifiée
+                            </span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-slate-200 pt-1.5 flex items-center justify-between text-[10px] text-slate-500">
+                        <span className="italic">Attestation sur l'honneur certifiée</span>
+                        <span>Fait le {formatDateDisplay(selectedRequest.submittedAt)}</span>
+                      </div>
+                    </div>
+
+                    {/* À DROITE : SIGNATURE DE L'ADMINISTRATION */}
+                    <div
+                      className={`p-3.5 sm:p-4 rounded-xl border flex flex-col justify-between min-h-[175px] ${
+                        selectedRequest.status === "APPROVED"
+                          ? "bg-emerald-50/40 border-emerald-300"
+                          : selectedRequest.status === "REJECTED"
+                          ? "bg-rose-50/40 border-rose-300"
+                          : "bg-slate-50/60 border-dashed border-slate-300"
+                      }`}
+                    >
+                      <div>
+                        <div className="flex items-center justify-between gap-2 border-b border-slate-100 pb-1.5 mb-1.5">
+                          <span className="text-[11px] font-bold text-[#062653] flex items-center gap-1.5 shrink-0">
+                            <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                            Signature de l'Administration
+                          </span>
+                          <span
+                            className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                              selectedRequest.status === "APPROVED"
+                                ? "bg-emerald-100 text-emerald-800"
+                                : selectedRequest.status === "REJECTED"
+                                ? "bg-rose-100 text-rose-800"
+                                : "bg-amber-100 text-amber-800"
+                            }`}
+                          >
+                            {selectedRequest.status === "APPROVED"
+                              ? "Accordé & Signé"
+                              : selectedRequest.status === "REJECTED"
+                              ? "Refusé"
+                              : "En attente"}
+                          </span>
+                        </div>
+                        <div className="text-xs text-slate-700 leading-normal pt-1">
+                          {selectedRequest.status === "APPROVED" ? (
+                            <>
+                              Validé par : <strong className="text-slate-900 font-bold">{selectedRequest.signerName || "Direction Générale"}</strong>
+                              {selectedRequest.signerRole && (
+                                <span className="text-slate-500 text-[11px]"> ({formatRoleLabel(selectedRequest.signerRole)})</span>
+                              )}
+                            </>
+                          ) : selectedRequest.status === "REJECTED" ? (
+                            <span className="text-rose-700 font-medium">Décision de refus enregistrée</span>
+                          ) : (
+                            <span className="text-slate-500 italic">Cadre réservé à l'Administration</span>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Contenu Signature Direction */}
+                      <div className="py-2 flex flex-col items-center justify-center min-h-[70px]">
+                        {selectedRequest.status === "APPROVED" ? (
+                          selectedRequest.signatureUrl ? (
+                            <img
+                              src={selectedRequest.signatureUrl}
+                              alt="Signature Direction"
+                              className="h-14 max-w-[200px] object-contain my-1"
+                            />
+                          ) : (
+                            <div className="text-center">
+                              <div className="font-windsong text-2xl text-emerald-800 italic select-none">
+                                {selectedRequest.signerName || "Direction Générale"}
+                              </div>
+                              <span className="text-[9px] font-mono font-bold text-emerald-700 uppercase tracking-widest">
+                                [ VISA NUMÉRIQUE CERTIFIÉ ]
+                              </span>
+                            </div>
+                          )
+                        ) : selectedRequest.status === "REJECTED" ? (
+                          <div className="text-center text-xs text-rose-700 font-semibold p-1">
+                            <div className="font-bold">Demande Non Accordée</div>
+                            {selectedRequest.rejectionReason && (
+                              <div className="text-[11px] font-normal italic mt-0.5">
+                                Motif : « {selectedRequest.rejectionReason} »
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="text-center text-[11px] text-slate-400 italic">
+                            <div className="font-semibold text-slate-500">
+                              En attente de traitement par le Responsable
+                            </div>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="border-t border-slate-200 pt-1.5 flex items-center justify-between text-[10px] text-slate-500">
+                        <span>Cachet & Signature Direction</span>
+                        <span>
+                          {selectedRequest.decidedAt ? formatDateDisplay(selectedRequest.decidedAt) : "Date : En attente"}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* PIED DE PAGE LÉGAL DE LA FEUILLE */}
+                <div className="border-t border-slate-200 pt-4 text-center text-[10px] text-slate-400 space-y-0.5">
+                  <p>
+                    Document officiel de demande de congé généré et certifié électroniquement.
+                  </p>
+                  <p className="font-mono">
+                    Réf: {selectedRequest.requestNumber} • Empreinte de sécurité: {selectedRequest.employeeAccessTokenHash?.substring(0, 16)}...
+                  </p>
+                </div>
+              </div>
+
+              {/* BOTTOM CTA BAR */}
+              <div className="max-w-4xl mx-auto print:hidden pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+                <div className="flex items-center gap-2 text-xs text-slate-600">
+                  <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
+                  <span>Feuille certifiée conforme aux registres de l'entreprise</span>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadPdf}
+                  disabled={downloadingPdf}
+                  className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75 border border-red-600"
+                >
+                  {downloadingPdf ? (
+                    <RotateCw className="w-4 h-4 text-white animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4 text-white" />
+                  )}
+                  <span>Télécharger la feuille officielle en PDF</span>
+                </button>
+              </div>
             </div>
+          ) : (
+            /* LISTE DE MES DEMANDES */
+            <>
+              <div className="flex items-center justify-between">
+                <h2 className="text-base font-bold text-[#062653]">
+                  Historique et statut de mes demandes
+                </h2>
+                <button
+                  onClick={loadMyRequests}
+                  className="text-xs text-[#64748B] hover:text-[#062653] flex items-center gap-1 font-semibold cursor-pointer"
+                >
+                  <RefreshCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin" : ""}`} />
+                  <span>Actualiser</span>
+                </button>
+              </div>
+
+              {loadingRequests ? (
+                <div className="bg-white rounded-2xl p-12 text-center border border-[#DCE2EA]">
+                  <RefreshCw className="w-6 h-6 animate-spin text-[#062653] mx-auto mb-2" />
+                  <p className="text-xs text-[#64748B]">Chargement de vos demandes...</p>
+                </div>
+              ) : visibleRequests.length === 0 ? (
+                <div className="bg-white rounded-2xl p-12 text-center border border-[#DCE2EA] shadow-xs">
+                  <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
+                    <FileText className="w-6 h-6" />
+                  </div>
+                  <h3 className="text-sm font-bold text-[#062653]">Aucune demande pour le moment</h3>
+                  <p className="text-xs text-[#64748B] mt-1 max-w-sm mx-auto">
+                    Vous n'avez pas encore soumis de demande de congé. Cliquez sur "Nouvelle demande" pour en formuler une.
+                  </p>
+                  <button
+                    onClick={() => setActiveTab("form")}
+                    className="mt-4 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
+                  >
+                    Faire une demande de congé
+                  </button>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3">
+                  {visibleRequests.map((req, idx) => (
+                    <div
+                      key={`${req.id}-${idx}`}
+                      className="bg-white p-5 rounded-2xl border border-[#DCE2EA] shadow-xs hover:border-slate-300 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-xs font-bold text-[#062653] bg-slate-100 px-2 py-0.5 rounded-md">
+                            {req.requestNumber}
+                          </span>
+                          <span className="text-xs font-bold text-[#062653]">
+                            {getLeaveTypeLabel(req.leaveType)}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 text-xs text-[#64748B]">
+                          <div className="flex items-center gap-1.5 text-slate-700 font-medium">
+                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                            <span>
+                              Du <strong>{req.startDate}</strong> au <strong>{req.endDate}</strong>
+                            </span>
+                          </div>
+                          <span>•</span>
+                          <span>
+                            Durée : <strong>{req.requestedDays} jour(s)</strong>
+                          </span>
+                          {req.replacementName && (
+                            <>
+                              <span>•</span>
+                              <span>Remplaçant : {req.replacementName}</span>
+                            </>
+                          )}
+                        </div>
+
+                        {req.status === "REJECTED" && req.rejectionReason && (
+                          <div className="mt-2 text-xs text-rose-700 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+                            <strong>Motif du refus :</strong> {req.rejectionReason}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="shrink-0 flex items-center md:flex-col md:items-end gap-2.5">
+                        <div className="flex items-center gap-2">
+                          {getStatusBadge(req.status)}
+                          <button
+                            type="button"
+                            onClick={() => handleViewRequest(req)}
+                            disabled={loadingDetail}
+                            className="px-3 py-1.5 rounded-lg bg-[#062653] hover:bg-[#031B3A] text-white flex items-center gap-1.5 text-xs font-semibold transition-all shadow-xs cursor-pointer active:scale-95 disabled:opacity-50"
+                            title="Voir la feuille officielle & Télécharger le PDF"
+                          >
+                            {loadingDetail && selectedRequest?.id === req.id ? (
+                              <RotateCw className="w-3.5 h-3.5 animate-spin text-white" />
+                            ) : (
+                              <Eye className="w-3.5 h-3.5 text-white" />
+                            )}
+                            <span>Voir la feuille</span>
+                          </button>
+
+                          {/* Bouton Supprimer : TOUJOURS EN ROUGE (Supprime de l'interface uniquement) */}
+                          <button
+                            type="button"
+                            onClick={() => handleHideFromView(req.id, req.requestNumber)}
+                            className="w-8 h-8 rounded-lg bg-red-500 hover:bg-red-600 active:bg-red-700 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer shrink-0"
+                            title="Supprimer de mon affichage (ne supprime pas de la base de données)"
+                          >
+                            <Trash2 className="w-4 h-4 text-white shrink-0" />
+                          </button>
+                        </div>
+                        <span className="text-[11px] text-[#64748B]">
+                          Soumis le {formatDateDisplay(req.submittedAt)}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
       )}
+
     </div>
   );
 }

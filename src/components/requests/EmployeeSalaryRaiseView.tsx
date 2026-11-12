@@ -15,6 +15,7 @@ import {
   RefreshCw,
   Plus,
 } from "lucide-react";
+import { showSystemToast } from "@/components/ui/SystemToast";
 
 interface EmployeeProfile {
   id?: string;
@@ -70,8 +71,6 @@ export function EmployeeSalaryRaiseView() {
   const [reason, setReason] = useState("");
 
   const [submitting, setSubmitting] = useState(false);
-  const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   // Load employee profile & listen for profile updates
   useEffect(() => {
@@ -129,21 +128,19 @@ export function EmployeeSalaryRaiseView() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setErrorMsg(null);
-    setSuccessMsg(null);
 
     if (!currentSalary.trim()) {
-      setErrorMsg("Veuillez renseigner votre salaire actuel estimé.");
+      showSystemToast("Veuillez renseigner votre salaire actuel estimé.", "error");
       return;
     }
 
     if (!requestedSalary.trim()) {
-      setErrorMsg("Veuillez renseigner le salaire souhaité.");
+      showSystemToast("Veuillez renseigner le salaire souhaité.", "error");
       return;
     }
 
     if (!reason.trim()) {
-      setErrorMsg("Veuillez fournir un motif ou une justification pour votre demande.");
+      showSystemToast("Veuillez fournir un motif ou une justification pour votre demande.", "error");
       return;
     }
 
@@ -158,7 +155,7 @@ export function EmployeeSalaryRaiseView() {
         employeeName: profile ? `${profile.firstName} ${profile.lastName}` : "Collaborateur",
         employeeNumber: profile?.employeeNumber || "COLLAB",
         department: profile?.department || "Non renseigné",
-        branch: profile?.branch || "Siège Principal",
+        branch: profile?.branch || "",
         currentSalary: currentSalary || "Non spécifié",
         requestedSalary,
         currency,
@@ -170,14 +167,14 @@ export function EmployeeSalaryRaiseView() {
       const updated = [newReq, ...allRequests];
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
 
-      setSuccessMsg(`Votre demande d'augmentation (Réf: ${newReq.id}) a été transmise à la Direction.`);
+      showSystemToast(`Votre demande d'augmentation (Réf: ${newReq.id}) a été transmise à la Direction.`);
       setRequestedSalary("");
       setCurrentSalary("");
       setReason("");
       loadRequests();
       setActiveTab("history");
     } catch (err) {
-      setErrorMsg("Erreur lors de l'enregistrement de la demande.");
+      showSystemToast("Erreur lors de l'enregistrement de la demande.", "error");
     } finally {
       setSubmitting(false);
     }
@@ -298,37 +295,6 @@ export function EmployeeSalaryRaiseView() {
           )}
         </button>
       </div>
-
-      {/* Alertes */}
-      {successMsg && (
-        <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{successMsg}</span>
-          </div>
-          <button
-            onClick={() => setSuccessMsg(null)}
-            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {errorMsg && (
-        <div className="p-4 bg-rose-50 border border-rose-200 text-rose-900 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-            <span>{errorMsg}</span>
-          </div>
-          <button
-            onClick={() => setErrorMsg(null)}
-            className="text-rose-700 hover:text-rose-900 text-xs font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
 
       {/* FORMULAIRE DIRECT */}
       {activeTab === "form" && (
@@ -457,9 +423,9 @@ export function EmployeeSalaryRaiseView() {
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-3">
-              {myRequests.map((req) => (
+              {myRequests.map((req, idx) => (
                 <div
-                  key={req.id}
+                  key={`${req.id}-${idx}`}
                   className="bg-white p-5 rounded-2xl border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
                 >
                   <div className="space-y-2">

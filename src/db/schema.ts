@@ -1,5 +1,6 @@
-import { sqliteTable, text, integer, index, uniqueIndex } from "drizzle-orm/sqlite-core";
+import { sqliteTable, text, integer, index, uniqueIndex, real, sqliteTableCreator } from "drizzle-orm/sqlite-core";
 import { relations } from "drizzle-orm";
+import { UserSearch } from "lucide-react";
 
 // ----------------------------------------------------
 // ORGANIZATIONS (Tenants)
@@ -15,11 +16,18 @@ export const organizations = sqliteTable(
     phone: text("phone"),
     address: text("address"),
     status: text("status", { enum: ["ACTIVE", "DISABLED"] }).notNull().default("ACTIVE"),
-    matriculeFormat: text("matricule_format").default("INITIALS_BRANCH_SEQ"),
+    matriculeFormat: text("matricule_format").default("FULLNAME_SEQ"),
     matriculePrefix: text("matricule_prefix"),
     primaryCurrency: text("primary_currency").default("HTG"),
     dateFormat: text("date_format").default("DD/MM/YYYY"),
     language: text("language").default("fr"),
+    activatedAt: integer("activated_at"),
+    lastRenewedAt: integer("last_renewed_at"),
+    subscriptionExpiresAt: integer("subscription_expires_at"),
+    serviceStopped: integer("service_stopped", { mode: "boolean" }).notNull().default(false),
+    serviceStoppedAt: integer("service_stopped_at"),
+    lastReminderType: text("last_reminder_type"),
+    lastReminderCycleExp: integer("last_reminder_cycle_exp"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
@@ -43,6 +51,8 @@ export const users = sqliteTable(
     passwordHash: text("password_hash").notNull(),
     role: text("role").notNull(),
     status: text("status", { enum: ["ACTIVE", "DISABLED"] }).notNull().default("ACTIVE"),
+    lastLoginAt: integer("last_login_at"),
+    lastSeenAt: integer("last_seen_at"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
@@ -164,6 +174,7 @@ export const auditLogs = sqliteTable(
         "CANCELLED",
         "NOTIFICATION_SENT",
         "NOTIFICATION_FAILED",
+        "USER_LOGIN",
       ],
     }).notNull(),
     oldStatus: text("old_status"),
@@ -242,7 +253,7 @@ export const usersRelations = relations(users, ({ one, many }) => ({
 }));
 
 export const leaveRequestsRelations = relations(leaveRequests, ({ one, many }) => ({
-  organization: one(organizations, {
+  organization : one(organizations, {
     fields: [leaveRequests.organizationId],
     references: [organizations.id],
   }),
@@ -290,7 +301,6 @@ export const branches = sqliteTable(
     organizationId: text("organization_id")
       .notNull()
       .references(() => organizations.id),
-    code: text("code").notNull(),
     name: text("name").notNull(),
     city: text("city").notNull(),
     address: text("address"),
@@ -311,8 +321,8 @@ export const branchesRelations = relations(branches, ({ one, many }) => ({
     fields: [branches.organizationId],
     references: [organizations.id],
   }),
-  employees: many(employees),
-  users: many(users),
+  employees : many(employees),
+  users : many(users),
   leaveRequests: many(leaveRequests),
 }));
 
@@ -367,3 +377,169 @@ export const organizationRoles = sqliteTable(
 
 export type OrganizationRole = typeof organizationRoles.$inferSelect;
 export type InsertOrganizationRole = typeof organizationRoles.$inferInsert;
+
+// ----------------------------------------------------
+// CASH RUBRIQUES (Configurable cash entry categories per organization)
+// ----------------------------------------------------
+export const cashRubriques = sqliteTable(
+  "cash_rubriques",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    name: text("name").notNull(),
+    currency: text("currency", { enum: ["HTG", "USD"] }).notNull().default("HTG"),
+    orderIndex: integer("order_index").notNull().default(0),
+    isActive: integer("is_active", { mode: "boolean" }).notNull().default(true),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("cash_rub_org_idx").on(table.organizationId),
+  ]
+);
+
+export type CashRubrique = typeof cashRubriques.$inferSelect;
+export type InsertCashRubrique = typeof cashRubriques.$inferInsert;
+
+// ----------------------------------------------------
+// CASHIER DAILY ENTRIES (Daily income entries per cashier/date)
+// ----------------------------------------------------
+export const cashierDailyEntries = sqliteTable(
+  "cashier_daily_entries",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    branchId: text("branch_id"),
+    cashierId: text("cashier_id").notNull(),
+    cashierName: text("cashier_name").notNull(),
+    cashierMatricule: text("cashier_matricule"),
+    entryDate: text("entry_date").notNull(), // YYYY-MM-DD
+    amounts: text("amounts").notNull(), // JSON Record<rubriqueId, number>
+    totalHtg: real("total_htg").notNull().default(0),
+    totalUsd: real("total_usd").notNull().default(0),
+    notes: text("notes"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("cash_entry_org_date_idx").on(table.organizationId, table.entryDate),
+    index("cash_entry_cashier_idx").on(table.cashierId),
+  ]
+);
+
+export type CashierDailyEntry = typeof cashierDailyEntries.$inferSelect;
+export type InsertCashierDailyEntry = typeof cashierDailyEntries.$inferInsert;
+
+// ----------------------------------------------------
+// COMPANY EVENTS (Événements d'entreprise & personnels)
+// ----------------------------------------------------
+export const companyEvents = sqliteTable(
+  "company_events",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    title: text("title").notNull(),
+    description: text("description"),
+    eventDate: text("event_date").notNull(), // YYYY-MM-DD
+    startTime: text("start_time").notNull().default("09:00"),
+    endTime: text("end_time").notNull().default("10:00"),
+    eventType: text("event_type").notNull(), // MEETING | TRAINING | HOLIDAY | ANNOUNCEMENT | WORKSHOP | PERSONAL
+    personalCategory: text("personal_category"),
+    location: text("location"),
+    audienceType: text("audience_type"), // ALL_EMPLOYEES | DEPARTMENT | BRANCH | CUSTOM
+    audienceTargetName: text("audience_target_name"),
+    audienceBranchId: text("audience_branch_id"),
+    targetEmployeeIds: text("target_employee_ids"), // JSON string[] of employee IDs
+    notifyImmediate: integer("notify_immediate", { mode: "boolean" }).notNull().default(true),
+    reminder24h: integer("reminder_24h", { mode: "boolean" }).notNull().default(true),
+    isPersonal: integer("is_personal", { mode: "boolean" }).notNull().default(false),
+    creatorUserId: text("creator_user_id"),
+    creatorEmployeeId: text("creator_employee_id"),
+    creatorEmployeeNumber: text("creator_employee_number"),
+    creatorName: text("creator_name"),
+    recipientsCount: integer("recipients_count").notNull().default(0),
+    emailsSentCount: integer("emails_sent_count").notNull().default(0),
+    emailsFailedCount: integer("emails_failed_count").notNull().default(0),
+    createdAt: integer("created_at").notNull(),
+  },
+  (table) => [
+    index("company_events_org_idx").on(table.organizationId),
+    index("company_events_date_idx").on(table.organizationId, table.eventDate),
+  ]
+);
+
+export type CompanyEventRow = typeof companyEvents.$inferSelect;
+export type InsertCompanyEventRow = typeof companyEvents.$inferInsert;
+
+// ----------------------------------------------------
+// PLATFORM SUBSCRIPTION SETTINGS (Tarifs & Comptes SuperAdmin)
+// ----------------------------------------------------
+export const platformSubscriptionSettings = sqliteTable("platform_subscription_settings", {
+  id: text("id").primaryKey(),
+  trialMonths: integer("trial_months").notNull().default(1),
+  currency: text("currency").notNull().default("USD"),
+  priceMonthly: real("price_monthly").notNull().default(50),
+  priceQuarterly: real("price_quarterly").notNull().default(135),
+  priceSemiannual: real("price_semiannual").notNull().default(255),
+  priceAnnual: real("price_annual").notNull().default(510),
+  discountQuarterlyPct: real("discount_quarterly_pct").notNull().default(10),
+  discountSemiannualPct: real("discount_semiannual_pct").notNull().default(15),
+  discountAnnualPct: real("discount_annual_pct").notNull().default(15),
+  paymentAccounts: text("payment_accounts").notNull(),
+  autoMessageTitle: text("auto_message_title").notNull(),
+  autoMessageBody: text("auto_message_body").notNull(),
+  superAdminAlertEmail: text("super_admin_alert_email"),
+  updatedAt: integer("updated_at").notNull(),
+});
+
+export type PlatformSubscriptionSettings = typeof platformSubscriptionSettings.$inferSelect;
+export type InsertPlatformSubscriptionSettings = typeof platformSubscriptionSettings.$inferInsert;
+
+// ----------------------------------------------------
+// SUBSCRIPTION RENEWALS (Références soumises & historique)
+// ----------------------------------------------------
+export const subscriptionRenewals = sqliteTable(
+  "subscription_renewals",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id")
+      .notNull()
+      .references(() => organizations.id),
+    durationMonths: integer("duration_months").notNull(),
+    amountExpected: real("amount_expected").notNull().default(0),
+    currency: text("currency").notNull().default("USD"),
+    paymentMethod: text("payment_method").notNull(),
+    paymentReference: text("payment_reference"),
+    payerCompanyName: text("payer_company_name"),
+    payerNote: text("payer_note"),
+    proofDataUrl: text("proof_data_url"),
+    proofFileName: text("proof_file_name"),
+    status: text("status", { enum: ["PENDING", "APPROVED", "REJECTED"] })
+      .notNull()
+      .default("PENDING"),
+    periodStart: integer("period_start"),
+    periodEnd: integer("period_end"),
+    submittedByUserId: text("submitted_by_user_id"),
+    submittedByName: text("submitted_by_name"),
+    submittedByEmail: text("submitted_by_email"),
+    reviewedByUserId: text("reviewed_by_user_id"),
+    reviewedByName: text("reviewed_by_name"),
+    reviewedAt: integer("reviewed_at"),
+    rejectionReason: text("rejection_reason"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("sub_renewals_org_idx").on(table.organizationId),
+    index("sub_renewals_status_idx").on(table.organizationId, table.status),
+  ]
+);
+
+export type SubscriptionRenewal = typeof subscriptionRenewals.$inferSelect;
+export type InsertSubscriptionRenewal = typeof subscriptionRenewals.$inferInsert;

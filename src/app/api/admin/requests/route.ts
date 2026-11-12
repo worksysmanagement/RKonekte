@@ -25,8 +25,13 @@ export async function GET(req: NextRequest) {
 
     const isEmployee =
       user.role === "EMPLOYEE" ||
+      user.role === "COLLABORATEUR" ||
+      user.role === "CASHIER" ||
+      user.role === "CAISSIER" ||
       user.role?.toLowerCase().includes("employ") ||
-      user.role?.toLowerCase().includes("collab");
+      user.role?.toLowerCase().includes("collab") ||
+      user.role?.toLowerCase().includes("caissier") ||
+      user.role?.toLowerCase().includes("cashier");
 
     const result = await listLeaveRequests(organizationId, {
       page,

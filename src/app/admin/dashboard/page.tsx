@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -39,6 +39,7 @@ interface RequestItem {
   requestNumber: string;
   firstName: string;
   lastName: string;
+  employeeNumber?: string;
   department: string;
   position: string;
   leaveType: string;
@@ -47,6 +48,8 @@ interface RequestItem {
   requestedDays: number;
   status: string;
   submittedAt: number;
+  branchId?: string | null;
+  branch?: string | null;
 }
 
 interface EmployeeItem {
@@ -59,11 +62,12 @@ interface EmployeeItem {
   phone: string;
   email?: string | null;
   status: string;
+  branchId?: string | null;
+  branch?: string | null;
 }
 
 interface BranchItem {
   id: string;
-  code: string;
   name: string;
   city: string;
   address?: string | null;
@@ -78,6 +82,7 @@ interface UserItem {
   email: string;
   role: string;
   status: string;
+  branchId?: string | null;
 }
 
 type ModalCategory =
@@ -109,6 +114,26 @@ export default function AdminDashboardPage() {
   // Eye Modal state
   const [activeModal, setActiveModal] = useState<ModalCategory>(null);
   const [mounted, setMounted] = useState(false);
+
+  // Active branch context
+  const [activeBranchId, setActiveBranchId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("rk_active_branch");
+      if (saved && saved !== "all") return saved;
+    }
+    return "all";
+  });
+
+  useEffect(() => {
+    const handleBranchChange = (e: any) => {
+      const bId = e.detail?.branchId;
+      if (bId !== undefined) {
+        setActiveBranchId(bId);
+      }
+    };
+    window.addEventListener("branchChange", handleBranchChange);
+    return () => window.removeEventListener("branchChange", handleBranchChange);
+  }, []);
 
   useEffect(() => {
     setMounted(true);
@@ -145,7 +170,13 @@ export default function AdminDashboardPage() {
 
         const role = permsData?.role || "";
         const p = permsData?.permissions;
-        const isEmp = role === "EMPLOYEE" || role === "COLLABORATEUR";
+        const isEmp =
+          role === "EMPLOYEE" ||
+          role === "COLLABORATEUR" ||
+          role === "CASHIER" ||
+          role === "CAISSIER" ||
+          role.toLowerCase().includes("caissier") ||
+          role.toLowerCase().includes("cashier");
 
         // Access check: If dashboard view is explicitly false or if employee without explicit dashboard access
         const hasDashboardAccess = p?.dashboard !== undefined ? Boolean(p.dashboard.view) : !isEmp;
@@ -173,7 +204,13 @@ export default function AdminDashboardPage() {
     loadData();
   }, [router]);
 
-  const isEmployee = userRole === "EMPLOYEE" || userRole === "COLLABORATEUR";
+  const isEmployee =
+    userRole === "EMPLOYEE" ||
+    userRole === "COLLABORATEUR" ||
+    userRole === "CASHIER" ||
+    userRole === "CAISSIER" ||
+    (typeof userRole === "string" &&
+      (userRole.toLowerCase().includes("caissier") || userRole.toLowerCase().includes("cashier")));
   const canSeeDashboard = userPermissions?.dashboard
     ? userPermissions.dashboard.view
     : userPermissions
@@ -185,15 +222,58 @@ export default function AdminDashboardPage() {
   const canSeeBranchesDetail = userPermissions?.branches ? userPermissions.branches.view : !isEmployee;
   const canSeeUsersDetail = userPermissions?.users ? userPermissions.users.view : !isEmployee;
 
+  const activeBranchObj = useMemo(() => {
+    if (activeBranchId === "all" || activeBranchId === "ALL") return null;
+    return branches.find((b) => b.id === activeBranchId) || null;
+  }, [branches, activeBranchId]);
+
+  const branchEmployees = useMemo(() => {
+    if (activeBranchId === "all" || activeBranchId === "ALL") return employees;
+    const brObj = branches.find((b) => b.id === activeBranchId);
+    return employees.filter(
+      (e: EmployeeItem) =>
+        e.branchId === activeBranchId ||
+        (brObj && e.branch === brObj.name) ||
+        (brObj?.name && e.branch?.toLowerCase().includes(brObj.name.toLowerCase()))
+    );
+  }, [employees, activeBranchId, branches]);
+
+  const branchRequests = useMemo(() => {
+    if (activeBranchId === "all" || activeBranchId === "ALL") return requests;
+    const brObj = branches.find((b) => b.id === activeBranchId);
+    const empNumbers = new Set(branchEmployees.map((e: EmployeeItem) => e.employeeNumber));
+    return requests.filter(
+      (r: RequestItem) =>
+        (r.branchId && r.branchId === activeBranchId) ||
+        (brObj && r.branch === brObj.name) ||
+        (r.employeeNumber && empNumbers.has(r.employeeNumber))
+    );
+  }, [requests, activeBranchId, branches, branchEmployees]);
+
+  const branchUsers = useMemo(() => {
+    if (activeBranchId === "all" || activeBranchId === "ALL") return users;
+    return users.filter((u: UserItem) => u.branchId === activeBranchId);
+  }, [users, activeBranchId]);
+
+  const effectiveMetrics = useMemo(() => {
+    if (activeBranchId === "all" || activeBranchId === "ALL") return metrics;
+    return {
+      total: branchRequests.length,
+      pending: branchRequests.filter((r: RequestItem) => r.status === "PENDING").length,
+      approved: branchRequests.filter((r: RequestItem) => r.status === "APPROVED").length,
+      rejected: branchRequests.filter((r: RequestItem) => r.status === "REJECTED").length,
+    };
+  }, [metrics, activeBranchId, branchRequests]);
+
   // Filter requests based on active modal
   const filteredRequests =
     activeModal === "pending"
-      ? requests.filter((r) => r.status === "PENDING")
+      ? branchRequests.filter((r: RequestItem) => r.status === "PENDING")
       : activeModal === "approved"
-      ? requests.filter((r) => r.status === "APPROVED")
+      ? branchRequests.filter((r: RequestItem) => r.status === "APPROVED")
       : activeModal === "rejected"
-      ? requests.filter((r) => r.status === "REJECTED")
-      : requests;
+      ? branchRequests.filter((r: RequestItem) => r.status === "REJECTED")
+      : branchRequests;
 
   if (loading || !canSeeDashboard) {
     return (
@@ -209,9 +289,18 @@ export default function AdminDashboardPage() {
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#062653] tracking-tight">Tableau de bord</h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold text-[#062653] tracking-tight">Tableau de bord</h1>
+            {activeBranchObj && (
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                {activeBranchObj.name} ({activeBranchObj.city})
+              </span>
+            )}
+          </div>
           <p className="text-xs text-[#64748B] mt-1">
-            Synthèse opérationnelle et gestion des activités de l'entreprise.
+            {activeBranchObj
+              ? `Synthèse opérationnelle filtrée pour la succursale ${activeBranchObj.name}.`
+              : "Synthèse opérationnelle consolidée de toutes les succursales."}
           </p>
         </div>
 
@@ -267,7 +356,7 @@ export default function AdminDashboardPage() {
                 <KpiIcon src="/icons/kpi/employees.png" className="w-8 h-8 sm:w-9 sm:h-9 text-white" />
               </div>
               <div className="mt-3 text-4xl sm:text-[42px] font-black tracking-tight text-white">
-                {loading ? "..." : employees.length}
+                {loading ? "..." : branchEmployees.length}
               </div>
             </div>
             <div className="mt-4 text-xs font-semibold text-teal-100/90">
@@ -329,7 +418,7 @@ export default function AdminDashboardPage() {
                 <KpiIcon src="/icons/kpi/registered-users.png" className="w-8 h-8 sm:w-9 sm:h-9 text-[#062653]" />
               </div>
               <div className="mt-3 text-4xl sm:text-[42px] font-black tracking-tight text-[#062653]">
-                {loading ? "..." : users.length}
+                {loading ? "..." : branchUsers.length}
               </div>
             </div>
             <div className="mt-4 text-xs font-semibold text-[#64748B]">
@@ -368,7 +457,7 @@ export default function AdminDashboardPage() {
                 <KpiIcon src="/icons/kpi/total-demandes.png" className="w-8 h-8 sm:w-9 sm:h-9 text-white" />
               </div>
               <div className="mt-3 text-4xl sm:text-[42px] font-black tracking-tight text-white">
-                {loading ? "..." : metrics.total}
+                {loading ? "..." : effectiveMetrics.total}
               </div>
             </div>
             <div className="mt-4 text-xs font-semibold text-blue-100/90">
@@ -397,7 +486,7 @@ export default function AdminDashboardPage() {
                 <KpiIcon src="/icons/kpi/en-attente.png" className="w-8 h-8 sm:w-9 sm:h-9 text-white" />
               </div>
               <div className="mt-3 text-4xl sm:text-[42px] font-black tracking-tight text-white">
-                {loading ? "..." : metrics.pending}
+                {loading ? "..." : effectiveMetrics.pending}
               </div>
             </div>
             <div className="mt-4 text-xs font-semibold text-amber-100/95">
@@ -426,7 +515,7 @@ export default function AdminDashboardPage() {
                 <KpiIcon src="/icons/kpi/approuvees.png" className="w-8 h-8 sm:w-9 sm:h-9 text-white" />
               </div>
               <div className="mt-3 text-4xl sm:text-[42px] font-black tracking-tight text-white">
-                {loading ? "..." : metrics.approved}
+                {loading ? "..." : effectiveMetrics.approved}
               </div>
             </div>
             <div className="mt-4 text-xs font-semibold text-emerald-100/95">
@@ -455,7 +544,7 @@ export default function AdminDashboardPage() {
                 <KpiIcon src="/icons/kpi/refusees.png" className="w-8 h-8 sm:w-9 sm:h-9 text-white" />
               </div>
               <div className="mt-3 text-4xl sm:text-[42px] font-black tracking-tight text-white">
-                {loading ? "..." : metrics.rejected}
+                {loading ? "..." : effectiveMetrics.rejected}
               </div>
             </div>
             <div className="mt-4 text-xs font-semibold text-rose-100/95">
@@ -506,11 +595,11 @@ export default function AdminDashboardPage() {
                   </h2>
                   <p className="text-xs text-[#64748B]">
                     {activeModal === "employees"
-                      ? `${employees.length} employé(s) actif(s)`
+                      ? `${branchEmployees.length} employé(s) actif(s)`
                       : activeModal === "branches"
                       ? `${branches.length} succursale(s) répertoriée(s)`
                       : activeModal === "users"
-                      ? `${users.length} compte(s) utilisateur(s)`
+                      ? `${branchUsers.length} compte(s) utilisateur(s)`
                       : `${filteredRequests.length} demande(s) trouvée(s)`}
                   </p>
                 </div>
@@ -551,7 +640,7 @@ export default function AdminDashboardPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#DCE2EA]">
-                        {filteredRequests.map((req) => (
+                        {filteredRequests.map((req: RequestItem) => (
                           <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
                             <td className="px-4 py-3 font-mono font-bold text-[#062653]">
                               {req.requestNumber}
@@ -587,9 +676,9 @@ export default function AdminDashboardPage() {
 
               {/* EMPLOYEES TABLE */}
               {activeModal === "employees" && (
-                employees.length === 0 ? (
+                branchEmployees.length === 0 ? (
                   <div className="text-center py-12 text-slate-400 text-xs">
-                    Aucun employé enregistré pour le moment.
+                    Aucun employé enregistré pour cette succursale pour le moment.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -605,7 +694,7 @@ export default function AdminDashboardPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#DCE2EA]">
-                        {employees.map((emp) => (
+                        {branchEmployees.map((emp: EmployeeItem) => (
                           <tr key={emp.id} className="hover:bg-slate-50/70 transition-colors">
                             <td className="px-4 py-3 font-mono font-bold text-[#062653]">
                               {emp.employeeNumber}
@@ -640,7 +729,6 @@ export default function AdminDashboardPage() {
                     <table className="w-full text-left text-xs">
                       <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-[#DCE2EA]">
                         <tr>
-                          <th className="px-4 py-3">Code</th>
                           <th className="px-4 py-3">Nom de la succursale</th>
                           <th className="px-4 py-3">Ville</th>
                           <th className="px-4 py-3">Responsable</th>
@@ -651,10 +739,7 @@ export default function AdminDashboardPage() {
                       <tbody className="divide-y divide-[#DCE2EA]">
                         {branches.map((br) => (
                           <tr key={br.id} className="hover:bg-slate-50/70 transition-colors">
-                            <td className="px-4 py-3 font-mono font-bold text-[#062653]">
-                              {br.code}
-                            </td>
-                            <td className="px-4 py-3 font-semibold text-[#263445]">
+                            <td className="px-4 py-3 font-bold text-[#062653]">
                               {br.name}
                             </td>
                             <td className="px-4 py-3 text-[#64748B]">{br.city}</td>
@@ -675,9 +760,9 @@ export default function AdminDashboardPage() {
 
               {/* USERS TABLE */}
               {activeModal === "users" && (
-                users.length === 0 ? (
+                branchUsers.length === 0 ? (
                   <div className="text-center py-12 text-slate-400 text-xs">
-                    Aucun utilisateur trouvé pour le moment.
+                    Aucun utilisateur trouvé pour cette succursale pour le moment.
                   </div>
                 ) : (
                   <div className="overflow-x-auto">
@@ -691,7 +776,7 @@ export default function AdminDashboardPage() {
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[#DCE2EA]">
-                        {users.map((u) => (
+                        {branchUsers.map((u: UserItem) => (
                           <tr key={u.id} className="hover:bg-slate-50/70 transition-colors">
                             <td className="px-4 py-3 font-semibold text-[#263445]">{u.name}</td>
                             <td className="px-4 py-3 text-[#64748B] font-mono">{u.email}</td>

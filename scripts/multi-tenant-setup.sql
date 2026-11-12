@@ -23,7 +23,6 @@ CREATE INDEX IF NOT EXISTS leave_branch_idx ON public.leave_requests(organizatio
 INSERT INTO public.branches (
   id,
   organization_id,
-  code,
   name,
   city,
   address,
@@ -36,7 +35,6 @@ INSERT INTO public.branches (
 SELECT 
   'br-' || id || '-siege',
   id,
-  'SIEGE',
   'Siege Principal',
   COALESCE(address, 'Port-au-Prince'),
   address,
@@ -55,7 +53,7 @@ SET branch_id = b.id
 FROM public.branches b
 WHERE e.branch_id IS NULL 
   AND e.organization_id = b.organization_id 
-  AND b.code = 'SIEGE';
+  AND b.id = 'br-' || e.organization_id || '-siege';
 
 -- 6. Activation Row Level Security sur toutes les tables
 ALTER TABLE IF EXISTS public.organizations ENABLE ROW LEVEL SECURITY;

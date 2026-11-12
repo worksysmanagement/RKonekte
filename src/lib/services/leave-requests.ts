@@ -11,6 +11,7 @@ import { generateSecureToken, hashToken, generateRequestNumber } from "@/lib/sec
 import { SubmitLeaveRequestInput } from "@/lib/validation/schemas";
 import { notifySecretaryNewRequest, notifyEmployeeDecision } from "@/lib/notifications/service";
 import { supabaseDb } from "@/lib/supabase/db";
+import { isSubscriptionAccessBlocked } from "@/lib/utils/subscription";
 
 export interface CreateLeaveRequestResult {
   leaveRequest: LeaveRequest;
@@ -41,6 +42,11 @@ export async function createLeaveRequest(
 
   if (!org) {
     throw new Error("Organisation introuvable ou inactive");
+  }
+  if (isSubscriptionAccessBlocked(org)) {
+    throw new Error(
+      "L'abonnement de cette entreprise a expiré ou le service est suspendu."
+    );
   }
 
   // 2. Count total global requests to generate globally unique request number
@@ -114,6 +120,10 @@ export async function createLeaveRequest(
       requestNumber,
       requestedDays: input.requestedDays,
       leaveType: input.leaveType,
+      employeeSignature: (input as any).employeeSignature,
+      signatureMode: (input as any).signatureMode,
+      typedSignatureText: (input as any).typedSignatureText,
+      branch: (input as any).branch,
     }),
     createdAt: now,
   });
@@ -168,6 +178,7 @@ export async function getLeaveRequestByToken(rawToken: string, dbInstance?: any)
       decidedAt: leaveRequests.decidedAt,
       createdAt: leaveRequests.createdAt,
       organizationName: organizations.name,
+      organizationLogo: organizations.logoUrl,
     })
     .from(leaveRequests)
     .innerJoin(organizations, eq(leaveRequests.organizationId, organizations.id))
@@ -189,10 +200,29 @@ export async function getLeaveRequestByToken(rawToken: string, dbInstance?: any)
 
     if (audit?.metadata) {
       try {
-        const meta = JSON.parse(audit.metadata);
-        (req as any).signatureUrl = meta.signatureUrl;
-        (req as any).signerName = meta.signerName;
-        (req as any).signerRole = meta.signerRole;
+        const meta = typeof audit.metadata === "string" ? JSON.parse(audit.metadata) : audit.metadata;
+        (req as any).signatureUrl = meta?.signatureUrl;
+        (req as any).signerName = meta?.signerName;
+        (req as any).signerRole = meta?.signerRole;
+      } catch (_) {}
+    }
+  }
+
+  if (req) {
+    const [submitAudit] = await db
+      .select({ metadata: auditLogs.metadata })
+      .from(auditLogs)
+      .where(and(eq(auditLogs.leaveRequestId, req.id), eq(auditLogs.action, "SUBMITTED")))
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(1);
+
+    if (submitAudit?.metadata) {
+      try {
+        const meta = typeof submitAudit.metadata === "string" ? JSON.parse(submitAudit.metadata) : submitAudit.metadata;
+        (req as any).employeeSignature = meta?.employeeSignature;
+        (req as any).signatureMode = meta?.signatureMode;
+        (req as any).typedSignatureText = meta?.typedSignatureText;
+        (req as any).branch = meta?.branch;
       } catch (_) {}
     }
   }
@@ -224,11 +254,40 @@ export async function getLeaveRequestById(id: string, organizationId: string, db
 
     if (audit?.metadata) {
       try {
-        const meta = JSON.parse(audit.metadata);
-        (req as any).signatureUrl = meta.signatureUrl;
-        (req as any).signerName = meta.signerName;
-        (req as any).signerRole = meta.signerRole;
+        const meta = typeof audit.metadata === "string" ? JSON.parse(audit.metadata) : audit.metadata;
+        (req as any).signatureUrl = meta?.signatureUrl;
+        (req as any).signerName = meta?.signerName;
+        (req as any).signerRole = meta?.signerRole;
       } catch (_) {}
+    }
+  }
+
+  if (req) {
+    const [submitAudit] = await db
+      .select({ metadata: auditLogs.metadata })
+      .from(auditLogs)
+      .where(and(eq(auditLogs.leaveRequestId, req.id), eq(auditLogs.action, "SUBMITTED")))
+      .orderBy(desc(auditLogs.createdAt))
+      .limit(1);
+
+    if (submitAudit?.metadata) {
+      try {
+        const meta = typeof submitAudit.metadata === "string" ? JSON.parse(submitAudit.metadata) : submitAudit.metadata;
+        (req as any).employeeSignature = meta?.employeeSignature;
+        (req as any).signatureMode = meta?.signatureMode;
+        (req as any).typedSignatureText = meta?.typedSignatureText;
+        (req as any).branch = meta?.branch;
+      } catch (_) {}
+    }
+
+    const [org] = await db
+      .select({ name: organizations.name, logoUrl: organizations.logoUrl })
+      .from(organizations)
+      .where(eq(organizations.id, organizationId))
+      .limit(1);
+    if (org) {
+      (req as any).organizationName = org.name;
+      (req as any).organizationLogo = org.logoUrl;
     }
   }
 

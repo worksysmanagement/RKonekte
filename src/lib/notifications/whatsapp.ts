@@ -77,6 +77,33 @@ Lien de consultation :
 ${params.viewUrl}`;
 }
 
+export function buildWhatsAppSalaryRevisionMessage(params: {
+  employeeFirstName: string;
+  reference: string;
+  previousSalary: string;
+  newSalary: string;
+  currency: string;
+  effectiveDate: string;
+  reason?: string;
+  companyName?: string;
+  branchName?: string;
+}): string {
+  const company = params.companyName || "e-biznis";
+  return `Bonjour ${params.employeeFirstName},
+
+Excellente nouvelle ! Votre rémunération au sein de l'entreprise *${company}* a été revalorisée par la direction.
+
+Détails de la revalorisation (${params.reference}) :
+• Entreprise : ${company}${params.branchName ? `\n• Succursale : ${params.branchName}` : ""}
+• Ancien salaire : ${params.previousSalary} ${params.currency}
+• Nouveau salaire : ${params.newSalary} ${params.currency}
+• Date d'effet : ${params.effectiveDate}${params.reason ? `\n• Motif : ${params.reason}` : ""}
+
+📄 Votre document officiel signé (Notification de Revalorisation Salariale) émis par la Direction de ${company} a été enregistré dans votre dossier.
+
+Félicitations et merci pour votre dévouement et votre engagement au quotidien au sein de l'équipe ${company} !`;
+}
+
 /**
  * Optional Cloud API sender (if configured)
  */

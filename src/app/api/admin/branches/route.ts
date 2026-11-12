@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantUser, handleApiError } from "@/lib/auth/guard";
 import { listBranches, createBranch } from "@/lib/services/branches";
 import { getOrganizationById } from "@/lib/services/organizations";
+import { normalizeMatriculeFormat } from "@/lib/utils/matricule";
 
 export async function GET(req: NextRequest) {
   try {
@@ -16,9 +17,12 @@ export async function GET(req: NextRequest) {
         ? {
             id: org.id,
             name: org.name,
+            slug: org.slug,
             phone: org.phone,
             address: org.address,
             email: org.email,
+            matriculeFormat: normalizeMatriculeFormat(org.matriculeFormat),
+            matriculePrefix: org.matriculePrefix || null,
           }
         : null,
     });
@@ -32,9 +36,9 @@ export async function POST(req: NextRequest) {
     const { organizationId } = await requireTenantUser();
     const body = await req.json();
 
-    if (!body.code || !body.name || !body.city) {
+    if (!body.name || !body.city) {
       return NextResponse.json(
-        { error: "Le code, le nom et la ville sont obligatoires." },
+        { error: "Le nom et la ville sont obligatoires." },
         { status: 400 }
       );
     }

@@ -26,8 +26,8 @@ import { CustomSelect } from "@/components/ui/CustomSelect";
 import { showSystemToast } from "@/components/ui/SystemToast";
 import {
   generateEmployeeMatricule,
-  updateMatriculeBranch,
   getNextMatriculeSequence,
+  normalizeMatriculeFormat,
 } from "@/lib/utils/matricule";
 
 const ASSIGNED_ROLES = [
@@ -56,6 +56,10 @@ const ASSIGNED_ROLES = [
     label: "Responsable Financier / Comptable — Management",
   },
   {
+    value: "CASHIER",
+    label: "Caissier(e) — Opérationnel",
+  },
+  {
     value: "EMPLOYEE",
     label: "Collaborateur / Employé — Opérationnel",
   },
@@ -63,11 +67,12 @@ const ASSIGNED_ROLES = [
 
 export default function NewEmployeePage() {
   const router = useRouter();
-  const [branches, setBranches] = useState<Array<{ id: string; code: string; name: string; city: string }>>([]);
-  const [selectedBranch, setSelectedBranch] = useState<{ id: string; code: string; name: string } | null>(null);
+  const [branches, setBranches] = useState<Array<{ id: string; name: string; city: string }>>([]);
+  const [branchesLoaded, setBranchesLoaded] = useState(false);
+  const [selectedBranch, setSelectedBranch] = useState<{ id: string; name: string } | null>(null);
   const [companyCountryIso, setCompanyCountryIso] = useState<string>("ht");
   const [organizationName, setOrganizationName] = useState<string>("");
-  const [orgMatriculeFormat, setOrgMatriculeFormat] = useState<string>("INITIALS_BRANCH_SEQ");
+  const [orgMatriculeFormat, setOrgMatriculeFormat] = useState<string>("FULLNAME_SEQ");
   const [orgMatriculePrefix, setOrgMatriculePrefix] = useState<string | null>(null);
   const [existingMatricules, setExistingMatricules] = useState<string[]>([]);
 
@@ -145,7 +150,9 @@ export default function NewEmployeePage() {
           // Auto-detect country and organization name
           if (data.organization) {
             setOrganizationName(data.organization.name || data.organization.slug || "");
-            if (data.organization.matriculeFormat) setOrgMatriculeFormat(data.organization.matriculeFormat);
+            if (data.organization.matriculeFormat) {
+              setOrgMatriculeFormat(normalizeMatriculeFormat(data.organization.matriculeFormat));
+            }
             if (data.organization.matriculePrefix) setOrgMatriculePrefix(data.organization.matriculePrefix);
             const detected = detectCountryFromPhone(
               data.organization.phone,
@@ -156,64 +163,72 @@ export default function NewEmployeePage() {
             }
           }
 
+          let targetBranch: { id: string; name: string } | null = null;
           if (data.branches && Array.isArray(data.branches) && data.branches.length > 0) {
             setBranches(data.branches);
-            const firstBranch = data.branches[0];
-            setSelectedBranch(firstBranch);
-            
-            // Fetch existing employees to compute the exact next sequential matricule
-            let currentExistingMatricules: string[] = [];
-            try {
-              const empRes = await fetch("/api/admin/employees");
-              if (empRes.ok) {
-                const empData = await empRes.json();
-                if (empData.employees && Array.isArray(empData.employees)) {
-                  currentExistingMatricules = empData.employees.map((e: any) => e.employeeNumber);
-                  setExistingMatricules(currentExistingMatricules);
-                }
-              }
-            } catch (_) {}
-
-            const nextSeq = getNextMatriculeSequence(currentExistingMatricules);
-            const autoNum = generateEmployeeMatricule(
-              data.organization?.name || data.organization?.slug,
-              firstBranch.code,
-              nextSeq,
-              data.organization?.matriculeFormat || "INITIALS_BRANCH_SEQ",
-              data.organization?.matriculePrefix
-            );
-            
-            setFormData((prev) => ({
-              ...prev,
-              branchId: firstBranch.id,
-              branch: firstBranch.name,
-              employeeNumber: prev.employeeNumber || autoNum,
-            }));
+            const savedActive = typeof window !== "undefined" ? localStorage.getItem("rk_active_branch") : null;
+            targetBranch =
+              (savedActive && savedActive !== "all"
+                ? data.branches.find((b: any) => b.id === savedActive)
+                : null) || data.branches[0];
+            setSelectedBranch(targetBranch);
+          } else {
+            setBranches([]);
+            setSelectedBranch(null);
           }
+
+          // Fetch existing employees to compute the exact next sequential matricule
+          let currentExistingMatricules: string[] = [];
+          try {
+            const empRes = await fetch("/api/admin/employees");
+            if (empRes.ok) {
+              const empData = await empRes.json();
+              if (empData.employees && Array.isArray(empData.employees)) {
+                currentExistingMatricules = empData.employees.map((e: any) => e.employeeNumber);
+                setExistingMatricules(currentExistingMatricules);
+              }
+            }
+          } catch (_) {}
+
+          const nextSeq = getNextMatriculeSequence(currentExistingMatricules);
+          const autoNum = generateEmployeeMatricule(
+            data.organization?.name || data.organization?.slug,
+            nextSeq,
+            normalizeMatriculeFormat(data.organization?.matriculeFormat),
+            data.organization?.matriculePrefix
+          );
+
+          setFormData((prev) => ({
+            ...prev,
+            branchId: targetBranch?.id || "",
+            branch: targetBranch?.name || "",
+            employeeNumber: prev.employeeNumber || autoNum,
+          }));
         }
-      } catch (_) {}
+      } catch (_) {
+      } finally {
+        setBranchesLoaded(true);
+      }
     }
     loadBranches();
   }, []);
 
-  // Handle branch change: suggest matching matricule (Company-Branch-Digits)
+  // Handle branch change (matricule remains tied to business & unchanged across transfers)
   const handleBranchChange = (branchId: string) => {
     const found = branches.find((b) => b.id === branchId);
     if (found) {
       setSelectedBranch(found);
-      const updatedMatricule = updateMatriculeBranch(
-        formData.employeeNumber,
-        found.code || "BR",
-        organizationName,
-        orgMatriculeFormat,
-        orgMatriculePrefix
-      );
-      
       setFormData((prev) => ({
         ...prev,
         branchId: found.id,
         branch: found.name,
-        employeeNumber: updatedMatricule,
+      }));
+    } else {
+      setSelectedBranch(null);
+      setFormData((prev) => ({
+        ...prev,
+        branchId: "",
+        branch: "",
       }));
     }
   };
@@ -222,7 +237,7 @@ export default function NewEmployeePage() {
     formData.lastName.trim() &&
     formData.firstName.trim() &&
     formData.phone.trim() &&
-    formData.branchId.trim() &&
+    (branches.length === 0 || formData.branchId.trim()) &&
     formData.employeeNumber.trim() &&
     (!createAccount || (formData.email.trim() && formData.email.includes("@")))
   );
@@ -252,7 +267,7 @@ export default function NewEmployeePage() {
       setError("Le format de l'adresse e-mail est invalide.");
       return;
     }
-    if (!formData.branchId) {
+    if (branches.length > 0 && !formData.branchId) {
       setError("Veuillez sélectionner la succursale d'affectation.");
       return;
     }
@@ -273,7 +288,7 @@ export default function NewEmployeePage() {
     try {
       const payload = {
         employeeNumber: formData.employeeNumber.trim(),
-        branchId: formData.branchId,
+        branchId: formData.branchId || null,
         firstName: formData.firstName.trim(),
         lastName: formData.lastName.trim(),
         phone: formData.phone.trim(),
@@ -343,7 +358,6 @@ export default function NewEmployeePage() {
     const nextSeq = getNextMatriculeSequence(existingMatricules);
     const autoNum = generateEmployeeMatricule(
       organizationName,
-      selectedBranch?.code,
       nextSeq,
       orgMatriculeFormat,
       orgMatriculePrefix
@@ -426,7 +440,7 @@ export default function NewEmployeePage() {
             {createAccount && (
               <div className="pt-4 border-t border-[#DCE2EA]">
                 <label className="block text-xs font-semibold text-[#263445] mb-1.5">
-                  Rôle attribué <span className="text-rose-500">*</span>
+                  Profil d'accès & Droits système <span className="text-rose-500">*</span>
                 </label>
                 <div className="relative">
                   <select
@@ -442,7 +456,7 @@ export default function NewEmployeePage() {
                   </select>
                 </div>
                 <p className="text-[10px] text-[#64748B] mt-1.5">
-                  Attribue les permissions d'accès aux modules et le niveau hiérarchique au collaborateur.
+                  Définit les modules et autorisations d'accès dans l'application logicielle.
                 </p>
               </div>
             )}
@@ -509,35 +523,58 @@ export default function NewEmployeePage() {
               {/* Succursale */}
               <div>
                 <label className="block text-xs font-semibold text-[#263445] mb-1.5">
-                  Succursale d'affectation <span className="text-rose-500">*</span>
+                  Succursale d'affectation{" "}
+                  {branches.length > 0 ? (
+                    <span className="text-rose-500">*</span>
+                  ) : (
+                    <span className="text-[#94A3B8] font-normal">(Optionnel)</span>
+                  )}
                 </label>
                 <CustomSelect
                   value={formData.branchId}
                   onChange={(val) => handleBranchChange(val)}
-                  placeholder={branches.length === 0 ? "Chargement des succursales..." : "Choisir une succursale"}
+                  placeholder={
+                    !branchesLoaded
+                      ? "Chargement des succursales..."
+                      : branches.length === 0
+                      ? "Aucune succursale enregistrée"
+                      : "Choisir une succursale"
+                  }
+                  disabled={branchesLoaded && branches.length === 0}
                   icon={<Building2 className="w-4 h-4 text-[#94A3B8]" />}
                   options={branches.map((b) => ({
                     value: b.id,
-                    label: `${b.name} (${b.city}) — Code: ${b.code}`,
+                    label: `${b.name} (${b.city})`,
                   }))}
-                  required
+                  required={branches.length > 0}
                 />
+                {branchesLoaded && branches.length === 0 && (
+                  <p className="text-[10px] text-[#64748B] mt-1">
+                    Aucune succursale configurée pour l'instant.{" "}
+                    <Link
+                      href="/admin/branches/new"
+                      className="text-[#FF7900] hover:underline font-semibold"
+                    >
+                      Créer une succursale →
+                    </Link>
+                  </p>
+                )}
               </div>
 
-              {/* Matricule rattaché à l'entreprise et la succursale */}
+              {/* Matricule rattaché à l'entreprise */}
               <div>
                 <div className="flex items-center justify-between mb-1.5">
                   <label className="block text-xs font-semibold text-[#263445]">
                     Matricule officiel <span className="text-rose-500">*</span>
                   </label>
-                  <span className="text-[10px] text-[#64748B]">Entreprise & Succursale</span>
+                  <span className="text-[10px] text-[#64748B]">Entreprise & Séquence</span>
                 </div>
                 <input
                   type="text"
                   required
                   value={formData.employeeNumber}
                   onChange={(e) => setFormData({ ...formData, employeeNumber: e.target.value.toUpperCase() })}
-                  placeholder="Ex: EB-SIEGE-001"
+                  placeholder="Ex: E-BIZNIS-001"
                   className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-bold focus:bg-white focus:border-[#FF7900] transition-colors font-mono"
                 />
               </div>
@@ -577,18 +614,21 @@ export default function NewEmployeePage() {
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Rôle ou poste */}
+              {/* Poste occupé / Métier */}
               <div>
                 <label className="block text-xs font-semibold text-[#263445] mb-1.5">
-                  Poste / Rôle
+                  Poste occupé (Fonction métier)
                 </label>
                 <input
                   type="text"
                   value={formData.position}
                   onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                  placeholder="Ex: Conseiller commercial"
+                  placeholder="Ex: Conseiller commercial, Mécanicien..."
                   className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
                 />
+                <p className="text-[10px] text-[#64748B] mt-1">
+                  Activité ou métier exercé au sein de l'entreprise.
+                </p>
               </div>
 
               {/* Département */}
@@ -861,6 +901,43 @@ export default function NewEmployeePage() {
                 </span>
               </div>
             </div>
+
+            {/* EMAIL STATUS BANNER */}
+            {successData.hasAccount && (
+              <div
+                className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
+                  successData.emailSent
+                    ? "bg-emerald-50/80 border-emerald-200 text-emerald-900"
+                    : "bg-amber-50/80 border-amber-200 text-amber-900"
+                }`}
+              >
+                {successData.emailSent ? (
+                  <>
+                    <Check className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="font-semibold text-emerald-800">
+                        E-mail d'invitation expédié à <span className="font-mono">{successData.email}</span>
+                      </p>
+                      <p className="text-[11px] text-emerald-700 leading-relaxed">
+                        Pensez à vérifier le dossier <strong>Spam / Courrier indésirable</strong> ou l'onglet <strong>Promotions</strong> si l'e-mail tarde à s'afficher dans la boîte principale.
+                      </p>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <AlertCircle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <div className="space-y-0.5">
+                      <p className="font-semibold text-amber-800">
+                        L'e-mail automatique n'a pas pu être expédié
+                      </p>
+                      <p className="text-[11px] text-amber-700 leading-relaxed">
+                        Vous pouvez copier le lien d'accès ci-dessous ou le transmettre directement au collaborateur via WhatsApp.
+                      </p>
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
             {/* DIRECT LINK & ACTIONS FOR ACCOUNTS */}
             {successData.hasAccount ? (

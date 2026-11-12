@@ -31,12 +31,4 @@ export const APP_CONFIG = {
     FINANCIAL_MANAGER: { label: "Responsable Financier", description: "Gestion des opérations et rapports financiers" },
     BRANCH_MANAGER: { label: "Responsable de Succursale", description: "Gestion des employés de sa succursale" },
   },
-
-  // Succursales par défaut
-  defaultBranches: [
-    { id: "br-siege", code: "SIEGE", name: "Siège Principal", city: "Port-au-Prince" },
-    { id: "br-delmas", code: "DELMAS", name: "Succursale Delmas", city: "Delmas" },
-    { id: "br-pv", code: "PV", name: "Succursale Pétion-Ville", city: "Pétion-Ville" },
-    { id: "br-cap", code: "CAP", name: "Succursale Cap-Haïtien", city: "Cap-Haïtien" },
-  ],
 };

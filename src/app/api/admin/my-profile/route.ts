@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireTenantUser, handleApiError } from "@/lib/auth/guard";
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
 import { getDb } from "@/lib/db/client";
-import { employees } from "@/db/schema";
+import { employees, branches } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { mapEmployee } from "@/lib/supabase/db";
 
@@ -22,7 +22,18 @@ export async function GET() {
 
     if (empData) {
       const mapped = mapEmployee(empData);
-      const branchName = empData.branches?.name || mapped.branchId || "Siège";
+      let branchName = empData.branches?.name;
+      if (!branchName && mapped.branchId) {
+        try {
+          const { data: bData } = await supabase
+            .from("branches")
+            .select("name")
+            .eq("id", mapped.branchId)
+            .maybeSingle();
+          if (bData?.name) branchName = bData.name;
+        } catch (_) {}
+      }
+      if (!branchName) branchName = mapped.branchId || "";
       return NextResponse.json({
         profile: {
           ...mapped,
@@ -54,6 +65,19 @@ export async function GET() {
         .limit(1);
 
       if (localEmp) {
+        let localBranchName = "";
+        if (localEmp.branchId) {
+          try {
+            const [bRow] = await db
+              .select({ name: branches.name })
+              .from(branches)
+              .where(eq(branches.id, localEmp.branchId))
+              .limit(1);
+            localBranchName = bRow?.name || localEmp.branchId;
+          } catch (_) {
+            localBranchName = localEmp.branchId;
+          }
+        }
         return NextResponse.json({
           profile: {
             ...localEmp,
@@ -65,7 +89,7 @@ export async function GET() {
             emergencyContactName: localEmp.emergencyContactName || "",
             emergencyContactRelation: localEmp.emergencyContactRelation || "",
             emergencyContactPhone: localEmp.emergencyContactPhone || "",
-            branch: localEmp.branchId || "Siège",
+            branch: localBranchName,
           },
         });
       }
@@ -89,7 +113,7 @@ export async function GET() {
         emergencyContactName: "",
         emergencyContactRelation: "",
         emergencyContactPhone: "",
-        branch: user.branchName || "Siège Principal",
+        branch: user.branchName || "",
       },
     });
   } catch (err) {
@@ -222,7 +246,7 @@ export async function PUT(req: NextRequest) {
           lastName: empData?.last_name || user.name.split(" ").slice(1).join(" ") || "",
           department: empData?.department || null,
           position: empData?.position || null,
-          branch: "Siège Principal",
+          branch: "",
           phone: updatePayload.phone || "",
           email: user.email,
           birthDate: body.birthDate || "",

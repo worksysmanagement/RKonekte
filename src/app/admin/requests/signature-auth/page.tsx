@@ -1,35 +1,77 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { PlusCircle, Check, X, Search, Clock, CheckCircle2, XCircle, Eye, Trash2 } from "lucide-react";
-import { EmployeeSignatureAuthView } from "@/components/requests/EmployeeSignatureAuthView";
+import React, { useState, useEffect, useRef } from "react";
+import {
+  PlusCircle,
+  X,
+  Search,
+  Clock,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  Trash2,
+  FileText,
+  ShieldCheck,
+  Download,
+  ExternalLink,
+  UploadCloud,
+  FileSignature,
+  Stamp,
+  RotateCw,
+  RotateCcw,
+  Printer,
+  Move,
+  PenTool,
+  Sparkles,
+  Maximize2,
+  Minimize2,
+} from "lucide-react";
+import { EmployeeSignatureAuthView, SAMPLE_PDF_DATA_URL } from "@/components/requests/EmployeeSignatureAuthView";
+import { WordDocumentEditor, WordDocumentEditorRef } from "@/components/requests/WordDocumentEditor";
+import { showSystemToast } from "@/components/ui/SystemToast";
+import { processTransparentImage } from "@/lib/utils/signature";
+import { printPdfDocument, openPdfFullscreen, downloadPdfDocument, dataUrlToPdfBlob } from "@/lib/utils/pdf";
+import { stampSignatureOnPdf } from "@/lib/utils/stamp-pdf";
 
 interface SignatureAuthRequest {
   id: string;
   applicantName: string;
   applicantRole: string;
-  documentType: string;
-  documentReference: string;
+  employeeNumber?: string;
+  branch?: string;
+  pdfUrl?: string;
+  pdfFileName: string;
+  pdfFileSize?: string;
   description: string;
-  amount?: string;
-  currency?: string;
   submittedAt: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   authorizedBy?: string;
+  authorizedRole?: string;
+  authorizedAt?: string;
+  signatureUrl?: string;
+  // Legacy optional fields for backwards compatibility
+  documentType?: string;
+  documentReference?: string;
+  amount?: string;
+  currency?: string;
 }
 
 const STORAGE_KEY = "rkonekte_signature_auth_requests";
+
+const SAMPLE_ADMIN_SIGNATURE =
+  "data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 260 90' fill='none'><path d='M20,65 C45,15 75,80 110,35 C135,5 155,75 190,40 C210,20 230,70 245,30' stroke='%23062653' stroke-width='3.5' stroke-linecap='round' stroke-linejoin='round'/><path d='M70,55 C120,50 170,52 230,50' stroke='%23062653' stroke-width='2.5' stroke-linecap='round'/></svg>";
 
 const DEFAULT_SIGNATURE_REQUESTS: SignatureAuthRequest[] = [
   {
     id: "SIG-2026-001",
     applicantName: "Fatou Traore",
     applicantRole: "Comptable",
-    documentType: "Ordre de virement bancaire",
-    documentReference: "VIR-SOGE-2026-089",
-    description: "Virement fournisseur pour achat de matériel bureautique et fournitures.",
-    amount: "125,000",
-    currency: "HTG",
+    employeeNumber: "EB-SIEGE-102",
+    branch: "Siège Principal",
+    pdfFileName: "Ordre_Virement_VIR-SOGE-2026-089.pdf",
+    pdfFileSize: "142 Ko",
+    pdfUrl: SAMPLE_PDF_DATA_URL,
+    description: "Virement bancaire fournisseur pour achat de matériel bureautique et fournitures de bureau du trimestre.",
     submittedAt: "2026-03-26",
     status: "PENDING",
   },
@@ -37,25 +79,205 @@ const DEFAULT_SIGNATURE_REQUESTS: SignatureAuthRequest[] = [
     id: "SIG-2026-002",
     applicantName: "Marc Bamba",
     applicantRole: "Responsable Achats",
-    documentType: "Contrat de prestation",
-    documentReference: "CTR-SERV-2026-014",
-    description: "Contrat de maintenance des serveurs et réseaux informatiques.",
-    amount: "1,200",
-    currency: "USD",
+    employeeNumber: "EB-SIEGE-205",
+    branch: "Siège Principal",
+    pdfFileName: "Contrat_Maintenance_CTR-SERV-2026-014.pdf",
+    pdfFileSize: "285 Ko",
+    pdfUrl: SAMPLE_PDF_DATA_URL,
+    description: "Contrat annuel de maintenance des serveurs et réseaux informatiques de l'entreprise.",
     submittedAt: "2026-03-24",
     status: "APPROVED",
     authorizedBy: "Direction Générale",
+    authorizedAt: "2026-03-25",
+    signatureUrl: SAMPLE_ADMIN_SIGNATURE,
+  },
+  {
+    id: "SIG-2026-003",
+    applicantName: "Rodjensky Emmanuel Piton",
+    applicantRole: "Développeur",
+    employeeNumber: "EB-SIEGE-884",
+    branch: "Siège Principal",
+    pdfFileName: "Rapport Lecture.pdf",
+    pdfFileSize: "505 Ko",
+    pdfUrl: SAMPLE_PDF_DATA_URL,
+    description: "C est ok",
+    submittedAt: "2026-10-24",
+    status: "PENDING",
   },
 ];
 
+function deduplicateRequests(items: SignatureAuthRequest[]): SignatureAuthRequest[] {
+  const seen = new Set<string>();
+  const result: SignatureAuthRequest[] = [];
+  let counter = 1;
+  for (const item of items) {
+    let id = item.id;
+    if (!id || seen.has(id)) {
+      while (seen.has(`SIG-2026-${String(counter).padStart(3, "0")}`)) {
+        counter++;
+      }
+      id = `SIG-2026-${String(counter).padStart(3, "0")}`;
+      counter++;
+    }
+    seen.add(id);
+    result.push({ ...item, id });
+  }
+  return result;
+}
+
+function formatFileSize(bytes: number): string {
+  if (bytes < 1024) return bytes + " octets";
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + " Ko";
+  return (bytes / (1024 * 1024)).toFixed(2) + " Mo";
+}
+
 export default function SignatureAuthRequestsPage() {
-  const [requests, setRequests] = useState<SignatureAuthRequest[]>(DEFAULT_SIGNATURE_REQUESTS);
+  const [requests, setRequests] = useState<SignatureAuthRequest[]>([]);
+  const [loadingRequests, setLoadingRequests] = useState(true);
   const [filterStatus, setFilterStatus] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [showNewModal, setShowNewModal] = useState(false);
   const [selectedRequest, setSelectedRequest] = useState<SignatureAuthRequest | null>(null);
+  const [isModalMaximized, setIsModalMaximized] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>("Direction Générale");
+  const [adminSignature, setAdminSignature] = useState<string | null>(null);
+  const signatureInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Position officielle de la signature, calibrée au centre exact du rectangle réservé à l'Administration
+  const DEFAULT_SIGNATURE_POSITION = { x: 70, y: 74.5 };
+  const [signaturePosition, setSignaturePosition] = useState<{ x: number; y: number }>(DEFAULT_SIGNATURE_POSITION);
+  const [isDraggingSignature, setIsDraggingSignature] = useState(false);
+  const documentContainerRef = useRef<HTMLDivElement | null>(null);
+  const documentScrollContainerRef = useRef<HTMLDivElement | null>(null);
+
+  // Réinitialiser automatiquement la signature au centre exact du cadre officiel lors de l'ouverture
+  useEffect(() => {
+    if (selectedRequest) {
+      setSignaturePosition(DEFAULT_SIGNATURE_POSITION);
+    }
+  }, [selectedRequest?.id]);
+
+  // Gestion du déplacement fluide de la signature sur la feuille
+  useEffect(() => {
+    if (!isDraggingSignature) return;
+
+    const onGlobalMouseMove = (e: MouseEvent) => {
+      if (!documentContainerRef.current) return;
+      const rect = documentContainerRef.current.getBoundingClientRect();
+      const x = ((e.clientX - rect.left) / rect.width) * 100;
+      const y = ((e.clientY - rect.top) / rect.height) * 100;
+      const clampedX = Math.max(10, Math.min(90, Math.round(x * 10) / 10));
+      const clampedY = Math.max(10, Math.min(90, Math.round(y * 10) / 10));
+      setSignaturePosition({ x: clampedX, y: clampedY });
+    };
+
+    const onGlobalMouseUp = () => {
+      setIsDraggingSignature(false);
+    };
+
+    window.addEventListener("mousemove", onGlobalMouseMove);
+    window.addEventListener("mouseup", onGlobalMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", onGlobalMouseMove);
+      window.removeEventListener("mouseup", onGlobalMouseUp);
+    };
+  }, [isDraggingSignature]);
+
+  const handleSheetClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!documentContainerRef.current || isDraggingSignature) return;
+    const rect = documentContainerRef.current.getBoundingClientRect();
+    const x = ((e.clientX - rect.left) / rect.width) * 100;
+    const y = ((e.clientY - rect.top) / rect.height) * 100;
+    const clampedX = Math.max(10, Math.min(90, Math.round(x * 10) / 10));
+    const clampedY = Math.max(10, Math.min(90, Math.round(y * 10) / 10));
+    setSignaturePosition({ x: clampedX, y: clampedY });
+  };
+
+  // URL Blob pour affichage fiable du PDF en haute résolution dans l'iframe (évite le blanc des data URLs)
+  const [previewBlobUrl, setPreviewBlobUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedRequest?.pdfUrl && !selectedRequest) {
+      setPreviewBlobUrl(null);
+      return;
+    }
+
+    const rawPdf = selectedRequest.pdfUrl || SAMPLE_PDF_DATA_URL;
+    let url: string | null = null;
+
+    try {
+      if (rawPdf.startsWith("data:")) {
+        const blob = dataUrlToPdfBlob(rawPdf);
+        url = URL.createObjectURL(blob);
+      } else {
+        url = rawPdf;
+      }
+      setPreviewBlobUrl(url);
+    } catch (err) {
+      console.error("Erreur lors de la conversion du PDF en Blob URL:", err);
+      setPreviewBlobUrl(rawPdf);
+    }
+
+    return () => {
+      if (url && url.startsWith("blob:")) {
+        try {
+          URL.revokeObjectURL(url);
+        } catch (_) {}
+      }
+    };
+  }, [selectedRequest]);
+
+  // New Request Form state for Admin
+  const adminWordEditorRef = useRef<WordDocumentEditorRef | null>(null);
+  const [adminDocumentSource, setAdminDocumentSource] = useState<"editor" | "upload">("editor");
+  const [adminUploadedPdf, setAdminUploadedPdf] = useState<{
+    name: string;
+    size: string;
+    dataUrl: string;
+  } | null>(null);
+  const [adminDescription, setAdminDescription] = useState("");
+  const adminFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const fetchRequests = async () => {
+    setLoadingRequests(true);
+    try {
+      const res = await fetch("/api/admin/signature-auth?all=true");
+      if (res.ok) {
+        const data = await res.json();
+        if (data.requests && Array.isArray(data.requests)) {
+          const normalized = data.requests.map((item: any) => ({
+            ...item,
+            pdfFileName: item.pdfFileName || item.documentReference || `${item.id}.pdf`,
+            pdfUrl: item.pdfUrl || SAMPLE_PDF_DATA_URL,
+          }));
+          const clean = deduplicateRequests(normalized);
+          setRequests(clean);
+          try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(clean));
+          } catch (_) {}
+          setLoadingRequests(false);
+          return;
+        }
+      }
+    } catch (_) {}
+
+    // Fallback to localStorage only if server API is not reachable
+    try {
+      const saved = localStorage.getItem(STORAGE_KEY);
+      if (saved) {
+        const parsed: SignatureAuthRequest[] = JSON.parse(saved);
+        const normalized = parsed.map((item) => ({
+          ...item,
+          pdfFileName: item.pdfFileName || item.documentReference || `${item.id}.pdf`,
+          pdfUrl: item.pdfUrl || SAMPLE_PDF_DATA_URL,
+        }));
+        const clean = deduplicateRequests(normalized);
+        setRequests(clean);
+      }
+    } catch (_) {}
+    setLoadingRequests(false);
+  };
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -66,25 +288,64 @@ export default function SignatureAuthRequestsPage() {
         } else {
           setCurrentUserRole("EMPLOYEE");
         }
+        if (data.user?.name) {
+          setCurrentUserName(data.user.name);
+        }
       })
       .catch(() => {
         setCurrentUserRole("EMPLOYEE");
       });
 
+    // Load registered user signature if available (exclude sample/mock signature)
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        setRequests(JSON.parse(saved));
+      const userSig = localStorage.getItem("rkonekte_user_signature");
+      if (userSig && !userSig.includes("M20,65 C45,15 75,80")) {
+        setAdminSignature(userSig);
       } else {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(DEFAULT_SIGNATURE_REQUESTS));
+        setAdminSignature(null);
       }
-    } catch (_) {}
+    } catch (_) {
+      setAdminSignature(null);
+    }
+
+    // Fetch live requests from server
+    fetchRequests();
   }, []);
+
+  const handleSignatureUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (!file.type.startsWith("image/")) {
+      showSystemToast("Veuillez sélectionner un fichier image valide (PNG, JPG, SVG).", "error");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = async (ev) => {
+      const rawData = ev.target?.result as string;
+      if (rawData) {
+        const cleanSig = await processTransparentImage(rawData);
+        setAdminSignature(cleanSig);
+        try {
+          localStorage.setItem("rkonekte_user_signature", cleanSig);
+        } catch (_) {}
+        showSystemToast("Signature officielle téléversée avec succès !");
+      }
+    };
+    reader.readAsDataURL(file);
+    e.target.value = "";
+  };
 
   const isEmployee =
     currentUserRole === "EMPLOYEE" ||
+    currentUserRole === "COLLABORATEUR" ||
+    currentUserRole === "CASHIER" ||
+    currentUserRole === "CAISSIER" ||
     currentUserRole?.toLowerCase().includes("employ") ||
     currentUserRole?.toLowerCase().includes("collab") ||
+    currentUserRole?.toLowerCase().includes("caissier") ||
+    currentUserRole?.toLowerCase().includes("cashier") ||
     currentUserRole?.toLowerCase().includes("operat");
 
   const isMasterAccount =
@@ -95,52 +356,101 @@ export default function SignatureAuthRequestsPage() {
     currentUserRole?.toLowerCase().includes("directeur général") ||
     currentUserRole?.toLowerCase().includes("propriétaire");
 
-  const [formData, setFormData] = useState({
-    applicantName: "",
-    applicantRole: "Comptable",
-    documentType: "Ordre de virement bancaire",
-    documentReference: "",
-    description: "",
-    amount: "",
-    currency: "HTG",
-  });
+  // Admin approves and affixes their official signature directly onto the document sheet
+  const handleApproveWithSignature = async (id: string) => {
+    if (!adminSignature) {
+      showSystemToast("Veuillez d'abord téléverser votre signature officielle avant d'approuver.", "error");
+      return;
+    }
+    const today = new Date().toISOString().split("T")[0];
+    const signer = currentUserName || "Direction Générale";
+    const role = currentUserRole || "Direction Générale";
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    const newReq: SignatureAuthRequest = {
-      id: `SIG-2026-${String(requests.length + 1).padStart(3, "0")}`,
-      applicantName: formData.applicantName,
-      applicantRole: formData.applicantRole,
-      documentType: formData.documentType,
-      documentReference: formData.documentReference,
-      description: formData.description,
-      amount: formData.amount || undefined,
-      currency: formData.amount ? formData.currency : undefined,
-      submittedAt: new Date().toISOString().split("T")[0],
-      status: "PENDING",
-    };
+    // Incruster physiquement et définitivement la signature sur la feuille du document PDF
+    let finalPdfUrl = selectedRequest?.pdfUrl || SAMPLE_PDF_DATA_URL;
+    try {
+      finalPdfUrl = await stampSignatureOnPdf({
+        pdfDataUrlOrBytes: finalPdfUrl,
+        signatureDataUrl: adminSignature,
+        signerName: signer,
+        signerRole: role,
+        date: today,
+        xPercent: signaturePosition.x,
+        yPercent: signaturePosition.y,
+      });
+    } catch (stampErr) {
+      console.warn("Erreur lors de l'incrustation directe de la signature sur le PDF:", stampErr);
+    }
 
-    const updated = [newReq, ...requests];
+    try {
+      await fetch(`/api/admin/signature-auth/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "APPROVED",
+          authorizedBy: signer,
+          authorizedRole: role,
+          authorizedAt: today,
+          signatureUrl: adminSignature,
+          pdfUrl: finalPdfUrl,
+        }),
+      });
+    } catch (_) {}
+
+    const updated = requests.map((r) =>
+      r.id === id
+        ? {
+            ...r,
+            status: "APPROVED" as const,
+            authorizedBy: signer,
+            authorizedRole: role,
+            authorizedAt: today,
+            signatureUrl: adminSignature,
+            pdfUrl: finalPdfUrl,
+          }
+        : r
+    );
+
     setRequests(updated);
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
     } catch (_) {}
 
-    setShowNewModal(false);
-    setFormData({
-      applicantName: "",
-      applicantRole: "Comptable",
-      documentType: "Ordre de virement bancaire",
-      documentReference: "",
-      description: "",
-      amount: "",
-      currency: "HTG",
-    });
+    if (selectedRequest && selectedRequest.id === id) {
+      setSelectedRequest((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: "APPROVED",
+              authorizedBy: signer,
+              authorizedRole: role,
+              authorizedAt: today,
+              signatureUrl: adminSignature,
+              pdfUrl: finalPdfUrl,
+            }
+          : null
+      );
+    }
+
+    showSystemToast(`Document ${id} approuvé ! Votre signature a été apposée directement sur la feuille.`);
   };
 
-  const handleDecision = (id: string, newStatus: "APPROVED" | "REJECTED") => {
+  const handleRejectDecision = async (id: string) => {
+    const signer = currentUserName || "Direction Générale";
+
+    try {
+      await fetch(`/api/admin/signature-auth/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "REJECTED",
+          authorizedBy: signer,
+        }),
+      });
+    } catch (_) {}
+
     const updated = requests.map((r) =>
-      r.id === id ? { ...r, status: newStatus, authorizedBy: "Direction Générale" } : r
+      r.id === id ? { ...r, status: "REJECTED" as const, authorizedBy: signer } : r
     );
     setRequests(updated);
     try {
@@ -148,29 +458,133 @@ export default function SignatureAuthRequestsPage() {
     } catch (_) {}
 
     if (selectedRequest && selectedRequest.id === id) {
-      setSelectedRequest((prev) => (prev ? { ...prev, status: newStatus, authorizedBy: "Direction Générale" } : null));
+      setSelectedRequest((prev) => (prev ? { ...prev, status: "REJECTED" } : null));
     }
-    setToastMessage(`Document ${id} ${newStatus === "APPROVED" ? "validé et signé officiellement" : "rejeté"}.`);
-    setTimeout(() => setToastMessage(null), 4000);
+    showSystemToast(`La demande de signature ${id} a été refusée.`, "info");
   };
 
-  const filtered = requests.filter((r) => {
-    if (filterStatus !== "ALL" && r.status !== filterStatus) return false;
-    if (searchTerm.trim()) {
-      const q = searchTerm.toLowerCase();
-      return (
-        r.applicantName.toLowerCase().includes(q) ||
-        r.documentReference.toLowerCase().includes(q) ||
-        r.id.toLowerCase().includes(q)
-      );
-    }
-    return true;
-  });
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminDescription.trim()) return;
 
-  const handleDelete = (id: string, name: string) => {
+    let finalPdfUrl = "";
+    let finalFileName = "";
+    let finalFileSize = "";
+
+    if (adminDocumentSource === "upload") {
+      if (!adminUploadedPdf) {
+        showSystemToast("Veuillez téléverser le document PDF.", "error");
+        return;
+      }
+      finalPdfUrl = adminUploadedPdf.dataUrl;
+      finalFileName = adminUploadedPdf.name;
+      finalFileSize = adminUploadedPdf.size;
+    } else {
+      if (!adminWordEditorRef.current) {
+        showSystemToast("L'éditeur de document n'est pas prêt.", "error");
+        return;
+      }
+      showSystemToast("Génération du document PDF en cours...", "info");
+      const generated = await adminWordEditorRef.current.generatePdfDataUrl();
+      finalPdfUrl = generated.dataUrl;
+      finalFileName = generated.fileName;
+      finalFileSize = generated.fileSize;
+    }
+
+    const payload = {
+      applicantName: currentUserName || "Direction",
+      applicantRole: currentUserRole || "Direction",
+      pdfFileName: finalFileName,
+      pdfFileSize: finalFileSize,
+      pdfUrl: finalPdfUrl,
+      description: adminDescription.trim(),
+    };
+
+    try {
+      const res = await fetch("/api/admin/signature-auth", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (res.ok) {
+        await fetchRequests();
+      } else {
+        const existingNumbers = requests
+          .map((r) => {
+            const match = r.id?.match(/^SIG-2026-(\d+)$/);
+            return match ? parseInt(match[1], 10) : 0;
+          })
+          .filter((n) => !isNaN(n) && n > 0);
+        const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
+        const nextIndex = Math.max(requests.length + 1, maxNumber + 1);
+        const newReq: SignatureAuthRequest = {
+          id: `SIG-2026-${String(nextIndex).padStart(3, "0")}`,
+          applicantName: currentUserName || "Direction",
+          applicantRole: currentUserRole || "Direction",
+          pdfFileName: finalFileName,
+          pdfFileSize: finalFileSize,
+          pdfUrl: finalPdfUrl,
+          description: adminDescription.trim(),
+          submittedAt: new Date().toISOString().split("T")[0],
+          status: "PENDING",
+        };
+        const updated = deduplicateRequests([newReq, ...requests]);
+        setRequests(updated);
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        } catch (_) {}
+      }
+    } catch (_) {
+      const existingNumbers = requests
+        .map((r) => {
+          const match = r.id?.match(/^SIG-2026-(\d+)$/);
+          return match ? parseInt(match[1], 10) : 0;
+        })
+        .filter((n) => !isNaN(n) && n > 0);
+      const maxNumber = existingNumbers.length > 0 ? Math.max(...existingNumbers) : 0;
+      const nextIndex = Math.max(requests.length + 1, maxNumber + 1);
+      const newReq: SignatureAuthRequest = {
+        id: `SIG-2026-${String(nextIndex).padStart(3, "0")}`,
+        applicantName: currentUserName || "Direction",
+        applicantRole: currentUserRole || "Direction",
+        pdfFileName: finalFileName,
+        pdfFileSize: finalFileSize,
+        pdfUrl: finalPdfUrl,
+        description: adminDescription.trim(),
+        submittedAt: new Date().toISOString().split("T")[0],
+        status: "PENDING",
+      };
+      const updated = deduplicateRequests([newReq, ...requests]);
+      setRequests(updated);
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+      } catch (_) {}
+    }
+
+    setShowNewModal(false);
+    setAdminUploadedPdf(null);
+    setAdminDescription("");
+    showSystemToast("Demande d'autorisation créée avec succès.");
+  };
+
+  const handleDelete = async (id: string, name: string) => {
     if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement la demande d'autorisation pour ${name} (${id}) ?`)) {
       return;
     }
+
+    try {
+      const res = await fetch(`/api/admin/signature-auth/${id}`, {
+        method: "DELETE",
+      });
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        console.error("Erreur serveur suppression:", errData);
+      }
+    } catch (err) {
+      console.error("Erreur réseau suppression:", err);
+    }
+
     const updated = requests.filter((r) => r.id !== id);
     setRequests(updated);
     try {
@@ -180,9 +594,22 @@ export default function SignatureAuthRequestsPage() {
     if (selectedRequest && selectedRequest.id === id) {
       setSelectedRequest(null);
     }
-    setToastMessage(`La demande ${id} a été supprimée avec succès.`);
-    setTimeout(() => setToastMessage(null), 4000);
+    showSystemToast(`La demande ${id} a été supprimée définitivement de la base de données.`);
   };
+
+  const filtered = requests.filter((r) => {
+    if (filterStatus !== "ALL" && r.status !== filterStatus) return false;
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase();
+      return (
+        r.applicantName.toLowerCase().includes(q) ||
+        r.pdfFileName.toLowerCase().includes(q) ||
+        r.description.toLowerCase().includes(q) ||
+        r.id.toLowerCase().includes(q)
+      );
+    }
+    return true;
+  });
 
   if (currentUserRole === null) {
     return (
@@ -199,22 +626,6 @@ export default function SignatureAuthRequestsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast Feedback */}
-      {toastMessage && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{toastMessage}</span>
-          </div>
-          <button
-            onClick={() => setToastMessage(null)}
-            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -222,30 +633,44 @@ export default function SignatureAuthRequestsPage() {
             Signature d'Autorisation
           </h1>
           <p className="text-xs text-[#64748B] mt-1">
-            Demandes d'autorisation et validation de signatures de documents et virements.
+            Examinez les documents PDF soumis par les collaborateurs et apposez votre signature numérique officielle.
           </p>
         </div>
 
-        {/* Bouton Nouvelle Demande d'Autorisation (Vert, mais grisé/désactivé pour le compte Maître/PDG) */}
-        <div className="relative group">
+        {/* Action Buttons: Rafraîchir + Nouvelle Demande */}
+        <div className="flex items-center gap-2.5 self-start">
           <button
             type="button"
-            disabled={isMasterAccount}
-            onClick={() => !isMasterAccount && setShowNewModal(true)}
-            className={`px-4 py-2 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 self-start ${
-              isMasterAccount
-                ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed select-none"
-                : "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
-            }`}
+            onClick={fetchRequests}
+            disabled={loadingRequests}
+            className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-300 bg-white hover:bg-slate-50 active:bg-slate-100 text-[#062653] shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+            title="Actualiser et synchroniser les demandes de signature"
           >
-            <PlusCircle className="w-4 h-4" />
-            <span>Nouvelle demande d'autorisation</span>
+            <RotateCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin text-[#FF7900]" : "text-slate-600"}`} />
+            <span>Rafraîchir</span>
           </button>
-          {isMasterAccount && (
-            <div className="hidden group-hover:block absolute right-0 top-full mt-1.5 w-72 p-2.5 bg-[#031B3A] text-white text-[11px] rounded-lg shadow-xl z-50 pointer-events-none">
-              Compte Direction / Maître : Vous détenez l'autorité suprême de validation et ne formulez pas de demande pour vous-même.
-            </div>
-          )}
+
+          {/* Bouton Nouvelle Demande d'Autorisation (Grisé pour compte maître) */}
+          <div className="relative group">
+            <button
+              type="button"
+              disabled={isMasterAccount}
+              onClick={() => !isMasterAccount && setShowNewModal(true)}
+              className={`px-4 py-2 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 ${
+                isMasterAccount
+                  ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed select-none"
+                  : "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
+              }`}
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Nouvelle demande d'autorisation</span>
+            </button>
+            {isMasterAccount && (
+              <div className="hidden group-hover:block absolute right-0 top-full mt-1.5 w-72 p-2.5 bg-[#031B3A] text-white text-[11px] rounded-lg shadow-xl z-50 pointer-events-none">
+                Compte Direction / Maître : Vous détenez l'autorité suprême de validation et ne formulez pas de demande pour vous-même.
+              </div>
+            )}
+          </div>
         </div>
       </div>
 
@@ -255,7 +680,7 @@ export default function SignatureAuthRequestsPage() {
           {[
             { id: "ALL", label: "Toutes" },
             { id: "PENDING", label: "En attente" },
-            { id: "APPROVED", label: "Autorisées" },
+            { id: "APPROVED", label: "Autorisées & Signées" },
             { id: "REJECTED", label: "Refusées" },
           ].map((tab) => (
             <button
@@ -272,105 +697,154 @@ export default function SignatureAuthRequestsPage() {
           ))}
         </div>
 
-        <div className="w-full md:w-80 relative">
+        <div className="relative w-full md:w-72">
+          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-[#64748B]" />
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Rechercher par référence, demandeur..."
-            className="w-full h-10 pl-9 pr-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs text-[#263445] placeholder:text-[#64748B] focus:bg-white transition-all"
+            placeholder="Rechercher fichier, demandeur..."
+            className="w-full pl-9 pr-3 py-1.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] placeholder:text-[#64748B] focus:bg-white focus:outline-hidden"
           />
-          <Search className="w-4 h-4 text-[#64748B] absolute left-3 top-3" />
         </div>
       </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-[#DCE2EA] shadow-xs overflow-hidden">
-        {filtered.length === 0 ? (
-          <div className="p-12 text-center text-xs text-[#64748B]">
-            Aucune demande de signature d'autorisation trouvée.
+      {/* TABLE DES DEMANDES DE SIGNATURE */}
+      <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xs overflow-hidden">
+        {loadingRequests && requests.length === 0 ? (
+          <div className="p-12 text-center text-[#64748B] text-xs space-y-2">
+            <div className="w-6 h-6 border-2 border-slate-300 border-t-[#FF7900] rounded-full animate-spin mx-auto" />
+            <p className="font-semibold">Chargement des demandes de signature...</p>
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="p-12 text-center text-[#64748B] text-xs space-y-2">
+            <Clock className="w-8 h-8 mx-auto text-slate-300" />
+            <p className="font-semibold">Aucune demande de signature trouvée</p>
+            <p className="text-[11px] text-slate-400">
+              Modifiez vos filtres ou effectuez une recherche différente.
+            </p>
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-[#DCE2EA]">
+            <table className="w-full text-left text-xs text-[#263445]">
+              <thead className="bg-[#F8FAFC] border-b border-[#DCE2EA] text-[#64748B] uppercase font-bold text-[10px] tracking-wider">
                 <tr>
-                  <th className="px-5 py-3.5">N° Demande</th>
+                  <th className="px-5 py-3.5">Réf. Dossier</th>
                   <th className="px-5 py-3.5">Demandeur</th>
-                  <th className="px-5 py-3.5">Type de Document</th>
-                  <th className="px-5 py-3.5">Référence</th>
-                  <th className="px-5 py-3.5">Montant</th>
-                  <th className="px-5 py-3.5">Date</th>
+                  <th className="px-5 py-3.5">Document PDF à Signer</th>
+                  <th className="px-5 py-3.5">Motif de l'Autorisation</th>
+                  <th className="px-5 py-3.5">Déposé le</th>
                   <th className="px-5 py-3.5">Statut</th>
-                  <th className="px-5 py-3.5 text-right">Action</th>
+                  <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DCE2EA]">
-                {filtered.map((req) => (
-                  <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-5 py-4 font-bold text-[#062653]">{req.id}</td>
+                {filtered.map((req, idx) => (
+                  <tr key={`${req.id}-${idx}`} className="hover:bg-slate-50/70 transition-colors">
+                    {/* Réf Dossier */}
+                    <td className="px-5 py-4 font-mono font-bold text-[#FF7900] whitespace-nowrap">
+                      {req.id}
+                    </td>
+
+                    {/* Demandeur */}
                     <td className="px-5 py-4">
-                      <div className="font-semibold text-[#263445]">{req.applicantName}</div>
-                      <div className="text-[11px] text-[#64748B]">{req.applicantRole}</div>
+                      <div className="font-bold text-[#062653]">{req.applicantName}</div>
+                      <div className="text-[11px] text-[#64748B]">
+                        {req.applicantRole} {req.branch ? `• ${req.branch}` : ""}
+                      </div>
                     </td>
-                    <td className="px-5 py-4 font-medium text-[#263445]">{req.documentType}</td>
-                    <td className="px-5 py-4 text-[#64748B]">{req.documentReference}</td>
-                    <td className="px-5 py-4 font-bold text-[#062653]">
-                      {req.amount ? `${req.amount} ${req.currency}` : "—"}
-                    </td>
-                    <td className="px-5 py-4 text-[#64748B]">{req.submittedAt}</td>
+
+                    {/* Document PDF */}
                     <td className="px-5 py-4">
-                      <span
-                        className={`inline-flex items-center gap-1.5 text-xs font-bold ${
-                          req.status === "APPROVED"
-                            ? "text-emerald-600"
-                            : req.status === "REJECTED"
-                            ? "text-rose-600"
-                            : "text-[#FF7900]"
-                        }`}
-                      >
-                        {req.status === "APPROVED" ? (
-                          <>
-                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="8" cy="8" r="8" fill="#10B981" />
-                              <path d="M4.5 8.2L6.8 10.5L11.5 5.8" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            Autorisée
-                          </>
-                        ) : req.status === "REJECTED" ? (
-                          <>
-                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="8" cy="8" r="8" fill="#EF4444" />
-                              <path d="M5.5 5.5L10.5 10.5M10.5 5.5L5.5 10.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            Refusée
-                          </>
-                        ) : (
-                          <>
-                            <svg className="w-3.5 h-3.5 shrink-0" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-                              <circle cx="8" cy="8" r="8" fill="#F59E0B" />
-                              <path d="M8 4V8.2L10.8 9.8" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                            En attente
-                          </>
-                        )}
-                      </span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                          <FileText className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-slate-800 truncate block max-w-[200px]" title={req.pdfFileName}>
+                            {req.pdfFileName}
+                          </span>
+                          {req.pdfFileSize && (
+                            <span className="text-[10px] text-slate-400 block font-mono">
+                              {req.pdfFileSize}
+                            </span>
+                          )}
+                        </div>
+                      </div>
                     </td>
-                    <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
+
+                    {/* Motif de l'Autorisation */}
+                    <td className="px-5 py-4 max-w-xs">
+                      <p className="line-clamp-2 text-slate-600 italic text-[11px]" title={req.description}>
+                        « {req.description} »
+                      </p>
+                    </td>
+
+                    {/* Déposé le */}
+                    <td className="px-5 py-4 text-[#64748B] whitespace-nowrap">
+                      {req.submittedAt}
+                    </td>
+
+                    {/* Statut */}
+                    <td className="px-5 py-4 whitespace-nowrap">
+                      {req.status === "APPROVED" ? (
+                        <div>
+                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            Signé & Autorisé
+                          </span>
+                          <div className="text-[10px] text-slate-500 mt-1 font-medium">
+                            Par : <strong className="text-slate-800">{req.authorizedBy || "Direction"}</strong>
+                          </div>
+                        </div>
+                      ) : req.status === "REJECTED" ? (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
+                          <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                          Refusé
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
+                          <Clock className="w-3.5 h-3.5 text-amber-600" />
+                          À signer
+                        </span>
+                      )}
+                    </td>
+
+                    {/* Actions */}
+                    <td className="px-5 py-4 text-right whitespace-nowrap">
+                      <div className="flex items-center justify-end gap-2">
                         <button
                           type="button"
-                          onClick={() => setSelectedRequest(req)}
-                          className="w-8 h-8 rounded-lg bg-[#FF7900] hover:bg-[#E66D00] text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
-                          title="Voir"
+                          onClick={() => {
+                            setSelectedRequest(req);
+                            setIsModalMaximized(true);
+                          }}
+                          className={`px-3 py-1.5 rounded-lg flex items-center gap-1.5 text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-95 ${
+                            req.status === "PENDING"
+                              ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                              : "bg-[#062653] hover:bg-[#031B3A] text-white"
+                          }`}
+                          title="Examiner le document et y apposer sa signature"
                         >
-                          <Eye className="w-4 h-4 text-white shrink-0" />
+                          {req.status === "PENDING" ? (
+                            <>
+                              <FileSignature className="w-3.5 h-3.5" />
+                              <span>Examiner & Signer</span>
+                            </>
+                          ) : (
+                            <>
+                              <Eye className="w-3.5 h-3.5" />
+                              <span>Voir le visa</span>
+                            </>
+                          )}
                         </button>
+
+                        {/* BOUTON SUPPRIMER : TOUJOURS EN ROUGE */}
                         <button
                           type="button"
                           onClick={() => handleDelete(req.id, req.applicantName)}
-                          className="w-8 h-8 rounded-lg bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
-                          title="Supprimer"
+                          className="w-8 h-8 rounded-lg bg-red-500 hover:bg-red-600 active:bg-red-700 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer shrink-0"
+                          title="Supprimer définitivement cette demande"
                         >
                           <Trash2 className="w-4 h-4 text-white shrink-0" />
                         </button>
@@ -384,215 +858,593 @@ export default function SignatureAuthRequestsPage() {
         )}
       </div>
 
-      {/* DETAIL MODAL */}
+      {/* DETAIL & SIGNATURE PLACEMENT MODAL */}
       {selectedRequest && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xl max-w-lg w-full p-6 space-y-5 animate-fadeIn">
-            <div className="flex items-center justify-between pb-3 border-b border-[#DCE2EA]">
-              <div>
-                <span className="text-[11px] font-mono font-bold text-[#FF7900]">
+        <div
+          onClick={() => {
+            setSelectedRequest(null);
+            setIsModalMaximized(false);
+          }}
+          className={`fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center animate-in fade-in cursor-pointer transition-all ${
+            isModalMaximized ? "p-0" : "p-2 sm:p-4"
+          }`}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className={`bg-white shadow-2xl flex flex-col overflow-hidden cursor-default transition-all duration-200 ${
+              isModalMaximized
+                ? "fixed inset-0 w-full h-full rounded-none z-50 max-w-none max-h-none border-none"
+                : "rounded-2xl border border-[#DCE2EA] w-full max-w-5xl max-h-[90vh]"
+            }`}
+          >
+            {/* Modal Top Bar */}
+            <div className="px-6 py-4 border-b border-[#DCE2EA] flex items-center justify-between bg-slate-50">
+              <div className="flex items-center gap-3">
+                <span className="font-mono font-bold text-xs bg-slate-200 text-[#062653] px-2.5 py-1 rounded-md">
                   {selectedRequest.id}
                 </span>
-                <h2 className="text-base font-bold text-[#062653]">Détail de la demande</h2>
+                <div>
+                  <h2 className="text-base font-bold text-[#062653]">
+                    {selectedRequest.status === "PENDING"
+                      ? "Examen du document & Signature de l'Autorisation"
+                      : "Document Autorisé & Certifié"}
+                  </h2>
+                  <p className="text-[11px] text-slate-500 truncate max-w-xl">
+                    Demandé par <strong>{selectedRequest.applicantName}</strong> ({selectedRequest.applicantRole}) le {selectedRequest.submittedAt}
+                    {selectedRequest.description ? ` • « ${selectedRequest.description} »` : ""}
+                  </p>
+                </div>
               </div>
-              <button
-                onClick={() => setSelectedRequest(null)}
-                className="text-[#64748B] hover:text-[#263445]"
-              >
-                <X className="w-5 h-5" />
-              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setIsModalMaximized((prev) => !prev)}
+                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer transition-colors"
+                  title={isModalMaximized ? "Réduire la taille" : "Agrandir en plein écran"}
+                >
+                  {isModalMaximized ? (
+                    <Minimize2 className="w-4 h-4 text-slate-600" />
+                  ) : (
+                    <Maximize2 className="w-4 h-4 text-slate-600" />
+                  )}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSelectedRequest(null);
+                    setIsModalMaximized(false);
+                  }}
+                  className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center cursor-pointer"
+                  title="Fermer"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            <div className="grid grid-cols-2 gap-3 text-xs">
-              <div className="p-3 bg-[#F4F6F9] rounded-xl">
-                <span className="text-[#64748B] font-semibold">Demandeur</span>
-                <div className="font-bold text-[#263445] mt-1">{selectedRequest.applicantName}</div>
-                <div className="text-[#64748B]">{selectedRequest.applicantRole}</div>
-              </div>
-              <div className="p-3 bg-[#F4F6F9] rounded-xl">
-                <span className="text-[#64748B] font-semibold">Document & Référence</span>
-                <div className="font-bold text-[#263445] mt-1">{selectedRequest.documentType}</div>
-                <div className="text-[#64748B] font-mono">{selectedRequest.documentReference}</div>
-              </div>
-              {selectedRequest.amount && (
-                <div className="col-span-2 p-3 bg-yellow-50 rounded-xl border border-yellow-400/40">
-                  <span className="text-yellow-700 font-semibold">Montant concerné</span>
-                  <div className="font-bold text-[#062653] mt-1 font-mono text-sm">
-                    {selectedRequest.amount} {selectedRequest.currency}
+            {/* Modal Body */}
+            <div className="flex-1 overflow-y-auto p-5 space-y-4">
+              {/* Visualisation du document PDF */}
+              <div>
+                <div className="flex flex-wrap items-center justify-between gap-3 mb-2.5 pb-2 border-b border-slate-100">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span className="text-xs font-bold text-[#062653] truncate">
+                      Document PDF : {selectedRequest.pdfFileName}
+                    </span>
+                    {selectedRequest.pdfFileSize && (
+                      <span className="text-[11px] text-slate-400 font-mono shrink-0">
+                        ({selectedRequest.pdfFileSize})
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2 shrink-0">
+                    <button
+                      type="button"
+                      onClick={() => openPdfFullscreen(selectedRequest.pdfUrl || SAMPLE_PDF_DATA_URL, selectedRequest.pdfFileName)}
+                      className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all"
+                      title="Ouvrir le document PDF en plein écran dans un nouvel onglet"
+                    >
+                      <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
+                      <span>Plein écran</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => printPdfDocument(selectedRequest.pdfUrl || SAMPLE_PDF_DATA_URL, selectedRequest.pdfFileName)}
+                      className="px-3 py-1.5 bg-black hover:bg-zinc-800 active:bg-zinc-900 text-white border border-black text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all"
+                      title="Imprimer directement ce document"
+                    >
+                      <Printer className="w-3.5 h-3.5 text-white" />
+                      <span>Imprimer</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadPdfDocument(selectedRequest.pdfUrl || SAMPLE_PDF_DATA_URL, selectedRequest.pdfFileName)}
+                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer border border-red-600 transition-all"
+                      title="Télécharger le fichier PDF"
+                    >
+                      <Download className="w-3.5 h-3.5 text-white" />
+                      <span>Télécharger le PDF</span>
+                    </button>
                   </div>
                 </div>
-              )}
-            </div>
 
-            <div>
-              <span className="text-xs font-semibold text-[#64748B] block mb-1">
-                Justification & Objectifs :
-              </span>
-              <div className="p-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] leading-relaxed">
-                {selectedRequest.description}
+                {/* ZONE DE VISUALISATION DU DOCUMENT PDF & PLACEMENT DE SIGNATURE */}
+                <div
+                  ref={documentScrollContainerRef}
+                  className={`relative border border-slate-300 rounded-xl bg-slate-200/70 shadow-inner overflow-y-auto overflow-x-hidden p-3 sm:p-5 select-none transition-all ${
+                    isModalMaximized ? "h-[74vh]" : "h-[58vh] sm:h-[62vh] max-h-[660px]"
+                  }`}
+                >
+                  <div
+                    ref={documentContainerRef}
+                    onClick={selectedRequest.status === "PENDING" ? handleSheetClick : undefined}
+                    className={`relative mx-auto bg-white rounded-xl shadow-xl border border-slate-300 w-full overflow-hidden transition-all ${
+                      isModalMaximized ? "max-w-[860px]" : "max-w-[780px]"
+                    }`}
+                    style={{ aspectRatio: "210 / 297" }}
+                  >
+                    {previewBlobUrl ? (
+                      <iframe
+                        src={`${previewBlobUrl}#toolbar=0&navpanes=0&scrollbar=0&view=FitH`}
+                        className={`w-full h-full border-none bg-white ${
+                          isDraggingSignature ? "pointer-events-none" : ""
+                        }`}
+                        title={selectedRequest.pdfFileName}
+                      />
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-full min-h-[400px] text-slate-400 gap-2">
+                        <Clock className="w-6 h-6 animate-spin text-slate-400" />
+                        <span className="text-xs">Chargement du document PDF...</span>
+                      </div>
+                    )}
+
+                    {/* Signature automatiquement positionnée dans le cadre officiel de l'Administration */}
+                    {selectedRequest.status === "PENDING" && adminSignature && (
+                      <div
+                        style={{
+                          left: `${signaturePosition.x}%`,
+                          top: `${signaturePosition.y}%`,
+                        }}
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          setIsDraggingSignature(true);
+                        }}
+                        className={`absolute -translate-x-1/2 -translate-y-1/2 cursor-grab active:cursor-grabbing z-30 select-none transition-transform group ${
+                          isDraggingSignature ? "scale-105" : "hover:scale-102"
+                        }`}
+                        title="Signature officiellement positionnée dans le rectangle (Glissez pour ajuster ou cliquez sur Recentrer)"
+                      >
+                        <div className="relative p-1.5 rounded-lg border-2 border-dashed border-emerald-500/80 bg-emerald-50/40 backdrop-blur-[1px] hover:border-emerald-600 transition-all shadow-sm">
+                          <img
+                            src={adminSignature}
+                            alt="Signature Officielle"
+                            className="h-12 sm:h-14 w-auto max-w-[190px] object-contain drop-shadow-xs pointer-events-none select-none"
+                            draggable={false}
+                          />
+                          <div className="absolute -top-5 left-1/2 -translate-x-1/2 bg-emerald-700 text-white text-[9px] font-bold px-1.5 py-0.5 rounded shadow-sm whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+                            Cadre officiel
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. Cadre d'apposition de la signature officielle ("et d'y placer sa signature") */}
+              <div className="border-t border-slate-200 pt-4">
+                {selectedRequest.status === "PENDING" ? (
+                  <div className="bg-emerald-50/50 p-5 rounded-2xl border-2 border-emerald-500/40 space-y-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 text-emerald-900 font-bold text-sm">
+                          <FileSignature className="w-4 h-4 text-emerald-700" />
+                          <span>Apposer la signature officielle de la Direction</span>
+                        </div>
+                        <p className="text-xs text-emerald-800 mt-0.5">
+                          {adminSignature
+                            ? "Votre signature est automatiquement placée dans le cadre officiel de la feuille. Vous avez uniquement à cliquer sur Approuver."
+                            : "Aucune signature n'est enregistrée. Veuillez téléverser votre signature ci-dessous pour débloquer le bouton d'approbation."}
+                        </p>
+                      </div>
+
+                      {adminSignature ? (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-md shrink-0">
+                          Prêt à signer
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-md shrink-0">
+                          Signature requise
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Input caché pour téléverser la signature */}
+                    <input
+                      ref={signatureInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleSignatureUpload}
+                    />
+
+                    {/* Aperçu du visa et spécimen de signature qui sera apposé */}
+                    <div className="bg-white p-4 rounded-xl border border-emerald-300 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div className="space-y-1">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
+                          Spécimen officiel du signataire habilité :
+                        </span>
+                        <div className="font-bold text-sm text-[#062653]">
+                          {currentUserName || "Direction Générale"}
+                        </div>
+                        <div className="text-[11px] text-slate-500 font-medium">
+                          Rôle : {currentUserRole || "Direction Générale"} • Date : {new Date().toLocaleDateString("fr-FR")}
+                        </div>
+                      </div>
+
+                      {/* Zone Signature */}
+                      {adminSignature ? (
+                        <div className="flex items-center gap-3">
+                          <div className="p-2 bg-slate-50/80 rounded-lg border border-slate-200 flex flex-col items-center justify-center min-w-[170px] min-h-[70px]">
+                            <img
+                              src={adminSignature}
+                              alt="Signature Direction"
+                              className="h-12 max-w-[180px] object-contain drop-shadow-xs"
+                            />
+                            <span className="text-[9px] font-mono font-bold text-emerald-700 uppercase tracking-widest mt-1">
+                              [ VISA NUMÉRIQUE CONFORME ]
+                            </span>
+                          </div>
+                          <div className="flex flex-col gap-1.5 shrink-0">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSignaturePosition(DEFAULT_SIGNATURE_POSITION);
+                                showSystemToast("Signature recentrée dans le cadre officiel de l'Administration.");
+                              }}
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-lg transition-all cursor-pointer border border-emerald-200 flex items-center gap-1 shadow-2xs"
+                              title="Recentrer automatiquement la signature au milieu exact du cadre officiel"
+                            >
+                              <RotateCcw className="w-3 h-3 text-emerald-700" />
+                              <span>Recentrer</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => signatureInputRef.current?.click()}
+                              className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                            >
+                              Changer
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setAdminSignature(null);
+                                try {
+                                  localStorage.removeItem("rkonekte_user_signature");
+                                } catch (_) {}
+                              }}
+                              className="px-2.5 py-1 bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold rounded-lg transition-all cursor-pointer"
+                            >
+                              Retirer
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="flex flex-col sm:flex-row items-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => signatureInputRef.current?.click()}
+                            className="px-4 py-3 border-2 border-dashed border-emerald-400 hover:border-emerald-600 rounded-xl bg-emerald-50/40 hover:bg-emerald-50 text-emerald-900 transition-all flex items-center gap-2.5 cursor-pointer shadow-xs hover:shadow-sm"
+                          >
+                            <UploadCloud className="w-5 h-5 text-emerald-700 shrink-0" />
+                            <div className="text-left">
+                              <span className="text-xs font-bold block text-emerald-950">
+                                Téléverser votre signature
+                              </span>
+                              <span className="text-[10px] text-emerald-700 block">
+                                Format image (PNG, JPG, SVG)
+                              </span>
+                            </div>
+                          </button>
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Boutons d'Action : Refuser en ROUGE, Approuver en VERT ÉMERAUDE (cliquable UNIQUEMENT après upload) */}
+                    <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
+                      <div className="text-xs">
+                        {!adminSignature ? (
+                          <span className="text-amber-800 font-semibold flex items-center gap-1.5 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
+                            <Clock className="w-3.5 h-3.5 shrink-0 text-amber-600" />
+                            <span>Bouton d'approbation verrouillé : téléversez votre signature ci-dessus pour l'activer.</span>
+                          </span>
+                        ) : (
+                          <span className="text-emerald-800 font-semibold flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
+                            <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
+                            <span>Signature automatiquement placée dans le cadre. Cliquez ci-contre pour approuver !</span>
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex items-center gap-3 self-end sm:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleRejectDecision(selectedRequest.id)}
+                          className="px-4 py-2.5 bg-red-500 hover:bg-red-600 active:bg-red-700 text-white text-xs font-bold rounded-xl transition-all shadow-xs cursor-pointer"
+                        >
+                          Refuser l'autorisation
+                        </button>
+
+                        <button
+                          type="button"
+                          disabled={!adminSignature}
+                          onClick={() => adminSignature && handleApproveWithSignature(selectedRequest.id)}
+                          className={`px-6 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 select-none ${
+                            adminSignature
+                              ? "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-lg shadow-emerald-600/20 cursor-pointer active:scale-95"
+                              : "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-50 shadow-none pointer-events-none"
+                          }`}
+                          title={
+                            adminSignature
+                              ? "Approuver et apposer ma signature officielle"
+                              : "Bouton incliquable : aucune signature téléversée"
+                          }
+                        >
+                          <ShieldCheck className="w-4 h-4 text-white" />
+                          <span>Approuver et apposer ma signature</span>
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ) : selectedRequest.status === "APPROVED" ? (
+                  <div className="bg-emerald-50 p-5 rounded-2xl border-2 border-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 text-emerald-900 font-bold text-sm">
+                        <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                        <span>Document Officiellement Autorisé et Signé</span>
+                      </div>
+                      <p className="text-xs text-emerald-800">
+                        Signé par <strong>{selectedRequest.authorizedBy || "la Direction"}</strong>
+                        {selectedRequest.authorizedRole ? ` (${selectedRequest.authorizedRole})` : ""}
+                        le {selectedRequest.authorizedAt || selectedRequest.submittedAt}.
+                      </p>
+                      <span className="inline-block text-[10px] font-mono text-emerald-700 font-bold uppercase tracking-wider">
+                        Signataire authentifié • Empreinte numérique certifiée et scellée
+                      </span>
+                    </div>
+
+                    {selectedRequest.signatureUrl && (
+                      <div className="bg-white p-3 rounded-xl border border-emerald-300 shadow-2xs flex flex-col items-center shrink-0">
+                        <img
+                          src={selectedRequest.signatureUrl}
+                          alt="Signature Direction"
+                          className="h-12 max-w-[180px] object-contain"
+                        />
+                        <span className="text-[9px] font-mono text-slate-400 uppercase tracking-widest mt-1">
+                          Signature de la Direction
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="bg-rose-50 p-4 rounded-xl border border-rose-200 text-rose-800 text-xs flex items-center gap-3">
+                    <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
+                    <div>
+                      <strong className="block text-sm">Demande d'autorisation refusée</strong>
+                      <span>Cette demande a été rejetée et aucun visa n'a été accordé.</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
-
-            {selectedRequest.status === "PENDING" && (
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#DCE2EA]">
-                <button
-                  onClick={() => handleDecision(selectedRequest.id, "REJECTED")}
-                  className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white text-xs font-bold rounded-xl transition-colors shadow-xs"
-                >
-                  Refuser
-                </button>
-                <button
-                  onClick={() => handleDecision(selectedRequest.id, "APPROVED")}
-                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl transition-colors shadow-xs"
-                >
-                  Approuver la signature
-                </button>
-              </div>
-            )}
           </div>
         </div>
       )}
 
-      {/* NEW REQUEST MODAL */}
+      {/* NEW REQUEST MODAL FOR ADMIN (WORD EDITOR + PDF UPLOAD + MOTIF) */}
       {showNewModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xl max-w-lg w-full p-6 space-y-4 animate-fadeIn">
+        <div
+          onClick={() => setShowNewModal(false)}
+          className="fixed inset-0 bg-black/60 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-in fade-in cursor-pointer overflow-y-auto"
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="bg-white rounded-2xl border border-[#DCE2EA] shadow-2xl max-w-4xl w-full p-6 space-y-5 cursor-default my-auto max-h-[92vh] overflow-y-auto"
+          >
             <div className="flex items-center justify-between pb-3 border-b border-[#DCE2EA]">
-              <h2 className="text-base font-bold text-[#062653]">
-                Nouvelle demande de signature
-              </h2>
-              <button
-                onClick={() => setShowNewModal(false)}
-                className="text-[#64748B] hover:text-[#263445]"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div>
+                <h2 className="text-base font-bold text-[#062653]">
+                  Nouvelle demande de signature
+                </h2>
+                <p className="text-xs text-slate-500">
+                  Rédigez directement votre document avec la mise en page Word ou téléversez un fichier PDF.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                {/* Sélecteur de source */}
+                <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                  <button
+                    type="button"
+                    onClick={() => setAdminDocumentSource("editor")}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      adminDocumentSource === "editor"
+                        ? "bg-black text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <PenTool className="w-3.5 h-3.5" />
+                    <span>Rédiger (Word)</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setAdminDocumentSource("upload")}
+                    className={`px-3.5 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      adminDocumentSource === "upload"
+                        ? "bg-black text-white shadow-xs"
+                        : "text-slate-600 hover:text-slate-900"
+                    }`}
+                  >
+                    <UploadCloud className="w-3.5 h-3.5" />
+                    <span>Téléverser PDF {adminUploadedPdf && "✓"}</span>
+                  </button>
+                </div>
+
+                <button
+                  onClick={() => setShowNewModal(false)}
+                  className="text-[#64748B] hover:text-[#263445] cursor-pointer p-1 rounded-lg hover:bg-slate-100"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="space-y-4">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#263445] mb-1">
-                    Demandeur *
+            <form onSubmit={handleCreateSubmit} className="space-y-6">
+              {/* Option 1: Word Editor */}
+              {adminDocumentSource === "editor" && (
+                <div className="space-y-2">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#062653]">
+                    1. Rédiger le document officiel (Interface style Word A4)
                   </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.applicantName}
-                    onChange={(e) => setFormData({ ...formData, applicantName: e.target.value })}
-                    placeholder="Nom complet"
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                  <WordDocumentEditor
+                    ref={adminWordEditorRef}
+                    employeeName={currentUserName || "Direction Générale"}
+                    employeeRole={currentUserRole || "Direction"}
+                    employeeNumber="DIR-ADMIN"
+                    branch=""
+                    onTitleChange={(title) => {
+                      if (!adminDescription.trim()) {
+                        setAdminDescription(title);
+                      }
+                    }}
                   />
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#263445] mb-1">
-                    Rôle / Fonction *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.applicantRole}
-                    onChange={(e) => setFormData({ ...formData, applicantRole: e.target.value })}
-                    placeholder="Comptable / Chef de projet"
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
-                  />
-                </div>
-              </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#263445] mb-1">
-                    Type de document *
-                  </label>
-                  <select
-                    value={formData.documentType}
-                    onChange={(e) => setFormData({ ...formData, documentType: e.target.value })}
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
-                  >
-                    <option value="Ordre de virement bancaire">Ordre de virement bancaire</option>
-                    <option value="Contrat de prestation">Contrat de prestation</option>
-                    <option value="Bon de commande officiel">Bon de commande officiel</option>
-                    <option value="Attestation administrative">Attestation administrative</option>
-                  </select>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#263445] mb-1">
-                    Référence document *
+              {/* Option 2: Upload PDF */}
+              {adminDocumentSource === "upload" && (
+                <div className="pt-2 space-y-2 animate-in fade-in duration-200">
+                  <label className="block text-xs font-bold uppercase tracking-wider text-[#062653] flex items-center justify-between">
+                    <span>1. Téléverser le fichier PDF à faire signer *</span>
+                    <span className="text-[11px] font-normal text-slate-400">Format PDF (max 10 Mo)</span>
                   </label>
                   <input
-                    type="text"
-                    required
-                    value={formData.documentReference}
-                    onChange={(e) => setFormData({ ...formData, documentReference: e.target.value })}
-                    placeholder="Ex: VIR-2026-001"
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white font-mono"
+                    ref={adminFileInputRef}
+                    type="file"
+                    accept="application/pdf,.pdf"
+                    className="hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        const reader = new FileReader();
+                        reader.onload = (ev) => {
+                          setAdminUploadedPdf({
+                            name: file.name,
+                            size: formatFileSize(file.size),
+                            dataUrl: ev.target?.result as string,
+                          });
+                        };
+                        reader.readAsDataURL(file);
+                      }
+                    }}
                   />
-                </div>
-              </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#263445] mb-1">
-                    Montant (optionnel)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.amount}
-                    onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                    placeholder="Ex: 50,000"
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white font-mono"
-                  />
+                  {!adminUploadedPdf ? (
+                    <button
+                      type="button"
+                      onClick={() => adminFileInputRef.current?.click()}
+                      className="w-full p-8 border-2 border-dashed border-slate-300 hover:border-[#062653] rounded-xl bg-slate-50 hover:bg-slate-100/50 text-center transition-all cursor-pointer"
+                    >
+                      <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-1.5" />
+                      <span className="text-xs font-bold text-[#062653] block">
+                        Téléverser le fichier PDF
+                      </span>
+                      <span className="text-[11px] text-slate-400 block mt-0.5">
+                        ou glissez-déposez le fichier ici
+                      </span>
+                    </button>
+                  ) : (
+                    <div className="p-3 rounded-xl border border-emerald-300 bg-emerald-50/30 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 truncate">
+                        <FileText className="w-5 h-5 text-rose-600 shrink-0" />
+                        <span className="text-xs font-bold text-slate-800 truncate">
+                          {adminUploadedPdf.name}
+                        </span>
+                        <span className="text-[10px] text-slate-500 font-mono">
+                          ({adminUploadedPdf.size})
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAdminUploadedPdf(null);
+                        }}
+                        className="text-xs text-rose-600 font-bold hover:underline cursor-pointer"
+                      >
+                        Supprimer
+                      </button>
+                    </div>
+                  )}
                 </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#263445] mb-1">
-                    Devise
-                  </label>
-                  <select
-                    value={formData.currency}
-                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
-                  >
-                    <option value="HTG">HTG (Gourde)</option>
-                    <option value="USD">USD ($)</option>
-                  </select>
-                </div>
-              </div>
+              )}
 
-              <div>
-                <label className="block text-xs font-semibold text-[#263445] mb-1">
-                  Description / Justification *
-                </label>
+              {/* Motif de l'autorisation */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-bold text-[#062653]">
+                    Description / Motif de l'autorisation requise *
+                  </label>
+                  {adminDocumentSource === "editor" && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const t = adminWordEditorRef.current?.getTitle();
+                        if (t) setAdminDescription(t);
+                      }}
+                      className="text-[11px] font-semibold text-blue-600 hover:underline flex items-center gap-1 cursor-pointer"
+                    >
+                      <Sparkles className="w-3 h-3 text-amber-500" />
+                      <span>Copier l'objet du document</span>
+                    </button>
+                  )}
+                </div>
                 <textarea
                   rows={3}
                   required
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  placeholder="Détaillez la raison et le cadre de la signature demandée..."
-                  className="w-full p-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                  value={adminDescription}
+                  onChange={(e) => setAdminDescription(e.target.value)}
+                  placeholder="Précisez le contexte, la justification et les détails de l'autorisation demandée..."
+                  className="w-full p-3 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 outline-hidden"
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#DCE2EA]">
-                <button
-                  type="button"
-                  onClick={() => setShowNewModal(false)}
-                  className="px-4 py-2 bg-white border border-[#DCE2EA] text-[#64748B] hover:bg-slate-50 text-xs font-semibold rounded-xl"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={
-                    !formData.applicantName.trim() ||
-                    !formData.applicantRole.trim() ||
-                    !formData.documentType.trim() ||
-                    !formData.documentReference.trim() ||
-                    !formData.description.trim()
-                  }
-                  className="px-4 py-2 bg-[#FF7900] hover:bg-[#E66D00] disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-all"
-                >
-                  Créer la demande
-                </button>
+              <div className="pt-2 flex items-center justify-between gap-3 border-t border-[#DCE2EA]">
+                <div className="text-xs text-slate-500 font-medium">
+                  Source : {adminDocumentSource === "upload" && adminUploadedPdf ? `Fichier PDF (${adminUploadedPdf.name})` : "Document rédigé en ligne (Style Word)"}
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowNewModal(false)}
+                    className="px-4 py-2 bg-white border border-[#DCE2EA] text-[#64748B] hover:bg-slate-50 text-xs font-semibold rounded-xl cursor-pointer"
+                  >
+                    Annuler
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={
+                      !adminDescription.trim() ||
+                      (adminDocumentSource === "upload" && !adminUploadedPdf)
+                    }
+                    className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-all cursor-pointer shadow-xs"
+                  >
+                    Soumettre la demande
+                  </button>
+                </div>
               </div>
             </form>
           </div>

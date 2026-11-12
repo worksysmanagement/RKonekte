@@ -80,15 +80,32 @@ export function SystemToastItem({
   const defaultTitle = isError ? "Erreur" : isInfo ? "Information" : "Success";
   const title = item.title || defaultTitle;
 
+  // Permet aussi de fermer la notification avec la touche Échap
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [onClose]);
+
   return (
     <>
-      {/* Fond subtilement flouté sans bloquer les interactions */}
+      {/* Fond d'écran cliquable : cliquer n'importe où sur l'écran ferme la notification comme la croix */}
       <div
-        className="fixed inset-0 bg-black/5 backdrop-blur-[2px] z-[9990] pointer-events-none animate-in fade-in duration-300"
+        onClick={onClose}
+        className="fixed inset-0 bg-black/5 backdrop-blur-[2px] z-[9990] cursor-pointer animate-in fade-in duration-300 print:hidden"
         aria-hidden="true"
+        title="Cliquer pour fermer"
       />
 
-      <div className="fixed top-6 right-6 z-[9999] animate-in fade-in slide-in-from-top-4 duration-300 max-w-sm sm:max-w-md">
+      <div
+        onClick={onClose}
+        className="fixed top-5 right-4 sm:right-6 max-w-[calc(100vw-2rem)] sm:max-w-md z-[9999] pointer-events-auto cursor-pointer animate-in fade-in slide-in-from-top-6 duration-300 print:hidden"
+        title="Cliquer pour fermer"
+      >
         {/* Label au-dessus */}
         <div
           className={`text-sm font-bold mb-1 pl-1 ${
@@ -115,7 +132,7 @@ export function SystemToastItem({
           />
 
           {/* Carte blanche principale avec verre flouté et ombre douce */}
-          <div className="relative bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-2xl px-5 py-3.5 flex items-center gap-3 pr-8 min-w-[320px] sm:min-w-[380px] rounded-sm">
+          <div className="relative bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-2xl px-5 py-3.5 flex items-center gap-3 pr-8 min-w-[320px] sm:min-w-[380px] rounded-sm hover:scale-[1.01] transition-transform">
             {/* Cercle avec check vert ou croix */}
             <div
               className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${
@@ -137,7 +154,7 @@ export function SystemToastItem({
 
             {/* Texte */}
             <span
-              className={`text-xs font-semibold leading-relaxed ${
+              className={`text-xs font-semibold leading-relaxed select-none ${
                 isError
                   ? "text-rose-700"
                   : isInfo
@@ -151,7 +168,10 @@ export function SystemToastItem({
             {/* Bouton rond vert / rouge avec croix blanche en haut à droite qui déborde */}
             <button
               type="button"
-              onClick={onClose}
+              onClick={(e) => {
+                e.stopPropagation();
+                onClose();
+              }}
               className={`absolute -top-3 -right-3 w-6 h-6 rounded-full text-white flex items-center justify-center shadow-md cursor-pointer transition-transform hover:scale-110 active:scale-95 ${
                 isError
                   ? "bg-rose-500 hover:bg-rose-600"

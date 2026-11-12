@@ -23,12 +23,11 @@ import {
   Send,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
-import { APP_CONFIG } from "@/config/app";
 import { showSystemToast } from "@/components/ui/SystemToast";
 import {
   generateEmployeeMatricule,
-  updateMatriculeBranch,
   getNextMatriculeSequence,
+  normalizeMatriculeFormat,
 } from "@/lib/utils/matricule";
 
 const BLOOD_GROUPS = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"];
@@ -59,6 +58,10 @@ const ASSIGNED_ROLES = [
     label: "Responsable Financier / Comptable — Management",
   },
   {
+    value: "CASHIER",
+    label: "Caissier(e) — Opérationnel",
+  },
+  {
     value: "EMPLOYEE",
     label: "Collaborateur / Employé — Opérationnel",
   },
@@ -83,6 +86,7 @@ interface EmployeeItem {
   emergencyContactPhone?: string | null;
   phone: string;
   email?: string | null;
+  role?: string | null;
   status: "ACTIVE" | "INACTIVE";
   connectionStatus?: "CONNECTE" | "NON_CONNECTE" | "SANS_COMPTE";
   createdAt: number;
@@ -94,10 +98,16 @@ export default function AdminEmployeesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<"ALL" | "ACTIVE" | "INACTIVE">("ALL");
-  const [branchFilter, setBranchFilter] = useState<string>("ALL");
-  const [availableBranches, setAvailableBranches] = useState<Array<{ id: string; code: string; name: string; city: string }>>([]);
+  const [branchFilter, setBranchFilter] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("rk_active_branch");
+      if (saved && saved !== "all") return saved;
+    }
+    return "ALL";
+  });
+  const [availableBranches, setAvailableBranches] = useState<Array<{ id: string; name: string; city: string }>>([]);
   const [organizationName, setOrganizationName] = useState<string>("");
-  const [orgMatriculeFormat, setOrgMatriculeFormat] = useState<string>("INITIALS_BRANCH_SEQ");
+  const [orgMatriculeFormat, setOrgMatriculeFormat] = useState<string>("FULLNAME_SEQ");
   const [orgMatriculePrefix, setOrgMatriculePrefix] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
 
@@ -129,7 +139,7 @@ export default function AdminEmployeesPage() {
     firstName: "",
     lastName: "",
     branchId: "",
-    branch: "Siège Principal",
+    branch: "",
     department: "",
     position: "",
     birthDate: "",
@@ -141,6 +151,7 @@ export default function AdminEmployeesPage() {
     emergencyContactPhone: "",
     phone: "",
     email: "",
+    role: "EMPLOYEE",
     status: "ACTIVE" as "ACTIVE" | "INACTIVE",
   });
 
@@ -227,10 +238,12 @@ export default function AdminEmployeesPage() {
           const data = await res.json();
           if (data.organization) {
             setOrganizationName(data.organization.name || data.organization.slug || "");
-            if (data.organization.matriculeFormat) setOrgMatriculeFormat(data.organization.matriculeFormat);
+            if (data.organization.matriculeFormat) {
+              setOrgMatriculeFormat(normalizeMatriculeFormat(data.organization.matriculeFormat));
+            }
             if (data.organization.matriculePrefix) setOrgMatriculePrefix(data.organization.matriculePrefix);
           }
-          if (data.branches && Array.isArray(data.branches) && data.branches.length > 0) {
+          if (Array.isArray(data.branches)) {
             setAvailableBranches(data.branches);
           }
         }
@@ -240,13 +253,19 @@ export default function AdminEmployeesPage() {
 
     // Listen to global branch change event from AdminHeader
     const handleBranchChange = (e: any) => {
-      if (e.detail?.branchId) {
-        setBranchFilter(e.detail.branchId);
+      const bId = e.detail?.branchId;
+      if (bId !== undefined) {
+        setBranchFilter(bId === "all" ? "ALL" : bId);
       }
     };
     window.addEventListener("branchChange", handleBranchChange);
     return () => window.removeEventListener("branchChange", handleBranchChange);
   }, []);
+
+  const resolveEmployeeBranchName = (emp: { branchId?: string | null; branch?: string | null }) =>
+    (emp.branchId ? availableBranches.find((b) => b.id === emp.branchId)?.name : undefined) ||
+    emp.branch ||
+    "";
 
   // Initial fetch and mock enhancement for rich employee fields
   const fetchEmployees = async () => {
@@ -265,7 +284,7 @@ export default function AdminEmployeesPage() {
           branch:
             emp.branch ||
             availableBranches.find((b) => b.id === emp.branchId)?.name ||
-            "Siège Principal",
+            "",
           birthDate: emp.birthDate || "",
           studyDomain: emp.studyDomain || "",
           bloodGroup: emp.bloodGroup || "",
@@ -299,7 +318,6 @@ export default function AdminEmployeesPage() {
     const nextSeq = getNextMatriculeSequence(existingMatricules);
     const autoNum = generateEmployeeMatricule(
       organizationName,
-      firstBranch?.code || "SIEGE",
       nextSeq,
       orgMatriculeFormat,
       orgMatriculePrefix
@@ -309,7 +327,7 @@ export default function AdminEmployeesPage() {
       firstName: "",
       lastName: "",
       branchId: firstBranch?.id || "",
-      branch: firstBranch?.name || "Siège Principal",
+      branch: firstBranch?.name || "",
       department: "",
       position: "",
       birthDate: "",
@@ -321,6 +339,7 @@ export default function AdminEmployeesPage() {
       emergencyContactPhone: "",
       phone: "",
       email: "",
+      role: "EMPLOYEE",
       status: "ACTIVE",
     });
     setFormError(null);
@@ -334,7 +353,7 @@ export default function AdminEmployeesPage() {
       firstName: emp.firstName,
       lastName: emp.lastName,
       branchId: emp.branchId || "",
-      branch: emp.branch || "Siège Principal",
+      branch: resolveEmployeeBranchName(emp),
       department: emp.department || "",
       position: emp.position || "",
       birthDate: emp.birthDate || "",
@@ -346,6 +365,7 @@ export default function AdminEmployeesPage() {
       emergencyContactPhone: emp.emergencyContactPhone || "",
       phone: emp.phone || "",
       email: emp.email || "",
+      role: emp.role || "EMPLOYEE",
       status: emp.status || "ACTIVE",
     });
     setFormError(null);
@@ -406,6 +426,7 @@ export default function AdminEmployeesPage() {
         position: formData.position.trim() || null,
         phone: formData.phone.trim(),
         email: formData.email.trim().toLowerCase(),
+        role: formData.role || "EMPLOYEE",
         birthDate: formData.birthDate || null,
         studyDomain: formData.studyDomain.trim() || null,
         bloodGroup: formData.bloodGroup.trim() || null,
@@ -447,8 +468,6 @@ export default function AdminEmployeesPage() {
     }
   };
 
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
-
   const handleDeleteEmployee = async (id: string, name: string) => {
     if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement l'employé « ${name} » ?`)) {
       return;
@@ -483,22 +502,6 @@ export default function AdminEmployeesPage() {
 
   return (
     <div className="space-y-6">
-      {/* Toast Feedback */}
-      {toastMessage && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{toastMessage}</span>
-          </div>
-          <button
-            onClick={() => setToastMessage(null)}
-            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -544,11 +547,20 @@ export default function AdminEmployeesPage() {
           {/* Branch Filter Dropdown */}
           <select
             value={branchFilter}
-            onChange={(e) => setBranchFilter(e.target.value)}
-            className="h-8 px-2.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs font-semibold text-[#263445] focus:bg-white"
+            onChange={(e) => {
+              const val = e.target.value;
+              setBranchFilter(val);
+              const norm = val === "ALL" ? "all" : val;
+              if (typeof window !== "undefined") {
+                localStorage.setItem("rk_active_branch", norm);
+                document.cookie = `rk_active_branch=${encodeURIComponent(norm)}; path=/; max-age=31536000`;
+                window.dispatchEvent(new CustomEvent("branchChange", { detail: { branchId: norm } }));
+              }
+            }}
+            className="h-8 px-2.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs font-semibold text-[#263445] focus:bg-white cursor-pointer"
           >
             <option value="ALL">Toutes les succursales</option>
-            {(availableBranches.length > 0 ? availableBranches : APP_CONFIG.defaultBranches).map((b) => (
+            {availableBranches.map((b) => (
               <option key={b.id} value={b.id}>
                 {b.name} ({b.city})
               </option>
@@ -586,7 +598,7 @@ export default function AdminEmployeesPage() {
                   <th className="px-5 py-3.5">Employé</th>
                   <th className="px-5 py-3.5">Date de naissance</th>
                   <th className="px-5 py-3.5">Téléphone</th>
-                  <th className="px-5 py-3.5">Rôle / Poste</th>
+                  <th className="px-5 py-3.5">Poste & Profil d'accès</th>
                   <th className="px-5 py-3.5">Succursale</th>
                   <th className="px-5 py-3.5">Statut</th>
                   <th className="px-5 py-3.5 text-right">Actions</th>
@@ -621,12 +633,23 @@ export default function AdminEmployeesPage() {
                         )}
                       </td>
                       <td className="px-5 py-4 text-[#263445] font-mono">{emp.phone}</td>
-                      <td className="px-5 py-4 font-semibold text-[#263445]">
-                        {emp.position || (
-                          <span className="text-[#94A3B8] font-normal italic text-xs">Non renseigné</span>
+                      <td className="px-5 py-4">
+                        <div className="font-semibold text-[#263445]">
+                          {emp.position || (
+                            <span className="text-[#94A3B8] font-normal italic text-xs">Poste non renseigné</span>
+                          )}
+                        </div>
+                        {emp.role && (
+                          <div className="text-[10px] font-semibold text-[#FF7900] mt-0.5">
+                            {ASSIGNED_ROLES.find((r) => r.value === emp.role)?.label?.split("—")[0]?.trim() || emp.role}
+                          </div>
                         )}
                       </td>
-                      <td className="px-5 py-4 font-medium text-[#263445]">{emp.branch}</td>
+                      <td className="px-5 py-4 font-medium text-[#263445]">
+                        {resolveEmployeeBranchName(emp) || (
+                          <span className="text-[#94A3B8] italic font-normal">Non assignée</span>
+                        )}
+                      </td>
                       <td className="px-5 py-4">
                         <StatusBadge status={emp.status} size="sm" />
                         <div className="mt-1">
@@ -763,9 +786,27 @@ export default function AdminEmployeesPage() {
                   <span className="text-[#64748B] font-semibold">Matricule</span>
                   <div className="font-bold text-[#062653] font-mono mt-0.5">{selectedEmployee.employeeNumber}</div>
                 </div>
-                <div className="p-2.5 bg-[#F4F6F9] rounded-xl">
-                  <span className="text-[#64748B] font-semibold">Succursale</span>
-                  <div className="font-bold text-[#263445] mt-0.5">{selectedEmployee.branch}</div>
+                <div className="p-2.5 bg-[#F4F6F9] rounded-xl flex items-center justify-between">
+                  <div>
+                    <span className="text-[#64748B] font-semibold">Succursale</span>
+                    <div className="font-bold text-[#263445] mt-0.5">
+                      {resolveEmployeeBranchName(selectedEmployee) || (
+                        <span className="text-[#94A3B8] italic font-normal">Non assignée</span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const emp = selectedEmployee;
+                      setSelectedEmployee(null);
+                      openEditModal(emp);
+                    }}
+                    className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-[11px] font-semibold text-[#062653] rounded-lg shadow-2xs transition-colors cursor-pointer"
+                    title="Changer la succursale de cet employé"
+                  >
+                    Changer
+                  </button>
                 </div>
                 <div className="p-2.5 bg-[#F4F6F9] rounded-xl">
                   <span className="text-[#64748B] font-semibold">Téléphone</span>
@@ -780,15 +821,21 @@ export default function AdminEmployeesPage() {
               </div>
             </div>
 
-            {/* 2. POSTE & AFFECTATION */}
+            {/* 2. POSTE & PROFIL D'ACCÈS */}
             <div>
               <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-[#DCE2EA] mb-3">
-                2. Poste & Affectation
+                2. Poste & Profil d'accès
               </h3>
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
                 <div className="p-2.5 bg-[#F4F6F9] rounded-xl">
-                  <span className="text-[#64748B] font-semibold">Rôle / Poste</span>
+                  <span className="text-[#64748B] font-semibold">Poste occupé</span>
                   <div className="font-bold text-[#263445] mt-0.5">{selectedEmployee.position || "Non renseigné"}</div>
+                </div>
+                <div className="p-2.5 bg-[#F4F6F9] rounded-xl">
+                  <span className="text-[#64748B] font-semibold">Profil d'accès système</span>
+                  <div className="font-bold text-[#FF7900] mt-0.5">
+                    {ASSIGNED_ROLES.find((r) => r.value === selectedEmployee.role)?.label?.split("—")[0]?.trim() || selectedEmployee.role || "Collaborateur"}
+                  </div>
                 </div>
                 <div className="p-2.5 bg-[#F4F6F9] rounded-xl">
                   <span className="text-[#64748B] font-semibold">Département</span>
@@ -1065,33 +1112,32 @@ export default function AdminEmployeesPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-[#263445] mb-1">
-                      Succursale d'affectation <span className="text-rose-500">*</span>
+                      Succursale d'affectation{" "}
+                      {availableBranches.length > 0 ? (
+                        <span className="text-rose-500">*</span>
+                      ) : (
+                        <span className="text-[#94A3B8] font-normal">(Optionnel)</span>
+                      )}
                     </label>
                     <select
                       value={formData.branchId || ""}
                       onChange={(e) => {
                         const bId = e.target.value;
                         const found = availableBranches.find((b) => b.id === bId);
-                        const updatedMatricule = !editingEmployee
-                          ? updateMatriculeBranch(
-                              formData.employeeNumber,
-                              found?.code || "BR",
-                              organizationName,
-                              orgMatriculeFormat,
-                              orgMatriculePrefix
-                            )
-                          : formData.employeeNumber;
                         setFormData({
                           ...formData,
                           branchId: bId,
                           branch: found ? found.name : "",
-                          employeeNumber: updatedMatricule,
                         });
                       }}
                       className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
                     >
-                      <option value="" disabled>Choisir une succursale</option>
-                      {(availableBranches.length > 0 ? availableBranches : APP_CONFIG.defaultBranches).map((b) => (
+                      <option value="" disabled={availableBranches.length > 0}>
+                        {availableBranches.length === 0
+                          ? "Aucune succursale créée (Optionnel)"
+                          : "Choisir une succursale"}
+                      </option>
+                      {availableBranches.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.name} ({b.city})
                         </option>
@@ -1108,7 +1154,7 @@ export default function AdminEmployeesPage() {
                       required
                       value={formData.employeeNumber}
                       onChange={(e) => setFormData({ ...formData, employeeNumber: e.target.value.toUpperCase() })}
-                      placeholder="Ex: EB-SIEGE-001"
+                      placeholder="Ex: E-BIZNIS-001"
                       className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-bold font-mono focus:bg-white focus:border-[#FF7900] transition-colors"
                     />
                   </div>
@@ -1129,27 +1175,50 @@ export default function AdminEmployeesPage() {
                 </div>
               </div>
 
-              {/* SECTION 2 : POSTE & AFFECTATION */}
+              {/* SECTION 2 : POSTE & PROFIL D'ACCÈS */}
               <div>
                 <div className="flex items-center justify-between mb-3 pb-1 border-b border-[#DCE2EA]">
                   <h4 className="text-[11px] font-bold text-[#FF7900] uppercase tracking-wider">
-                    2. Poste & Affectation
+                    2. Poste & Profil d'accès
                   </h4>
-                  <span className="text-[10px] text-[#64748B]">Optionnelles</span>
+                  <span className="text-[10px] text-[#64748B]">Paramètres professionnels</span>
                 </div>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs font-semibold text-[#263445] mb-1">
-                      Poste / Rôle
+                      Poste occupé (Fonction métier)
                     </label>
                     <input
                       type="text"
                       value={formData.position}
                       onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                      placeholder="Ex: Conseiller commercial"
+                      placeholder="Ex: Conseiller commercial, Mécanicien..."
                       className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
                     />
+                    <p className="text-[10px] text-[#64748B] mt-1">
+                      Activité ou métier exercé au sein de l'entreprise.
+                    </p>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#263445] mb-1">
+                      Profil d'accès & Droits système <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={formData.role}
+                      onChange={(e) => setFormData({ ...formData, role: e.target.value })}
+                      className="w-full h-10 px-3 bg-white border border-[#062653] font-semibold rounded-xl text-xs text-[#062653] focus:border-[#FF7900] transition-colors cursor-pointer"
+                    >
+                      {ASSIGNED_ROLES.map((r) => (
+                        <option key={r.value} value={r.value}>
+                          {r.label}
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-[10px] text-[#64748B] mt-1">
+                      Définit les modules et autorisations d'accès dans l'application.
+                    </p>
                   </div>
 
                   <div>
@@ -1416,7 +1485,11 @@ export default function AdminEmployeesPage() {
               <p className="text-xs text-[#64748B] max-w-md mx-auto">
                 {inviteModalData.emailSent ? (
                   <>
-                    L'e-mail officiel avec le récapitulatif a été expédié à <strong className="text-[#062653]">{inviteModalData.email}</strong>.
+                    L'e-mail officiel avec le lien d'accès a été expédié à{" "}
+                    <strong className="text-[#062653] font-mono">{inviteModalData.email}</strong>.
+                    <span className="block mt-1 text-[11px] text-[#64748B]">
+                      (Pensez à vérifier le dossier <strong className="font-bold text-[#062653]">Spam / Courrier indésirable</strong> ou l'onglet <strong className="font-bold text-[#062653]">Promotions</strong> si l'e-mail tarde à s'afficher).
+                    </span>
                   </>
                 ) : (
                   <>

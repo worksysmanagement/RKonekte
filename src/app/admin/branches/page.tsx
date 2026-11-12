@@ -9,7 +9,6 @@ import { showSystemToast } from "@/components/ui/SystemToast";
 
 interface Branch {
   id: string;
-  code: string;
   name: string;
   city: string;
   address: string;
@@ -46,11 +45,10 @@ export default function AdminBranchesPage() {
             ).length;
             return {
               id: b.id,
-              code: b.code,
               name: b.name,
               city: b.city,
               address: b.address || "",
-              managerName: b.managerName || "Responsable d'agence",
+              managerName: b.managerName || "",
               phone: b.phone || "",
               employeeCount: count,
               status: b.status || "ACTIVE",
@@ -73,7 +71,6 @@ export default function AdminBranchesPage() {
   }, []);
 
   const [formData, setFormData] = useState({
-    code: "",
     name: "",
     city: "",
     address: "",
@@ -85,7 +82,6 @@ export default function AdminBranchesPage() {
   const openEdit = (b: Branch) => {
     setEditingBranch(b);
     setFormData({
-      code: b.code,
       name: b.name,
       city: b.city,
       address: b.address,
@@ -95,8 +91,6 @@ export default function AdminBranchesPage() {
     });
     setIsEditModalOpen(true);
   };
-
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
 
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,7 +105,7 @@ export default function AdminBranchesPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Erreur lors de la modification de la succursale.");
+        showSystemToast(data.error || "Erreur lors de la modification de la succursale.", "error");
         return;
       }
 
@@ -122,10 +116,9 @@ export default function AdminBranchesPage() {
       if (selectedBranch && selectedBranch.id === editingBranch.id) {
         setSelectedBranch({ ...selectedBranch, ...formData });
       }
-      setToastMessage(`La succursale « ${formData.name} » a été modifiée avec succès.`);
-      setTimeout(() => setToastMessage(null), 4000);
+      showSystemToast(`La succursale « ${formData.name} » a été modifiée avec succès.`);
     } catch (err: any) {
-      alert(err?.message || "Erreur réseau.");
+      showSystemToast(err?.message || "Erreur réseau.", "error");
     }
   };
 
@@ -141,7 +134,7 @@ export default function AdminBranchesPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Impossible de supprimer la succursale.");
+        showSystemToast(data.error || "Impossible de supprimer la succursale.", "error");
         return;
       }
 
@@ -149,10 +142,9 @@ export default function AdminBranchesPage() {
       if (selectedBranch && selectedBranch.id === id) {
         setSelectedBranch(null);
       }
-      setToastMessage(`La succursale « ${name} » a été supprimée avec succès.`);
-      setTimeout(() => setToastMessage(null), 4000);
+      showSystemToast(`La succursale « ${name} » a été supprimée avec succès.`);
     } catch (err: any) {
-      alert(err?.message || "Erreur de connexion.");
+      showSystemToast(err?.message || "Erreur de connexion.", "error");
     }
   };
 
@@ -162,29 +154,12 @@ export default function AdminBranchesPage() {
     return (
       b.name.toLowerCase().includes(q) ||
       b.city.toLowerCase().includes(q) ||
-      b.code.toLowerCase().includes(q) ||
       b.managerName.toLowerCase().includes(q)
     );
   });
 
   return (
     <div className="space-y-6">
-      {/* Toast Feedback */}
-      {toastMessage && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{toastMessage}</span>
-          </div>
-          <button
-            onClick={() => setToastMessage(null)}
-            className="text-emerald-700 hover:text-emerald-900 p-1 rounded-md"
-          >
-            <X className="w-4 h-4" />
-          </button>
-        </div>
-      )}
-
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -202,7 +177,7 @@ export default function AdminBranchesPage() {
 
         <Link
           href="/admin/branches/new"
-          className="px-4 py-2 bg-[#FF7900] hover:bg-[#E66D00] text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-2 self-start"
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-xl shadow-xs transition-colors flex items-center gap-2 self-start cursor-pointer"
         >
           <Plus className="w-4 h-4" />
           Ajouter une succursale
@@ -240,7 +215,6 @@ export default function AdminBranchesPage() {
             <table className="w-full text-left text-xs">
               <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-[#DCE2EA]">
                 <tr>
-                  <th className="px-5 py-3.5">Code</th>
                   <th className="px-5 py-3.5">Nom de la succursale</th>
                   <th className="px-5 py-3.5">Ville & Adresse</th>
                   <th className="px-5 py-3.5">Responsable</th>
@@ -253,13 +227,16 @@ export default function AdminBranchesPage() {
               <tbody className="divide-y divide-[#DCE2EA]">
                 {filtered.map((b) => (
                   <tr key={b.id} className="hover:bg-slate-50/70 transition-colors">
-                    <td className="px-5 py-4 font-bold text-[#062653]">{b.code}</td>
-                    <td className="px-5 py-4 font-bold text-[#263445]">{b.name}</td>
+                    <td className="px-5 py-4 font-bold text-[#062653]">{b.name}</td>
                     <td className="px-5 py-4">
                       <div className="font-semibold text-[#263445]">{b.city}</div>
                       <div className="text-[11px] text-[#64748B]">{b.address}</div>
                     </td>
-                    <td className="px-5 py-4 font-medium text-[#263445]">{b.managerName}</td>
+                    <td className="px-5 py-4 font-medium text-[#263445]">
+                      {b.managerName || (
+                        <span className="text-[#94A3B8] italic font-normal text-xs">Non assigné</span>
+                      )}
+                    </td>
                     <td className="px-5 py-4 text-[#263445] font-medium">{b.phone}</td>
                     <td className="px-5 py-4 font-bold text-[#062653]">
                       {b.employeeCount} employés
@@ -310,7 +287,7 @@ export default function AdminBranchesPage() {
             <div className="flex items-center justify-between pb-3 border-b border-[#DCE2EA]">
               <div>
                 <span className="text-[11px] font-bold text-[#FF7900]">
-                  {selectedBranch.code}
+                  {selectedBranch.city}
                 </span>
                 <h2 className="text-base font-bold text-[#062653]">{selectedBranch.name}</h2>
               </div>
@@ -331,7 +308,11 @@ export default function AdminBranchesPage() {
 
               <div className="p-3 bg-[#F4F6F9] rounded-xl">
                 <span className="text-[#64748B] font-semibold">Responsable de site</span>
-                <div className="font-bold text-[#263445] mt-1">{selectedBranch.managerName}</div>
+                <div className="font-bold text-[#263445] mt-1">
+                  {selectedBranch.managerName || (
+                    <span className="text-[#94A3B8] italic font-normal text-xs">Non assigné</span>
+                  )}
+                </div>
                 <div className="text-[#64748B] font-mono mt-0.5">{selectedBranch.phone}</div>
               </div>
 
@@ -375,27 +356,15 @@ export default function AdminBranchesPage() {
             </div>
 
             <form onSubmit={handleEditSubmit} className="space-y-4 text-xs">
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-semibold text-[#263445] mb-1">Code *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.code}
-                    onChange={(e) => setFormData({ ...formData, code: e.target.value })}
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block font-semibold text-[#263445] mb-1">Nom *</label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
-                  />
-                </div>
+              <div>
+                <label className="block font-semibold text-[#263445] mb-1">Nom de la succursale *</label>
+                <input
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                  className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                />
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -433,12 +402,14 @@ export default function AdminBranchesPage() {
               </div>
 
               <div>
-                <label className="block font-semibold text-[#263445] mb-1">Nom du responsable *</label>
+                <label className="block font-semibold text-[#263445] mb-1">
+                  Nom du responsable <span className="text-[11px] font-normal text-[#64748B]">(Optionnel)</span>
+                </label>
                 <input
                   type="text"
-                  required
                   value={formData.managerName}
                   onChange={(e) => setFormData({ ...formData, managerName: e.target.value })}
+                  placeholder="Facultatif"
                   className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
                 />
               </div>
@@ -453,7 +424,7 @@ export default function AdminBranchesPage() {
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-2 bg-[#FF7900] hover:bg-[#E66D00] text-white text-xs font-bold rounded-xl"
+                  className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-bold rounded-xl transition-colors cursor-pointer"
                 >
                   Enregistrer
                 </button>

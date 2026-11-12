@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS organizations (
   phone TEXT,
   address TEXT,
   status TEXT NOT NULL DEFAULT 'ACTIVE',
-  matricule_format TEXT DEFAULT 'INITIALS_BRANCH_SEQ',
+  matricule_format TEXT DEFAULT 'FULLNAME_SEQ',
   matricule_prefix TEXT,
   primary_currency TEXT DEFAULT 'HTG',
   date_format TEXT DEFAULT 'DD/MM/YYYY',

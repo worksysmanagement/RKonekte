@@ -2,7 +2,6 @@ import { getDb } from "@/lib/db/client";
 import { branches, Branch, InsertBranch } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { supabaseDb } from "@/lib/supabase/db";
-import { APP_CONFIG } from "@/config/app";
 
 export async function listBranches(
   organizationId: string,
@@ -11,25 +10,7 @@ export async function listBranches(
   try {
     if (!dbInstance) {
       const remoteList = await supabaseDb.branches.list(organizationId);
-      if (remoteList && remoteList.length > 0) {
-        return remoteList;
-      }
-      
-      // If organization has no branch in Supabase, auto-create a default "Siège Principal"
-      const defaultBranch = await supabaseDb.branches.create(organizationId, {
-        id: `br-${organizationId}-siege`,
-        organizationId,
-        code: "SIEGE",
-        name: "Siège Principal",
-        city: "Port-au-Prince",
-        address: "Avenue Charles Sumner, Port-au-Prince",
-        managerName: "Direction Générale",
-        phone: "+509 2811-0001",
-        status: "ACTIVE",
-        createdAt: Date.now(),
-        updatedAt: Date.now(),
-      });
-      return [defaultBranch];
+      return remoteList || [];
     }
   } catch (_) {}
 
@@ -41,26 +22,10 @@ export async function listBranches(
       .from(branches)
       .where(eq(branches.organizationId, organizationId));
 
-    if (rows && rows.length > 0) {
-      return rows;
-    }
+    return rows || [];
   } catch (_) {}
 
-  // Default seed branches from APP_CONFIG for immediate preview if db fails
-  const now = Date.now();
-  return APP_CONFIG.defaultBranches.map((def, idx) => ({
-    id: def.id,
-    organizationId,
-    code: def.code,
-    name: def.name,
-    city: def.city,
-    address: `${def.name}, ${def.city}`,
-    managerName: idx === 0 ? "Directeur Général" : "Responsable d'agence",
-    phone: `+509 2811-000${idx + 1}`,
-    status: "ACTIVE" as const,
-    createdAt: now,
-    updatedAt: now,
-  }));
+  return [];
 }
 
 export async function getBranchById(
@@ -87,7 +52,6 @@ export async function getBranchById(
 export async function createBranch(
   organizationId: string,
   input: {
-    code: string;
     name: string;
     city: string;
     address?: string | null;
@@ -105,7 +69,6 @@ export async function createBranch(
       return await supabaseDb.branches.create(organizationId, {
         id: branchId,
         organizationId,
-        code: input.code,
         name: input.name,
         city: input.city,
         address: input.address || null,
@@ -122,7 +85,6 @@ export async function createBranch(
   const newRecord: InsertBranch = {
     id: branchId,
     organizationId,
-    code: input.code,
     name: input.name,
     city: input.city,
     address: input.address || null,
@@ -141,7 +103,6 @@ export async function updateBranch(
   organizationId: string,
   id: string,
   input: {
-    code?: string;
     name?: string;
     city?: string;
     address?: string | null;
@@ -156,7 +117,6 @@ export async function updateBranch(
   try {
     if (!dbInstance) {
       return await supabaseDb.branches.update(id, organizationId, {
-        code: input.code,
         name: input.name,
         city: input.city,
         address: input.address,
@@ -172,7 +132,6 @@ export async function updateBranch(
     updatedAt: now,
   };
 
-  if (input.code !== undefined) updateData.code = input.code;
   if (input.name !== undefined) updateData.name = input.name;
   if (input.city !== undefined) updateData.city = input.city;
   if (input.address !== undefined) updateData.address = input.address;

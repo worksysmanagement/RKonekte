@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireAuth, handleApiError } from "@/lib/auth/guard";
+import { requireAuth, requireTenantUser, handleApiError } from "@/lib/auth/guard";
 import { sendEmail } from "@/lib/notifications/email";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await requireAuth();
+    const authSession = await requireAuth();
+    const session =
+      authSession.role !== "SUPER_ADMIN"
+        ? (await requireTenantUser()).user
+        : authSession;
     const body = await req.json();
     const { category, moduleName, subject, message } = body;
 

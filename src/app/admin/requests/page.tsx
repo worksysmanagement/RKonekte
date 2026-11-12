@@ -16,6 +16,7 @@ import { StatusBadge } from "@/components/ui/StatusBadge";
 
 import { EmployeeLeaveView } from "@/components/requests/EmployeeLeaveView";
 import { Check, X } from "lucide-react";
+import { showSystemToast } from "@/components/ui/SystemToast";
 
 interface RequestItem {
   id: string;
@@ -35,6 +36,15 @@ interface RequestItem {
 
 export default function AdminRequestsPage() {
   const [requests, setRequests] = useState<RequestItem[]>([]);
+  const [branches, setBranches] = useState<any[]>([]);
+  const [employees, setEmployees] = useState<any[]>([]);
+  const [activeBranchId, setActiveBranchId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      const saved = localStorage.getItem("rk_active_branch");
+      if (saved && saved !== "all") return saved;
+    }
+    return "all";
+  });
   const [statusFilter, setStatusFilter] = useState<string>("ALL");
   const [searchTerm, setSearchTerm] = useState<string>("");
   const [page, setPage] = useState(1);
@@ -42,11 +52,7 @@ export default function AdminRequestsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
-  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
-  const [actionLoadingId, setActionLoadingId] = useState<string | null>(null);
-  const [rejectingItem, setRejectingItem] = useState<{ id: string; num: string } | null>(null);
-  const [rejectReason, setRejectReason] = useState("");
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -61,12 +67,41 @@ export default function AdminRequestsPage() {
       .catch(() => {
         setCurrentUserRole("EMPLOYEE");
       });
+
+    fetch("/api/admin/branches")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.branches) setBranches(d.branches);
+      })
+      .catch(() => {});
+
+    fetch("/api/admin/employees")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        const list = Array.isArray(d) ? d : d?.employees || [];
+        setEmployees(list);
+      })
+      .catch(() => {});
+
+    const handleBranchChange = (e: any) => {
+      const bId = e.detail?.branchId;
+      if (bId !== undefined) {
+        setActiveBranchId(bId);
+      }
+    };
+    window.addEventListener("branchChange", handleBranchChange);
+    return () => window.removeEventListener("branchChange", handleBranchChange);
   }, []);
 
   const isEmployee =
     currentUserRole === "EMPLOYEE" ||
+    currentUserRole === "COLLABORATEUR" ||
+    currentUserRole === "CASHIER" ||
+    currentUserRole === "CAISSIER" ||
     currentUserRole?.toLowerCase().includes("employ") ||
     currentUserRole?.toLowerCase().includes("collab") ||
+    currentUserRole?.toLowerCase().includes("caissier") ||
+    currentUserRole?.toLowerCase().includes("cashier") ||
     currentUserRole?.toLowerCase().includes("operat");
 
   const isMasterAccount =
@@ -76,6 +111,25 @@ export default function AdminRequestsPage() {
     currentUserRole?.toLowerCase().includes("fondateur") ||
     currentUserRole?.toLowerCase().includes("directeur général") ||
     currentUserRole?.toLowerCase().includes("propriétaire");
+
+  const activeBranchObj = branches.find((b) => b.id === activeBranchId) || null;
+
+  const filteredRequests = requests.filter((r) => {
+    if (activeBranchId === "all" || activeBranchId === "ALL") return true;
+    const brObj = branches.find((b) => b.id === activeBranchId);
+    const emp = employees.find((e) => e.employeeNumber === r.employeeNumber);
+    if (emp && emp.branchId) {
+      return emp.branchId === activeBranchId;
+    }
+    if ((r as any).branch) {
+      return (
+        (r as any).branch === activeBranchId ||
+        (brObj && (r as any).branch === brObj.name) ||
+        (brObj?.name && (r as any).branch?.toLowerCase().includes(brObj.name.toLowerCase()))
+      );
+    }
+    return true;
+  });
 
   const fetchRequests = async (p = page, s = statusFilter, q = searchTerm) => {
     setLoading(true);
@@ -127,77 +181,16 @@ export default function AdminRequestsPage() {
       const res = await fetch(`/api/admin/requests/${id}`, { method: "DELETE" });
       const data = await res.json();
       if (!res.ok) {
-        alert(data.error || "Impossible de supprimer la demande.");
+        showSystemToast(data.error || "Impossible de supprimer la demande.", "error");
         return;
       }
       setRequests((prev) => prev.filter((r) => r.id !== id));
       setTotal((prev) => Math.max(0, prev - 1));
-      setToastMessage(`La demande N° ${requestNumber} a été supprimée avec succès.`);
-      setTimeout(() => setToastMessage(null), 4000);
+      showSystemToast(`La demande N° ${requestNumber} a été supprimée avec succès.`);
     } catch (err) {
-      alert("Erreur réseau lors de la suppression.");
+      showSystemToast("Erreur réseau lors de la suppression.", "error");
     } finally {
       setDeletingId(null);
-    }
-  };
-
-  const handleQuickApprove = async (id: string, num: string) => {
-    setActionLoadingId(id);
-    try {
-      const res = await fetch(`/api/admin/requests/${id}/approve`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ decisionComment: "Approuvé par l'administration" }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Impossible d'approuver la demande.");
-        return;
-      }
-      setRequests((prev) =>
-        prev.map((r) => (r.id === id ? { ...r, status: "APPROVED" } : r))
-      );
-      setToastMessage(`La demande N° ${num} a été approuvée avec succès.`);
-      setTimeout(() => setToastMessage(null), 4000);
-    } catch (err) {
-      alert("Erreur réseau lors de l'approbation.");
-    } finally {
-      setActionLoadingId(null);
-    }
-  };
-
-  const handleQuickReject = async () => {
-    if (!rejectingItem) return;
-    if (!rejectReason.trim()) {
-      alert("Veuillez indiquer un motif de refus.");
-      return;
-    }
-    setActionLoadingId(rejectingItem.id);
-    try {
-      const res = await fetch(`/api/admin/requests/${rejectingItem.id}/reject`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          rejectionReason: rejectReason.trim(),
-          decisionComment: rejectReason.trim(),
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        alert(data.error || "Impossible de rejeter la demande.");
-        return;
-      }
-      setRequests((prev) =>
-        prev.map((r) => (r.id === rejectingItem.id ? { ...r, status: "REJECTED" } : r))
-      );
-      setToastMessage(`La demande N° ${rejectingItem.num} a été rejetée.`);
-      setRejectingItem(null);
-      setRejectReason("");
-      setTimeout(() => setToastMessage(null), 4000);
-    } catch (err) {
-      alert("Erreur réseau lors du rejet.");
-    } finally {
-      setActionLoadingId(null);
     }
   };
 
@@ -217,71 +210,22 @@ export default function AdminRequestsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Modal de Rejet avec Motif */}
-      {rejectingItem && (
-        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-200 animate-in fade-in zoom-in-95">
-            <h3 className="text-base font-bold text-[#062653] mb-1">
-              Motif du refus — Demande {rejectingItem.num}
-            </h3>
-            <p className="text-xs text-[#64748B] mb-4">
-              Veuillez indiquer la raison du rejet. Elle sera communiquée au collaborateur.
-            </p>
-            <textarea
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              rows={3}
-              placeholder="Ex: Période de forte affluence en succursale, solde insuffisant..."
-              className="w-full px-3.5 py-2.5 bg-[#F8FAFC] border border-[#DCE2EA] rounded-xl text-xs text-[#062653] focus:ring-2 focus:ring-rose-500/20 focus:border-rose-600 outline-hidden mb-4"
-              autoFocus
-            />
-            <div className="flex items-center justify-end gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setRejectingItem(null);
-                  setRejectReason("");
-                }}
-                className="px-4 py-2 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-100"
-              >
-                Annuler
-              </button>
-              <button
-                type="button"
-                onClick={handleQuickReject}
-                disabled={actionLoadingId === rejectingItem.id || !rejectReason.trim()}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl shadow-xs"
-              >
-                Confirmer le refus
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Toast Feedback */}
-      {toastMessage && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs animate-in fade-in">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{toastMessage}</span>
-          </div>
-          <button
-            onClick={() => setToastMessage(null)}
-            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
-            Demandes de congé
-          </h1>
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
+              Demandes de congé
+            </h1>
+            {activeBranchObj && (
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                {activeBranchObj.name} ({activeBranchObj.city})
+              </span>
+            )}
+          </div>
           <p className="text-xs text-[#64748B] mt-1">
-            Consultez, recherchez et traitez les demandes de congé ({total} au total).
+            {activeBranchObj
+              ? `Demandes de congé filtrées pour la succursale ${activeBranchObj.name} (${filteredRequests.length} trouvée(s)).`
+              : `Consultez, recherchez et traitez les demandes de congé (${total} au total).`}
           </p>
         </div>
 
@@ -351,7 +295,7 @@ export default function AdminRequestsPage() {
       <div className="bg-white rounded-xl border border-[#DCE2EA] shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-[#64748B] text-xs">Chargement des demandes...</div>
-        ) : requests.length === 0 ? (
+        ) : filteredRequests.length === 0 ? (
           <div className="p-12 text-center text-xs text-[#64748B]">
             Aucune demande trouvée avec les critères actuels.
           </div>
@@ -371,8 +315,8 @@ export default function AdminRequestsPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#DCE2EA]">
-                {requests.map((req) => (
-                  <tr key={req.id} className="hover:bg-slate-50/70 transition-colors">
+                {filteredRequests.map((req, idx) => (
+                  <tr key={`${req.id}-${idx}`} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-5 py-4 font-bold text-[#062653]">
                       {req.requestNumber}
                     </td>
@@ -411,46 +355,23 @@ export default function AdminRequestsPage() {
                       <StatusBadge status={req.status} size="sm" />
                     </td>
                     <td className="px-5 py-4 text-right">
-                      <div className="flex items-center justify-end gap-1.5">
-                        {req.status === "PENDING" && (
-                          <>
-                            <button
-                              type="button"
-                              onClick={() => handleQuickApprove(req.id, req.requestNumber)}
-                              disabled={actionLoadingId === req.id}
-                              className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white flex items-center gap-1 text-[11px] font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
-                              title="Approuver directement en 1 clic"
-                            >
-                              <Check className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Approuver</span>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => setRejectingItem({ id: req.id, num: req.requestNumber })}
-                              disabled={actionLoadingId === req.id}
-                              className="px-2.5 py-1.5 rounded-lg bg-rose-600 hover:bg-rose-700 text-white flex items-center gap-1 text-[11px] font-bold shadow-xs transition-all cursor-pointer disabled:opacity-50"
-                              title="Refuser la demande"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                              <span className="hidden sm:inline">Refuser</span>
-                            </button>
-                          </>
-                        )}
+                      <div className="flex items-center justify-end gap-2">
                         <Link
                           href={`/admin/requests/${req.id}`}
-                          className="w-8 h-8 rounded-lg bg-[#062653] hover:bg-[#031B3A] text-white flex items-center justify-center transition-all shadow-xs"
-                          title="Détails"
+                          className="px-3 py-1.5 rounded-lg bg-[#062653] hover:bg-[#031B3A] text-white flex items-center gap-1.5 text-xs font-semibold transition-all shadow-xs"
+                          title="Voir la feuille de demande"
                         >
-                          <Eye className="w-4 h-4 text-white shrink-0" />
+                          <Eye className="w-3.5 h-3.5 text-white shrink-0" />
+                          <span>Voir</span>
                         </Link>
                         <button
                           type="button"
                           onClick={() => handleDelete(req.id, req.requestNumber)}
                           disabled={deletingId === req.id}
-                          className="w-8 h-8 rounded-lg bg-slate-100 hover:bg-red-500 hover:text-white text-slate-500 flex items-center justify-center transition-all shadow-xs cursor-pointer disabled:opacity-50"
-                          title="Supprimer"
+                          className="w-8 h-8 rounded-lg bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer disabled:opacity-50"
+                          title="Supprimer la demande"
                         >
-                          <Trash2 className="w-4 h-4 shrink-0" />
+                          <Trash2 className="w-4 h-4 text-white shrink-0" />
                         </button>
                       </div>
                     </td>

@@ -3,19 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import Link from "next/link";
 import {
-  BookOpen,
   Search,
-  LayoutDashboard,
-  FileText,
-  Users,
-  User,
-  Building,
-  DollarSign,
-  TrendingUp,
-  Calendar,
-  Shield,
-  Bell,
-  Settings,
   Mail,
   Copy,
   Check,
@@ -31,12 +19,13 @@ import {
   Send,
   Loader2,
 } from "lucide-react";
+import { showSystemToast } from "@/components/ui/SystemToast";
 
 interface TabManual {
   id: string;
   name: string;
   href?: string;
-  icon: any;
+  iconSrc: string;
   category: "Général" | "Opérations" | "Finances" | "Système";
   summary: string;
   targetRoles: string[];
@@ -49,12 +38,49 @@ interface TabManual {
   rules: string[];
 }
 
+function ModuleSidebarIcon({
+  iconSrc,
+  inverted = false,
+  className = "w-4 h-4",
+}: {
+  iconSrc: string;
+  inverted?: boolean;
+  className?: string;
+}) {
+  if (!inverted) {
+    return (
+      <img
+        src={iconSrc}
+        alt=""
+        aria-hidden="true"
+        className={`object-contain shrink-0 ${className}`}
+      />
+    );
+  }
+  return (
+    <span
+      aria-hidden="true"
+      className={`inline-block shrink-0 bg-[#031B3A] ${className}`}
+      style={{
+        WebkitMaskImage: `url(${iconSrc})`,
+        maskImage: `url(${iconSrc})`,
+        WebkitMaskRepeat: "no-repeat",
+        maskRepeat: "no-repeat",
+        WebkitMaskPosition: "center",
+        maskPosition: "center",
+        WebkitMaskSize: "contain",
+        maskSize: "contain",
+      }}
+    />
+  );
+}
+
 const ADMIN_MODULES_MANUAL: TabManual[] = [
   {
     id: "dashboard",
     name: "Tableau de bord",
     href: "/admin/dashboard",
-    icon: LayoutDashboard,
+    iconSrc: "/icons/sidebar/dashboard.png",
     category: "Général",
     summary:
       "Cockpit central offrant une vision en temps réel des indicateurs clés (KPIs) de performance, des requêtes en cours et de la masse salariale.",
@@ -99,7 +125,7 @@ const ADMIN_MODULES_MANUAL: TabManual[] = [
     id: "requests",
     name: "Requêtes & Demandes",
     href: "/admin/requests",
-    icon: FileText,
+    iconSrc: "/icons/sidebar/requests.png",
     category: "Opérations",
     summary:
       "Module de traitement des demandes de congés, d'augmentations salariales et des autorisations de signature numérique.",
@@ -145,7 +171,7 @@ const ADMIN_MODULES_MANUAL: TabManual[] = [
     id: "employees",
     name: "Gestion des Employés",
     href: "/admin/employees",
-    icon: Users,
+    iconSrc: "/icons/sidebar/employees.png",
     category: "Opérations",
     summary:
       "Registre centralisé du personnel, gestion des dossiers individuels, des coordonnées d'urgence et des rattachements hiérarchiques.",
@@ -191,7 +217,7 @@ const ADMIN_MODULES_MANUAL: TabManual[] = [
     id: "branches",
     name: "Gestion des Succursales",
     href: "/admin/branches",
-    icon: Building,
+    iconSrc: "/icons/sidebar/branches.png",
     category: "Opérations",
     summary:
       "Cartographie des agences, magasins et bureaux régionaux de votre entreprise avec désignation des gestionnaires locaux.",
@@ -225,7 +251,7 @@ const ADMIN_MODULES_MANUAL: TabManual[] = [
     id: "financial-operations",
     name: "Opérations Financières",
     href: "/admin/financial-operations",
-    icon: DollarSign,
+    iconSrc: "/icons/sidebar/financial-ops.png",
     category: "Finances",
     summary:
       "Journal des encaissements, décaissements de caisse, avances sur salaire et gestion multi-devises (HTG et USD).",
@@ -264,7 +290,7 @@ const ADMIN_MODULES_MANUAL: TabManual[] = [
     id: "financial-reports",
     name: "Rapports Financiers",
     href: "/admin/financial-reports",
-    icon: TrendingUp,
+    iconSrc: "/icons/sidebar/financial-reports.png",
     category: "Finances",
     summary:
       "Bilans analytiques périodiques (mensuels et annuels), états de trésorerie consolidés et exports pour l'administration fiscale et la direction.",
@@ -302,7 +328,7 @@ const ADMIN_MODULES_MANUAL: TabManual[] = [
     id: "events",
     name: "Événements & Calendrier",
     href: "/admin/events",
-    icon: Calendar,
+    iconSrc: "/icons/sidebar/calendar-white.png",
     category: "Opérations",
     summary:
       "Planning d'entreprise interactif permettant de programmer des réunions, formations ou congés collectifs et de diffuser des alertes ciblées.",
@@ -344,7 +370,7 @@ const ADMIN_MODULES_MANUAL: TabManual[] = [
     id: "users",
     name: "Gestion des Accès & Sécurité",
     href: "/admin/users",
-    icon: Shield,
+    iconSrc: "/icons/sidebar/access.png",
     category: "Système",
     summary:
       "Gouvernance des comptes utilisateurs, organigramme hiérarchique, rôles personnalisés et attribution des droits de signature légale.",
@@ -386,7 +412,7 @@ const ADMIN_MODULES_MANUAL: TabManual[] = [
     id: "notifications",
     name: "Centre de Notifications",
     href: "/admin/notifications",
-    icon: Bell,
+    iconSrc: "/icons/sidebar/notifications.png",
     category: "Système",
     summary:
       "Flux d'alertes en temps réel signalant les nouvelles requêtes de congés, les approbations, les événements planifiés et les alertes système.",
@@ -420,26 +446,26 @@ const ADMIN_MODULES_MANUAL: TabManual[] = [
     id: "configuration",
     name: "Configurations & Paramètres",
     href: "/admin/configuration",
-    icon: Settings,
+    iconSrc: "/icons/sidebar/config.png",
     category: "Système",
     summary:
-      "Paramétrage de l'identité de l'entreprise, coordonnées légales, création du sceau et signature numérique, et règles de sécurité.",
+      "Paramétrage de l'identité de l'entreprise, dossier personnel et sécurité du compte.",
     targetRoles: ["PDG", "Administrateur d'Entreprise"],
     features: [
       {
         title: "Préférences générales de l'entreprise",
         description:
-          "Mettez à jour le nom officiel, le logo, l'adresse du siège, le téléphone et l'adresse e-mail de l'organisation.",
+          "Mettez à jour le nom officiel, le logo, le format de matricule, la langue, la devise et le format de date de l'organisation.",
       },
       {
-        title: "Création et gestion du sceau de signature",
+        title: "Mon dossier personnel",
         description:
-          "Déposez ou dessinez la signature électronique officielle et le cachet de l'entreprise pour authentifier automatiquement les reçus et attestations.",
+          "Consultez votre affectation professionnelle (matricule, poste, succursale) et tenez à jour vos coordonnées et contacts d'urgence.",
       },
       {
-        title: "Paramètres de notification et de sécurité",
+        title: "Sécurité du compte",
         description:
-          "Configurez les alertes automatiques par e-mail et WhatsApp et définissez les politiques de renouvellement de mot de passe.",
+          "Renouvelez votre mot de passe et contrôlez vos sessions actives connectées.",
       },
     ],
     tips: [
@@ -456,7 +482,7 @@ const EMPLOYEE_MODULES_MANUAL: TabManual[] = [
     id: "requests",
     name: "Requêtes & Demandes",
     href: "/admin/requests",
-    icon: FileText,
+    iconSrc: "/icons/sidebar/requests.png",
     category: "Opérations",
     summary:
       "Espace personnel pour soumettre et suivre en direct l'avancement de vos demandes de congés, d'augmentations salariales et d'autorisations de signature.",
@@ -504,7 +530,7 @@ const EMPLOYEE_MODULES_MANUAL: TabManual[] = [
     id: "events",
     name: "Événements & Calendrier",
     href: "/admin/events",
-    icon: Calendar,
+    iconSrc: "/icons/sidebar/calendar-white.png",
     category: "Opérations",
     summary:
       "Calendrier interactif d'entreprise permettant de consulter les réunions, formations et jours fériés, et de planifier vos événements personnels confidentiels.",
@@ -543,7 +569,7 @@ const EMPLOYEE_MODULES_MANUAL: TabManual[] = [
     id: "notifications",
     name: "Centre de Notifications",
     href: "/admin/notifications",
-    icon: Bell,
+    iconSrc: "/icons/sidebar/notifications.png",
     category: "Système",
     summary:
       "Boîte de réception des alertes officielles, notes de service, décisions RH et validations de demandes émises par l'administration.",
@@ -576,7 +602,7 @@ const EMPLOYEE_MODULES_MANUAL: TabManual[] = [
     id: "profile",
     name: "Mon Dossier Personnel",
     href: "/admin/configuration/profile",
-    icon: User,
+    iconSrc: "/icons/sidebar/employees.png",
     category: "Système",
     summary:
       "Consultation de votre affectation professionnelle (matricule, succursale, poste) et mise à jour de vos coordonnées, groupe sanguin et contacts d'urgence.",
@@ -585,7 +611,7 @@ const EMPLOYEE_MODULES_MANUAL: TabManual[] = [
       {
         title: "Fiche d'affectation professionnelle",
         description:
-          "Consultez votre matricule officiel (ex: EB-SIEGE-001), votre succursale de rattachement, votre poste et votre département.",
+          "Consultez votre matricule officiel (ex: E-BIZNIS-001), votre succursale de rattachement, votre poste et votre département.",
       },
       {
         title: "Coordonnées de contact personnel",
@@ -614,7 +640,7 @@ const EMPLOYEE_MODULES_MANUAL: TabManual[] = [
     id: "security",
     name: "Sécurité du Compte",
     href: "/admin/configuration/security",
-    icon: Lock,
+    iconSrc: "/icons/sidebar/access.png",
     category: "Système",
     summary:
       "Espace personnel pour la modification sécurisée du mot de passe de votre compte d'accès collaborateur.",
@@ -710,9 +736,13 @@ export default function AdminSupportPage() {
   const isEmployee =
     currentUserRole === "EMPLOYEE" ||
     currentUserRole === "COLLABORATEUR" ||
+    currentUserRole === "CASHIER" ||
+    currentUserRole === "CAISSIER" ||
     (typeof currentUserRole === "string" &&
       (currentUserRole.toLowerCase().includes("employ") ||
-        currentUserRole.toLowerCase().includes("collab")));
+        currentUserRole.toLowerCase().includes("collab") ||
+        currentUserRole.toLowerCase().includes("caissier") ||
+        currentUserRole.toLowerCase().includes("cashier")));
 
   const activeModulesList = useMemo(() => {
     return isEmployee ? EMPLOYEE_MODULES_MANUAL : ADMIN_MODULES_MANUAL;
@@ -761,15 +791,11 @@ export default function AdminSupportPage() {
   const [contactSubject, setContactSubject] = useState("");
   const [contactMessage, setContactMessage] = useState("");
   const [sendingMessage, setSendingMessage] = useState(false);
-  const [sendSuccess, setSendSuccess] = useState<string | null>(null);
-  const [sendError, setSendError] = useState<string | null>(null);
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSendError(null);
-    setSendSuccess(null);
     if (!contactSubject.trim() || !contactMessage.trim()) {
-      setSendError("Veuillez renseigner le sujet et votre message.");
+      showSystemToast("Veuillez renseigner le sujet et votre message.", "error");
       return;
     }
 
@@ -788,15 +814,15 @@ export default function AdminSupportPage() {
 
       const data = await res.json();
       if (!res.ok) {
-        setSendError(data.error || "Impossible d'expédier votre message.");
+        showSystemToast(data.error || "Impossible d'expédier votre message.", "error");
         return;
       }
 
-      setSendSuccess("Votre message a été transmis avec succès à l'équipe support RKonekte (rkonekte509@gmail.com). Nous vous répondrons dans les plus brefs délais.");
+      showSystemToast("Votre message a été transmis avec succès à l'équipe support RKonekte (rkonekte509@gmail.com). Nous vous répondrons dans les plus brefs délais.");
       setContactSubject("");
       setContactMessage("");
     } catch (err) {
-      setSendError("Erreur réseau. Veuillez réessayer ou contacter directement rkonekte509@gmail.com.");
+      showSystemToast("Erreur réseau. Veuillez réessayer ou contacter directement rkonekte509@gmail.com.", "error");
     } finally {
       setSendingMessage(false);
     }
@@ -831,41 +857,35 @@ export default function AdminSupportPage() {
   return (
     <div className="space-y-8 max-w-7xl mx-auto pb-12">
       {/* 1. HERO HEADER */}
-      <div className="relative overflow-hidden bg-gradient-to-r from-[#031B3A] via-[#062653] to-[#114C5A] text-white rounded-3xl p-6 sm:p-8 shadow-xl border border-white/10">
-        <div className="relative z-10 flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <div className="space-y-2 max-w-2xl">
-            <div className="inline-flex items-center gap-2 px-3 py-1 bg-white/10 backdrop-blur-md rounded-full border border-white/15 text-xs font-semibold text-slate-200">
-              <BookOpen className="w-3.5 h-3.5 text-[#FF7900]" />
-              {isEmployee
-                ? "Espace Collaborateur — Centre d'Aide & Manuel d'Utilisation"
-                : "Centre d'Aide & Documentation Officielle"}
-            </div>
-            <h1 className="text-2xl sm:text-3xl font-black tracking-tight">
+      <div className="space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="space-y-1.5 max-w-2xl">
+            <h1 className="text-2xl sm:text-3xl font-bold text-[#062653] tracking-tight">
               {isEmployee
                 ? "Manuel d'Utilisation Collaborateur"
                 : "Manuel d'Utilisation RKonekte"}
             </h1>
-            <p className="text-xs sm:text-sm text-slate-300 leading-relaxed">
+            <p className="text-xs sm:text-sm text-[#64748B] leading-relaxed">
               {isEmployee
                 ? `Retrouvez le fonctionnement détaillé, les procédures pas-à-pas et les bonnes pratiques pour chacun des ${activeModulesList.length} onglets de votre espace collaborateur.`
                 : `Retrouvez le fonctionnement détaillé, les procédures pas-à-pas et les bonnes pratiques pour chacun des ${activeModulesList.length} onglets de gestion de votre entreprise.`}
             </p>
           </div>
 
-          {/* Quick Support Contact Badge */}
-          <div className="bg-white/10 backdrop-blur-md border border-white/15 rounded-2xl p-4 shrink-0 flex flex-col sm:items-end gap-2.5">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-200">
+          {/* Quick Support Contact */}
+          <div className="shrink-0 flex flex-col sm:items-end gap-2">
+            <div className="flex items-center gap-2 text-xs font-bold text-[#062653]">
               <Mail className="w-4 h-4 text-[#FF7900]" />
               <span>Assistance Technique Directe</span>
             </div>
             <div className="flex items-center gap-2">
-              <span className="text-xs font-mono font-semibold text-white bg-black/25 px-2.5 py-1 rounded-lg">
+              <span className="text-xs font-mono font-semibold text-[#062653]">
                 {supportEmail}
               </span>
               <button
                 type="button"
                 onClick={handleCopyEmail}
-                className="px-2.5 py-1 bg-white hover:bg-slate-100 text-[#031B3A] text-xs font-bold rounded-lg shadow-sm transition-all flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 bg-white hover:bg-[#F4F6F9] text-[#062653] border border-[#DCE2EA] text-xs font-bold rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
                 title="Copier l'email de support"
               >
                 {copiedEmail ? (
@@ -884,8 +904,8 @@ export default function AdminSupportPage() {
           </div>
         </div>
 
-        {/* Search Bar inside Hero */}
-        <div className="relative z-10 mt-6 max-w-xl">
+        {/* Search Bar */}
+        <div className="max-w-xl">
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
             <input
@@ -893,7 +913,7 @@ export default function AdminSupportPage() {
               placeholder="Rechercher une procédure (ex: congé, rapport, rôle, employé, dépense...)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-10 pr-4 bg-white/95 text-slate-900 placeholder-slate-400 text-xs sm:text-sm rounded-xl focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#FF7900] shadow-md transition-all font-medium"
+              className="w-full h-11 pl-10 pr-4 bg-white text-slate-900 placeholder-slate-400 text-xs sm:text-sm rounded-xl border border-[#DCE2EA] focus:outline-none focus:ring-2 focus:ring-[#FF7900] shadow-2xs transition-all font-medium"
             />
             {searchQuery && (
               <button
@@ -940,7 +960,6 @@ export default function AdminSupportPage() {
 
           <div className="space-y-1 max-h-[650px] overflow-y-auto pr-1">
             {filteredModules.map((mod) => {
-              const Icon = mod.icon;
               const isSelected = mod.id === selectedModuleId;
               return (
                 <button
@@ -960,7 +979,11 @@ export default function AdminSupportPage() {
                           : "bg-slate-100 text-[#031B3A] group-hover:bg-slate-200"
                       }`}
                     >
-                      <Icon className="w-4 h-4" />
+                      <ModuleSidebarIcon
+                        iconSrc={mod.iconSrc}
+                        inverted={!isSelected}
+                        className="w-4 h-4"
+                      />
                     </div>
                     <div className="min-w-0">
                       <div className="text-xs font-bold truncate">
@@ -995,7 +1018,7 @@ export default function AdminSupportPage() {
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-200">
             <div className="flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-[#031B3A] text-white flex items-center justify-center shadow-md shrink-0">
-                {React.createElement(activeModule.icon, { className: "w-6 h-6" })}
+                <ModuleSidebarIcon iconSrc={activeModule.iconSrc} className="w-6 h-6" />
               </div>
               <div>
                 <div className="flex items-center gap-2">
@@ -1175,37 +1198,6 @@ export default function AdminSupportPage() {
             </p>
           </div>
         </div>
-
-        {/* Feedback Banners */}
-        {sendSuccess && (
-          <div className="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-2xl flex items-start gap-3 shadow-xs">
-            <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-            <div className="text-xs sm:text-sm font-medium flex-1">
-              {sendSuccess}
-            </div>
-            <button
-              onClick={() => setSendSuccess(null)}
-              className="text-emerald-700 hover:text-emerald-900 text-xs font-bold p-1"
-            >
-              ✕
-            </button>
-          </div>
-        )}
-
-        {sendError && (
-          <div className="p-4 bg-rose-50 border border-rose-200 text-rose-900 rounded-2xl flex items-start gap-3 shadow-xs">
-            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-            <div className="text-xs sm:text-sm font-medium flex-1">
-              {sendError}
-            </div>
-            <button
-              onClick={() => setSendError(null)}
-              className="text-rose-700 hover:text-rose-900 text-xs font-bold p-1"
-            >
-              ✕
-            </button>
-          </div>
-        )}
 
         <form onSubmit={handleSendMessage} className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

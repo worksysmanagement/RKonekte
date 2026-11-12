@@ -62,9 +62,21 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
 
   // Section 5 : Signature de l'Employé (Modes : Upload image sans fond, Écrire son nom)
   const [signatureMode, setSignatureMode] = useState<"upload" | "type">("upload");
-  const [uploadedSignature, setUploadedSignature] = useState<string | null>(null);
+  const [uploadedSignature, setUploadedSignature] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("rkonekte_user_signature") || null;
+    }
+    return null;
+  });
   const [typedSignatureText, setTypedSignatureText] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined" && !uploadedSignature) {
+      const saved = localStorage.getItem("rkonekte_user_signature");
+      if (saved) setUploadedSignature(saved);
+    }
+  }, []);
 
   const handleSignatureUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -259,6 +271,9 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
           replacementName: replacementName || undefined,
           contactPhone,
           contactEmail: contactEmail || undefined,
+          signatureMode,
+          employeeSignature: uploadedSignature || (signatureMode === "type" ? typedSignatureText : undefined),
+          typedSignatureText: signatureMode === "type" ? typedSignatureText : undefined,
         }),
       });
 
@@ -267,6 +282,19 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
       if (!res.ok) {
         setErrorMsg(data.error || "Une erreur est survenue lors de la soumission");
         return;
+      }
+
+      // Persist snapshot in local signatures dictionary
+      const sigToSave = uploadedSignature || typedSignatureText;
+      if (sigToSave && data.requestNumber) {
+        try {
+          const sigs = JSON.parse(localStorage.getItem("rkonekte_employee_signatures") || "{}");
+          sigs[data.requestNumber] = {
+            signature: sigToSave,
+            mode: signatureMode,
+          };
+          localStorage.setItem("rkonekte_employee_signatures", JSON.stringify(sigs));
+        } catch (_) {}
       }
 
       setSubmittedData({
@@ -801,9 +829,9 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                           <button
                             type="button"
                             onClick={() => setUploadedSignature(null)}
-                            className="text-[11px] text-rose-600 hover:text-rose-700 font-bold inline-flex items-center gap-0.5 cursor-pointer"
+                            className="px-2 py-0.5 text-[11px] text-white bg-red-500 hover:bg-red-600 font-bold rounded flex items-center gap-1 cursor-pointer shadow-2xs transition-colors"
                           >
-                            <Eraser className="w-3 h-3" /> Supprimer
+                            <Eraser className="w-3 h-3 text-white" /> Supprimer
                           </button>
                         </div>
                       </div>

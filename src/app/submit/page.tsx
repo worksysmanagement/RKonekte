@@ -5,7 +5,7 @@ import { LeaveRequestForm } from "@/components/forms/LeaveRequestForm";
 
 export default function SubmitLeavePage() {
   return (
-    <div className="min-h-screen bg-[#F4F6F9] py-8 px-4 sm:px-6">
+    <div className="min-h-screen bg-white py-8 px-4 sm:px-6">
       <div className="max-w-3xl mx-auto mb-6 flex items-center justify-between">
         <Link
           href="/login"

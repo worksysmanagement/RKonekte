@@ -6,6 +6,7 @@ export default defineConfig({
     environment: "node",
     globals: true,
     testTimeout: 10000,
+    fileParallelism: false,
   },
   resolve: {
     alias: {

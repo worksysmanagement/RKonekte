@@ -59,11 +59,16 @@ export function getOrganizationTrigram(name?: string | null, slug?: string | nul
 export function getOrganizationCleanName(name?: string | null, slug?: string | null): string {
   const text = (name || slug || "").trim();
   if (!text) return "ENTREPRISE";
-  return text
-    .toUpperCase()
-    .replace(/[^A-Z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 12);
+  return (
+    text
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toUpperCase()
+      .replace(/[^A-Z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 16)
+      .replace(/-+$/g, "") || "ENTREPRISE"
+  );
 }
 
 export interface MatriculeFormatOption {
@@ -74,11 +79,34 @@ export interface MatriculeFormatOption {
 }
 
 /**
+ * Normalise d'éventuels anciens formats basés sur les succursales vers
+ * des formats indépendants des succursales (basés uniquement sur l'entreprise).
+ */
+export function normalizeMatriculeFormat(format?: string | null): string {
+  switch (format) {
+    case "FULLNAME_SEQ":
+    case "FULLNAME_BRANCH_SEQ":
+    case "INITIALS_BRANCH_SEQ":
+      return "FULLNAME_SEQ";
+    case "INITIALS_SEQ":
+      return "INITIALS_SEQ";
+    case "TRIGRAM_SEQ":
+    case "TRIGRAM_BRANCH_SEQ":
+      return "TRIGRAM_SEQ";
+    case "INITIALS_YEAR_SEQ":
+      return "INITIALS_YEAR_SEQ";
+    case "CUSTOM":
+      return "CUSTOM";
+    default:
+      return "FULLNAME_SEQ";
+  }
+}
+
+/**
  * Génère dynamiquement la liste des formats de matricules possibles selon le nom de l'entreprise.
  */
 export function getMatriculeFormatOptions(
   companyName?: string | null,
-  sampleBranch = "SIEGE",
   sampleSeq = "001"
 ): MatriculeFormatOption[] {
   const initials = getOrganizationAcronym(companyName);
@@ -88,34 +116,22 @@ export function getMatriculeFormatOptions(
 
   return [
     {
-      id: "INITIALS_BRANCH_SEQ",
-      label: `Initiales + Succursale + N° séquentiel (Recommandé)`,
-      preview: `${initials}-${sampleBranch}-${sampleSeq}`,
-      description: `Composé des initiales de l'entreprise (${initials}), du code succursale et du numéro séquentiel unique.`,
+      id: "FULLNAME_SEQ",
+      label: `Nom du business + N° séquentiel (Recommandé)`,
+      preview: `${cleanName}-${sampleSeq}`,
+      description: `Composé du nom de l'entreprise (${cleanName}) suivi d'un numéro qui s'incrémente à chaque enregistrement, indépendant des succursales.`,
     },
     {
       id: "INITIALS_SEQ",
-      label: `Initiales + N° séquentiel direct (Format court)`,
+      label: `Initiales du business + N° séquentiel (Format court)`,
       preview: `${initials}-${sampleSeq}`,
-      description: `Format simplifié sans mention de succursale, idéal pour les structures centralisées.`,
-    },
-    {
-      id: "TRIGRAM_BRANCH_SEQ",
-      label: `Code abrégé (${trigram}) + Succursale + N° séquentiel`,
-      preview: `${trigram}-${sampleBranch}-${sampleSeq}`,
-      description: `Utilise les 4 premières lettres de l'organisation (${trigram}) combinées à la succursale.`,
+      description: `Format court composé des initiales de l'entreprise (${initials}) et du numéro séquentiel unique.`,
     },
     {
       id: "TRIGRAM_SEQ",
       label: `Code abrégé (${trigram}) + N° séquentiel`,
       preview: `${trigram}-${sampleSeq}`,
-      description: `Code abrégé court et compact sans code de succursale.`,
-    },
-    {
-      id: "FULLNAME_BRANCH_SEQ",
-      label: `Nom complet de l'entreprise + Succursale + N°`,
-      preview: `${cleanName}-${sampleBranch}-${sampleSeq}`,
-      description: `Affiche la dénomination complète de l'entreprise (${cleanName}) dans chaque matricule.`,
+      description: `Utilise les premières lettres du business (${trigram}) suivies du numéro séquentiel unique.`,
     },
     {
       id: "INITIALS_YEAR_SEQ",
@@ -125,8 +141,8 @@ export function getMatriculeFormatOptions(
     },
     {
       id: "CUSTOM",
-      label: `Préfixe personnalisé libre`,
-      preview: `VOTRECODE-${sampleBranch}-${sampleSeq}`,
+      label: `Préfixe personnalisé libre + N° séquentiel`,
+      preview: `VOTRECODE-${sampleSeq}`,
       description: `Définissez un préfixe sur-mesure propre à la charte de votre organisation.`,
     },
   ];
@@ -177,11 +193,11 @@ export function getNextMatriculeSequence(
 }
 
 /**
- * Génère le matricule officiel en respectant le format sélectionné par l'entreprise :
+ * Génère le matricule officiel en respectant le format sélectionné par l'entreprise
+ * (nom du business + numéro séquentiel incrémentiel).
  */
 export function generateEmployeeMatricule(
   orgNameOrSlug?: string | null,
-  branchCode?: string | null,
   digits?: string | number | null,
   format?: string | null,
   customPrefix?: string | null
@@ -189,59 +205,27 @@ export function generateEmployeeMatricule(
   const initials = getOrganizationAcronym(orgNameOrSlug);
   const trigram = getOrganizationTrigram(orgNameOrSlug);
   const cleanName = getOrganizationCleanName(orgNameOrSlug);
-  const branch = (branchCode || "SIEGE").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
 
   const numPart =
     digits !== undefined && digits !== null && String(digits).trim() !== ""
       ? String(digits).padStart(3, "0")
       : "001";
 
-  const selectedFormat = format || "INITIALS_BRANCH_SEQ";
+  const selectedFormat = normalizeMatriculeFormat(format);
 
   switch (selectedFormat) {
     case "INITIALS_SEQ":
       return `${initials}-${numPart}`;
-    case "TRIGRAM_BRANCH_SEQ":
-      return `${trigram}-${branch}-${numPart}`;
     case "TRIGRAM_SEQ":
       return `${trigram}-${numPart}`;
-    case "FULLNAME_BRANCH_SEQ":
-      return `${cleanName}-${branch}-${numPart}`;
-    case "FULLNAME_SEQ":
-      return `${cleanName}-${numPart}`;
     case "INITIALS_YEAR_SEQ":
       return `${initials}-${new Date().getFullYear()}-${numPart}`;
     case "CUSTOM": {
-      const pfx = (customPrefix || initials).replace(/[^a-zA-Z0-9_-]/g, "").toUpperCase() || initials;
-      return `${pfx}-${branch}-${numPart}`;
+      const pfx = (customPrefix || cleanName).replace(/[^a-zA-Z0-9_-]/g, "").toUpperCase() || cleanName;
+      return `${pfx}-${numPart}`;
     }
-    case "INITIALS_BRANCH_SEQ":
+    case "FULLNAME_SEQ":
     default:
-      return `${initials}-${branch}-${numPart}`;
+      return `${cleanName}-${numPart}`;
   }
-}
-
-/**
- * Met à jour un matricule existant lorsque l'utilisateur change de succursale
- * tout en conservant le format configuré pour l'entreprise.
- */
-export function updateMatriculeBranch(
-  currentMatricule: string,
-  newBranchCode: string,
-  orgNameOrSlug?: string | null,
-  format?: string | null,
-  customPrefix?: string | null
-): string {
-  const cleanBranch = (newBranchCode || "SIEGE").replace(/[^a-zA-Z0-9]/g, "").toUpperCase();
-
-  // Si le format est un format sans succursale (ex: EB-001 ou EBIZ-001)
-  if (format === "INITIALS_SEQ" || format === "TRIGRAM_SEQ" || format === "FULLNAME_SEQ") {
-    return currentMatricule;
-  }
-
-  // Extraire les chiffres finaux s'ils existent
-  const digitsMatch = currentMatricule.match(/\d+$/);
-  const digits = digitsMatch ? digitsMatch[0] : "001";
-
-  return generateEmployeeMatricule(orgNameOrSlug, cleanBranch, digits, format, customPrefix);
 }

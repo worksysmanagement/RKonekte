@@ -22,6 +22,8 @@ export async function listOrgUsers(
       email: users.email,
       role: users.role,
       status: users.status,
+      lastLoginAt: users.lastLoginAt,
+      lastSeenAt: users.lastSeenAt,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,
     })
@@ -79,6 +81,8 @@ export async function createOrgUser(
       email: users.email,
       role: users.role,
       status: users.status,
+      lastLoginAt: users.lastLoginAt,
+      lastSeenAt: users.lastSeenAt,
       createdAt: users.createdAt,
       updatedAt: users.updatedAt,
     })
@@ -113,4 +117,84 @@ export async function updateUserStatus(id: string, status: "ACTIVE" | "DISABLED"
   }
   const db = dbInstance || getDb();
   await db.update(users).set({ status, updatedAt: Date.now() }).where(eq(users.id, id));
+}
+
+export async function updateUserRole(
+  organizationId: string,
+  userId: string,
+  role: string,
+  dbInstance?: any
+): Promise<Omit<User, "passwordHash">> {
+  const cleanRole = role.trim();
+  if (!cleanRole) {
+    throw new Error("Le rôle système est obligatoire");
+  }
+  if (cleanRole === "SUPER_ADMIN") {
+    throw new Error("Attribution du rôle Super Administrateur interdite");
+  }
+
+  if (!dbInstance) {
+    return await supabaseDb.users.updateRole(organizationId, userId, cleanRole);
+  }
+
+  const db = dbInstance;
+  const [target] = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.id, userId), eq(users.organizationId, organizationId)))
+    .limit(1);
+
+  if (!target) {
+    throw new Error("Utilisateur introuvable dans cette entreprise");
+  }
+  if (target.role === "SUPER_ADMIN") {
+    throw new Error("Impossible de modifier le rôle d'un Super Administrateur");
+  }
+
+  if (target.role === "ORGANIZATION_ADMIN" && cleanRole !== "ORGANIZATION_ADMIN") {
+    const admins = await db
+      .select({ id: users.id, status: users.status })
+      .from(users)
+      .where(
+        and(
+          eq(users.organizationId, organizationId),
+          eq(users.role, "ORGANIZATION_ADMIN")
+        )
+      );
+
+    const remainingActiveAdmins = admins.filter(
+      (a: { id: string; status: string }) => a.id !== userId && a.status === "ACTIVE"
+    );
+    if (remainingActiveAdmins.length === 0) {
+      throw new Error(
+        "Impossible de rétrograder le seul PDG / Propriétaire actif de l'entreprise. Désignez d'abord un autre PDG / Propriétaire."
+      );
+    }
+  }
+
+  const now = Date.now();
+  await db
+    .update(users)
+    .set({ role: cleanRole, updatedAt: now })
+    .where(and(eq(users.id, userId), eq(users.organizationId, organizationId)));
+
+  const [updated] = await db
+    .select({
+      id: users.id,
+      organizationId: users.organizationId,
+      branchId: users.branchId,
+      name: users.name,
+      email: users.email,
+      role: users.role,
+      status: users.status,
+      lastLoginAt: users.lastLoginAt,
+      lastSeenAt: users.lastSeenAt,
+      createdAt: users.createdAt,
+      updatedAt: users.updatedAt,
+    })
+    .from(users)
+    .where(and(eq(users.id, userId), eq(users.organizationId, organizationId)))
+    .limit(1);
+
+  return updated;
 }

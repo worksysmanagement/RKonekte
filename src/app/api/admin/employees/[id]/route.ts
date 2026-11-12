@@ -39,7 +39,48 @@ export async function PUT(
       );
     }
 
-    const updated = await updateEmployee(organizationId, id, parseResult.data);
+    const currentEmp = await getEmployeeById(organizationId, id);
+    if (!currentEmp) {
+      return NextResponse.json({ error: "Employé introuvable" }, { status: 404 });
+    }
+
+    const updatePayload = { ...parseResult.data };
+
+    const updated = await updateEmployee(organizationId, id, updatePayload);
+
+    // Guaranteed explicit user role/branch sync across databases
+    if (parseResult.data.role !== undefined || parseResult.data.branchId !== undefined) {
+      const targetEmail = (parseResult.data.email || updated?.email || "").toLowerCase().trim();
+      if (targetEmail) {
+        try {
+          const { getSupabaseAdminClient } = await import("@/lib/supabase/server");
+          const supabase = getSupabaseAdminClient();
+          const userUpdate: Record<string, any> = { updated_at: Date.now() };
+          if (parseResult.data.role) userUpdate.role = parseResult.data.role;
+          if (parseResult.data.branchId !== undefined) userUpdate.branch_id = parseResult.data.branchId || null;
+          await supabase
+            .from("users")
+            .update(userUpdate)
+            .eq("organization_id", organizationId)
+            .ilike("email", targetEmail);
+        } catch (_) {}
+
+        try {
+          const { getDb } = await import("@/lib/db/client");
+          const { users } = await import("@/db/schema");
+          const { and, eq, sql } = await import("drizzle-orm");
+          const db = getDb();
+          const userUpdate: Record<string, any> = { updatedAt: Date.now() };
+          if (parseResult.data.role) userUpdate.role = parseResult.data.role;
+          if (parseResult.data.branchId !== undefined) userUpdate.branchId = parseResult.data.branchId || null;
+          await db
+            .update(users)
+            .set(userUpdate)
+            .where(and(eq(users.organizationId, organizationId), sql`lower(${users.email}) = ${targetEmail}`));
+        } catch (_) {}
+      }
+    }
+
     return NextResponse.json({ success: true, employee: updated });
   } catch (err: any) {
     if (err?.message?.includes("déjà utilisé")) {

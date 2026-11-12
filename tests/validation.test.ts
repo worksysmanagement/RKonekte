@@ -8,6 +8,8 @@ import {
 import {
   getNextMatriculeSequence,
   generateEmployeeMatricule,
+  normalizeMatriculeFormat,
+  getMatriculeFormatOptions,
 } from "../src/lib/utils/matricule";
 
 describe("Zod Validation Schemas Test Suite", () => {
@@ -104,22 +106,36 @@ describe("Zod Validation Schemas Test Suite", () => {
     expect(createOrganizationSchema.safeParse(invalidSlug).success).toBe(false);
   });
 
-  it("Increments employee matricule sequentially and prevents duplicates", () => {
-    // 1. Initial state: starts at 001
+  it("Increments employee matricule sequentially using only business name and prevents duplicates", () => {
+    // 1. Initial state: starts at 001 with business name only (no branch code)
     expect(getNextMatriculeSequence([])).toBe("001");
-    expect(generateEmployeeMatricule("e-biznis", "SIEGE", getNextMatriculeSequence([]))).toBe("EB-SIEGE-001");
+    expect(generateEmployeeMatricule("e-biznis", getNextMatriculeSequence([]))).toBe("E-BIZNIS-001");
 
     // 2. Increment: 001 exists -> 002
-    expect(getNextMatriculeSequence(["EB-SIEGE-001"])).toBe("002");
-    expect(generateEmployeeMatricule("e-biznis", "SIEGE", getNextMatriculeSequence(["EB-SIEGE-001"]))).toBe("EB-SIEGE-002");
+    expect(getNextMatriculeSequence(["E-BIZNIS-001"])).toBe("002");
+    expect(generateEmployeeMatricule("e-biznis", getNextMatriculeSequence(["E-BIZNIS-001"]))).toBe("E-BIZNIS-002");
 
     // 3. Multi-increment: 001, 002 exist -> 003
-    expect(getNextMatriculeSequence(["EB-SIEGE-001", "EB-SIEGE-002"])).toBe("003");
+    expect(getNextMatriculeSequence(["E-BIZNIS-001", "E-BIZNIS-002"])).toBe("003");
 
     // 4. Safe against legacy random matricules: with EB-SIEGE-884, allocates 001
     expect(getNextMatriculeSequence(["EB-SIEGE-884"])).toBe("001");
 
     // 5. When 001 and legacy 884 exist, allocates 002 without collision
-    expect(getNextMatriculeSequence(["EB-SIEGE-001", "EB-SIEGE-884"])).toBe("002");
+    expect(getNextMatriculeSequence(["EB-SIEGE-001", "EB-JEREMIE-884"])).toBe("002");
+    expect(
+      generateEmployeeMatricule("e-biznis", getNextMatriculeSequence(["EB-SIEGE-001", "EB-JEREMIE-884"]))
+    ).toBe("E-BIZNIS-002");
+
+    // 6. Legacy branch-based formats normalize to branchless business formats
+    expect(normalizeMatriculeFormat("INITIALS_BRANCH_SEQ")).toBe("FULLNAME_SEQ");
+    expect(generateEmployeeMatricule("e-biznis", "002", "INITIALS_BRANCH_SEQ")).toBe("E-BIZNIS-002");
+    expect(generateEmployeeMatricule("e-biznis", "003", "INITIALS_SEQ")).toBe("EB-003");
+    expect(generateEmployeeMatricule("e-biznis", "004", "CUSTOM", "VIP")).toBe("VIP-004");
+
+    // 7. Available options exclude branch-based formats
+    const optionIds = getMatriculeFormatOptions("e-biznis").map((o) => o.id);
+    expect(optionIds[0]).toBe("FULLNAME_SEQ");
+    expect(optionIds.some((id) => id.includes("BRANCH"))).toBe(false);
   });
 });

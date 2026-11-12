@@ -1,26 +1,47 @@
 import { getDb } from "@/lib/db/client";
-import { organizations, users, leaveRequests, auditLogs, Organization, User } from "@/db/schema";
+import {
+  organizations,
+  users,
+  leaveRequests,
+  auditLogs,
+  subscriptionRenewals,
+  Organization,
+  User,
+} from "@/db/schema";
 import { eq, desc, sql, and } from "drizzle-orm";
 import { CreateOrganizationInput } from "@/lib/validation/schemas";
 import { hashPassword } from "@/lib/auth/password";
-import { sendEmail } from "@/lib/notifications/email";
+import {
+  sendEmail,
+  resolveAppOrigin,
+  generateCompanyApprovedEmail,
+} from "@/lib/notifications/email";
 import { supabaseDb } from "@/lib/supabase/db";
+import {
+  addCalendarMonths,
+  computeSubscriptionState,
+  isSubscriptionAccessBlocked,
+} from "@/lib/utils/subscription";
 
 export async function listActiveOrganizations(dbInstance?: any) {
   if (!dbInstance) {
     return await supabaseDb.organizations.listActive();
   }
   const db = dbInstance || getDb();
-  return await db
-    .select({
-      id: organizations.id,
-      name: organizations.name,
-      slug: organizations.slug,
-      logoUrl: organizations.logoUrl,
-    })
+  const rows = await db
+    .select()
     .from(organizations)
-    .where(eq(organizations.status, "ACTIVE"))
+    .where(and(eq(organizations.status, "ACTIVE"), eq(organizations.serviceStopped, false)))
     .orderBy(organizations.name);
+
+  return rows
+    .filter((org: Organization) => !isSubscriptionAccessBlocked(org))
+    .map((org: Organization) => ({
+      id: org.id,
+      name: org.name,
+      slug: org.slug,
+      logoUrl: org.logoUrl,
+    }));
 }
 
 export async function listAllOrganizationsForSuperAdmin(dbInstance?: any) {
@@ -30,7 +51,7 @@ export async function listAllOrganizationsForSuperAdmin(dbInstance?: any) {
   const db = dbInstance || getDb();
   const orgs = await db.select().from(organizations).orderBy(desc(organizations.createdAt));
 
-  // Augment with request counts
+  // Augment with request counts and subscription details
   const results = await Promise.all(
     orgs.map(async (org: Organization) => {
       const [reqCount] = await db
@@ -54,12 +75,26 @@ export async function listAllOrganizationsForSuperAdmin(dbInstance?: any) {
         .where(and(eq(users.organizationId, org.id), eq(users.role, "ORGANIZATION_ADMIN")))
         .limit(1);
 
+      const [pendingRenewal] = await db
+        .select()
+        .from(subscriptionRenewals)
+        .where(
+          and(
+            eq(subscriptionRenewals.organizationId, org.id),
+            eq(subscriptionRenewals.status, "PENDING")
+          )
+        )
+        .orderBy(desc(subscriptionRenewals.createdAt))
+        .limit(1);
+
       return {
         ...org,
         adminEmail: admin?.email || org.email,
         adminName: admin?.name || "Administrateur",
         requestCount: reqCount?.count || 0,
         pendingCount: pendingCount?.count || 0,
+        subscriptionState: computeSubscriptionState(org),
+        pendingRenewal: pendingRenewal || null,
       };
     })
   );
@@ -122,7 +157,7 @@ export async function listPendingOnboardingRequests(dbInstance?: any) {
 
 export async function approveOnboardingRequest(orgId: string, origin?: string, dbInstance?: any) {
   if (!dbInstance) {
-    return await supabaseDb.organizations.approveOnboarding(orgId);
+    return await supabaseDb.organizations.approveOnboarding(orgId, origin);
   }
   const db = dbInstance || getDb();
   const now = Date.now();
@@ -150,10 +185,17 @@ export async function approveOnboardingRequest(orgId: string, origin?: string, d
     if (audit?.metadata) metadata = JSON.parse(audit.metadata);
   } catch (_) {}
 
-  // Activate organization
+  // Activate organization and initialize 1st free month from activation
   await db
     .update(organizations)
-    .set({ status: "ACTIVE", updatedAt: now })
+    .set({
+      status: "ACTIVE",
+      activatedAt: now,
+      subscriptionExpiresAt: addCalendarMonths(now, 1),
+      serviceStopped: false,
+      serviceStoppedAt: null,
+      updatedAt: now,
+    })
     .where(eq(organizations.id, orgId));
 
   // Activate organization admin users
@@ -176,66 +218,23 @@ export async function approveOnboardingRequest(orgId: string, origin?: string, d
 
   const recipientEmail = admin?.email || org?.email || metadata.companyEmail;
   const tempPassword = metadata.tempPassword;
-  const loginUrl = origin ? `${origin}/login` : "/login";
+  const loginUrl = `${resolveAppOrigin(undefined, origin)}/login`;
 
   if (recipientEmail && tempPassword) {
     try {
+      const { subject, html, text } = generateCompanyApprovedEmail({
+        recipientName: admin?.name || "Responsable",
+        companyName: org?.name || "Entreprise",
+        email: recipientEmail,
+        tempPassword,
+        loginUrl,
+      });
+
       await sendEmail({
         to: recipientEmail,
-        subject: `[Compte activé] Vos accès à la plateforme RKonekte — ${org?.name || "Entreprise"}`,
-        html: `
-          <!DOCTYPE html>
-          <html>
-            <head>
-              <meta charset="utf-8" />
-              <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-              <link rel="preconnect" href="https://fonts.googleapis.com" />
-              <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-              <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-              <style>
-                @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-                body, table, td, p, a, h1, h2, h3, span { font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; }
-                body { background-color: #ffffff; margin: 0; padding: 20px; color: #263445; }
-                .container { max-width: 600px; margin: 0 auto; background: #ffffff; border-radius: 16px; overflow: hidden; border: 1px solid #E2E8F0; }
-                .content { padding: 36px 32px; line-height: 1.6; background: #ffffff; }
-                .badge { display: inline-block; color: #047857; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 12px; }
-                .nb-section { margin: 20px 0; background: transparent; }
-                .btn { display: inline-block; background-color: #FF7900; color: #ffffff !important; text-decoration: none; font-weight: 600; font-size: 14px; padding: 14px 28px; border-radius: 10px; margin: 20px 0; text-align: center; box-shadow: 0 2px 6px rgba(255,121,0,0.25); }
-                .footer { background: #ffffff; padding: 24px; text-align: center; font-size: 11px; color: #94A3B8; border-top: 1px solid #F1F5F9; }
-              </style>
-            </head>
-            <body>
-              <div class="container">
-                <div class="content">
-                  <span class="badge">Espace Entreprise Activé</span>
-                  <h2 style="color: #062653; margin-top: 0; font-size: 19px; font-weight: 700;">Bonjour ${admin?.name || "Responsable"},</h2>
-                  <p style="margin: 12px 0; color: #334155; font-size: 14px;">L'inscription de votre entreprise <strong>${org?.name}</strong> a été officiellement approuvée par l'administration RKonekte.</p>
-                  
-                  <div class="nb-section">
-                    <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 700; color: #062653;">
-                      <span style="color: #FF7900; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Important (N.B.) —</span> Vos paramètres de connexion administrateur
-                    </p>
-                    <p style="margin: 0 0 6px 0; color: #334155; font-size: 13px;">
-                      Identifiant (Email) : <strong>${recipientEmail}</strong>
-                    </p>
-                    <p style="margin: 0; color: #334155; font-size: 13px;">
-                      Mot de passe temporaire : <strong style="font-family: monospace; color: #062653;">${tempPassword}</strong>
-                    </p>
-                  </div>
-
-                  <p>Vous pouvez dès à présent vous connecter pour configurer vos équipes et gérer les opérations :</p>
-
-                  <div style="text-align: center;">
-                    <a href="${loginUrl}" class="btn" target="_blank">Se connecter à mon espace entreprise →</a>
-                  </div>
-                </div>
-                <div class="footer">
-                  © 2026 RKonekte. Tous droits réservés.
-                </div>
-              </div>
-            </body>
-          </html>
-        `,
+        subject,
+        html,
+        text,
       });
     } catch (e) {
       console.error("Failed to send activation email:", e);
@@ -279,47 +278,8 @@ export async function rejectOnboardingRequest(orgId: string, reason: string, dbI
 }
 
 export async function getSuperAdminPlatformStats(dbInstance?: any) {
-  if (!dbInstance) {
-    return await supabaseDb.organizations.getSuperAdminStats();
-  }
-  const db = dbInstance || getDb();
-
-  const [totalOrgsRes] = await db.select({ count: sql<number>`count(*)` }).from(organizations);
-  const [activeOrgsRes] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(organizations)
-    .where(eq(organizations.status, "ACTIVE"));
-  const [disabledOrgsRes] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(organizations)
-    .where(eq(organizations.status, "DISABLED"));
-  const [approvedRequestsRes] = await db
-    .select({ count: sql<number>`count(*)` })
-    .from(leaveRequests)
-    .where(eq(leaveRequests.status, "APPROVED"));
-  const [totalRequestsRes] = await db.select({ count: sql<number>`count(*)` }).from(leaveRequests);
-
-  const recentRequests = await db
-    .select({
-      id: leaveRequests.id,
-      requestNumber: leaveRequests.requestNumber,
-      status: leaveRequests.status,
-      submittedAt: leaveRequests.submittedAt,
-      organizationName: organizations.name,
-    })
-    .from(leaveRequests)
-    .innerJoin(organizations, eq(leaveRequests.organizationId, organizations.id))
-    .orderBy(desc(leaveRequests.submittedAt))
-    .limit(5);
-
-  return {
-    totalOrganizations: totalOrgsRes?.count || 0,
-    activeOrganizations: activeOrgsRes?.count || 0,
-    disabledOrganizations: disabledOrgsRes?.count || 0,
-    approvedRequests: approvedRequestsRes?.count || 0,
-    totalRequests: totalRequestsRes?.count || 0,
-    recentRequests,
-  };
+  const { getSuperAdminOverview } = await import("@/lib/services/super-admin-overview");
+  return await getSuperAdminOverview({ period: "all" }, dbInstance);
 }
 
 export async function createOrganizationWithAdmin(
@@ -365,6 +325,9 @@ export async function createOrganizationWithAdmin(
     phone: input.phone || null,
     address: input.address || null,
     status: "ACTIVE",
+    activatedAt: now,
+    subscriptionExpiresAt: addCalendarMonths(now, 1),
+    serviceStopped: false,
     createdAt: now,
     updatedAt: now,
   });
@@ -406,6 +369,7 @@ export async function updateOrganizationPreferences(
   id: string,
   preferences: {
     name?: string;
+    logoUrl?: string | null;
     matriculeFormat?: string;
     matriculePrefix?: string | null;
     primaryCurrency?: string;
@@ -420,6 +384,7 @@ export async function updateOrganizationPreferences(
   const db = dbInstance || getDb();
   const updatePayload: any = { updatedAt: Date.now() };
   if (preferences.name !== undefined) updatePayload.name = preferences.name;
+  if (preferences.logoUrl !== undefined) updatePayload.logoUrl = preferences.logoUrl;
   if (preferences.matriculeFormat !== undefined) updatePayload.matriculeFormat = preferences.matriculeFormat;
   if (preferences.matriculePrefix !== undefined) updatePayload.matriculePrefix = preferences.matriculePrefix;
   if (preferences.primaryCurrency !== undefined) updatePayload.primaryCurrency = preferences.primaryCurrency;

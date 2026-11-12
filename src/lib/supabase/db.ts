@@ -3,7 +3,20 @@ import { Organization, User, Employee, LeaveRequest, AuditLog, Branch, Organizat
 import { CreateOrganizationInput, CreateOrgUserInput, EmployeeInput } from "@/lib/validation/schemas";
 import { hashPassword } from "@/lib/auth/password";
 import { generateRequestNumber, hashToken } from "@/lib/security/tokens";
-import { sendEmail } from "@/lib/notifications/email";
+import {
+  sendEmail,
+  resolveAppOrigin,
+  generateCompanyApprovedEmail,
+} from "@/lib/notifications/email";
+import {
+  addCalendarMonths,
+  computeSubscriptionState,
+  DEFAULT_SUBSCRIPTION_SETTINGS,
+  isSubscriptionAccessBlocked,
+  parsePaymentAccounts,
+  PlatformSubscriptionSettingsData,
+  SubscriptionRenewalItem,
+} from "@/lib/utils/subscription";
 
 // ==========================================
 // MAPPERS: Supabase snake_case <-> TypeScript
@@ -19,11 +32,80 @@ export function mapOrg(row: any): Organization {
     phone: row.phone ?? null,
     address: row.address ?? null,
     status: row.status,
-    matriculeFormat: row.matricule_format || "INITIALS_BRANCH_SEQ",
+    matriculeFormat: row.matricule_format || "FULLNAME_SEQ",
     matriculePrefix: row.matricule_prefix ?? null,
     primaryCurrency: row.primary_currency || "HTG",
     dateFormat: row.date_format || "DD/MM/YYYY",
     language: row.language || "fr",
+    activatedAt: row.activated_at != null ? Number(row.activated_at) : null,
+    lastRenewedAt: row.last_renewed_at != null ? Number(row.last_renewed_at) : null,
+    subscriptionExpiresAt:
+      row.subscription_expires_at != null ? Number(row.subscription_expires_at) : null,
+    serviceStopped: Boolean(row.service_stopped),
+    serviceStoppedAt: row.service_stopped_at != null ? Number(row.service_stopped_at) : null,
+    lastReminderType: row.last_reminder_type ?? null,
+    lastReminderCycleExp:
+      row.last_reminder_cycle_exp != null ? Number(row.last_reminder_cycle_exp) : null,
+    createdAt: Number(row.created_at),
+    updatedAt: Number(row.updated_at),
+  };
+}
+
+export function mapSubscriptionSettings(row: any): PlatformSubscriptionSettingsData {
+  if (!row) {
+    return { ...DEFAULT_SUBSCRIPTION_SETTINGS };
+  }
+  return {
+    id: row.id || "default",
+    trialMonths: Number(row.trial_months ?? DEFAULT_SUBSCRIPTION_SETTINGS.trialMonths),
+    currency: row.currency || DEFAULT_SUBSCRIPTION_SETTINGS.currency,
+    priceMonthly: Number(row.price_monthly ?? DEFAULT_SUBSCRIPTION_SETTINGS.priceMonthly),
+    priceQuarterly: Number(row.price_quarterly ?? DEFAULT_SUBSCRIPTION_SETTINGS.priceQuarterly),
+    priceSemiannual: Number(row.price_semiannual ?? DEFAULT_SUBSCRIPTION_SETTINGS.priceSemiannual),
+    priceAnnual: Number(row.price_annual ?? DEFAULT_SUBSCRIPTION_SETTINGS.priceAnnual),
+    discountQuarterlyPct: Number(
+      row.discount_quarterly_pct ?? DEFAULT_SUBSCRIPTION_SETTINGS.discountQuarterlyPct
+    ),
+    discountSemiannualPct: Number(
+      row.discount_semiannual_pct ?? DEFAULT_SUBSCRIPTION_SETTINGS.discountSemiannualPct
+    ),
+    discountAnnualPct: Number(
+      row.discount_annual_pct ?? DEFAULT_SUBSCRIPTION_SETTINGS.discountAnnualPct
+    ),
+    paymentAccounts: parsePaymentAccounts(row.payment_accounts),
+    autoMessageTitle:
+      row.auto_message_title || DEFAULT_SUBSCRIPTION_SETTINGS.autoMessageTitle,
+    autoMessageBody:
+      row.auto_message_body || DEFAULT_SUBSCRIPTION_SETTINGS.autoMessageBody,
+    superAdminAlertEmail:
+      row.super_admin_alert_email || DEFAULT_SUBSCRIPTION_SETTINGS.superAdminAlertEmail,
+    updatedAt: Number(row.updated_at || 0),
+  };
+}
+
+export function mapSubscriptionRenewal(row: any): SubscriptionRenewalItem {
+  return {
+    id: row.id,
+    organizationId: row.organization_id,
+    durationMonths: Number(row.duration_months),
+    amountExpected: Number(row.amount_expected ?? 0),
+    currency: row.currency || "USD",
+    paymentMethod: row.payment_method,
+    paymentReference: row.payment_reference ?? null,
+    payerCompanyName: row.payer_company_name ?? null,
+    payerNote: row.payer_note ?? null,
+    proofDataUrl: row.proof_data_url ?? null,
+    proofFileName: row.proof_file_name ?? null,
+    status: row.status,
+    periodStart: row.period_start != null ? Number(row.period_start) : null,
+    periodEnd: row.period_end != null ? Number(row.period_end) : null,
+    submittedByUserId: row.submitted_by_user_id ?? null,
+    submittedByName: row.submitted_by_name ?? null,
+    submittedByEmail: row.submitted_by_email ?? null,
+    reviewedByUserId: row.reviewed_by_user_id ?? null,
+    reviewedByName: row.reviewed_by_name ?? null,
+    reviewedAt: row.reviewed_at != null ? Number(row.reviewed_at) : null,
+    rejectionReason: row.rejection_reason ?? null,
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   };
@@ -39,6 +121,8 @@ export function mapUser(row: any): User {
     passwordHash: row.password_hash,
     role: row.role,
     status: row.status,
+    lastLoginAt: row.last_login_at != null ? Number(row.last_login_at) : null,
+    lastSeenAt: row.last_seen_at != null ? Number(row.last_seen_at) : null,
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   };
@@ -74,6 +158,11 @@ export function mapLeaveRequest(row: any): LeaveRequest & {
   signerName?: string | null;
   signerRole?: string | null;
   organizationName?: string | null;
+  organizationLogo?: string | null;
+  employeeSignature?: string | null;
+  signatureMode?: string | null;
+  typedSignatureText?: string | null;
+  branch?: string | null;
 } {
   return {
     id: row.id,
@@ -107,6 +196,11 @@ export function mapLeaveRequest(row: any): LeaveRequest & {
     signerName: row.signer_name ?? row.signerName ?? null,
     signerRole: row.signer_role ?? row.signerRole ?? null,
     organizationName: row.organization_name ?? row.organizationName ?? null,
+    organizationLogo: row.organization_logo ?? row.organizationLogo ?? null,
+    employeeSignature: row.employee_signature ?? row.employeeSignature ?? null,
+    signatureMode: row.signature_mode ?? row.signatureMode ?? null,
+    typedSignatureText: row.typed_signature_text ?? row.typedSignatureText ?? null,
+    branch: row.branch ?? null,
     createdAt: Number(row.created_at),
     updatedAt: Number(row.updated_at),
   };
@@ -130,7 +224,6 @@ export function mapBranch(row: any): Branch {
   return {
     id: row.id,
     organizationId: row.organization_id,
-    code: row.code,
     name: row.name,
     city: row.city,
     address: row.address ?? null,
@@ -169,17 +262,27 @@ export const supabaseDb = {
       const supabase = getSupabaseAdminClient();
       const { data, error } = await supabase
         .from("organizations")
-        .select("id, name, slug, logo_url")
+        .select("id, name, slug, logo_url, service_stopped, subscription_expires_at, status")
         .eq("status", "ACTIVE")
         .order("name", { ascending: true });
 
       if (error) throw new Error(`Supabase error: ${error.message}`);
-      return (data || []).map((row) => ({
-        id: row.id,
-        name: row.name,
-        slug: row.slug,
-        logoUrl: row.logo_url ?? null,
-      }));
+      return (data || [])
+        .filter(
+          (row) =>
+            !isSubscriptionAccessBlocked({
+              status: row.status,
+              serviceStopped: row.service_stopped,
+              subscriptionExpiresAt:
+                row.subscription_expires_at != null ? Number(row.subscription_expires_at) : null,
+            })
+        )
+        .map((row) => ({
+          id: row.id,
+          name: row.name,
+          slug: row.slug,
+          logoUrl: row.logo_url ?? null,
+        }));
     },
 
     async listAllForSuperAdmin(): Promise<any[]> {
@@ -191,7 +294,23 @@ export const supabaseDb = {
 
       if (error) throw new Error(`Supabase error: ${error.message}`);
 
-      // Augment each org with counts and admin user
+      // Batch fetch pending renewals safely (table might not exist before migration)
+      const pendingByOrg = new Map<string, SubscriptionRenewalItem>();
+      try {
+        const { data: pendingRows } = await supabase
+          .from("subscription_renewals")
+          .select("*")
+          .eq("status", "PENDING")
+          .order("created_at", { ascending: false });
+
+        for (const r of pendingRows || []) {
+          if (!pendingByOrg.has(r.organization_id)) {
+            pendingByOrg.set(r.organization_id, mapSubscriptionRenewal(r));
+          }
+        }
+      } catch (_) {}
+
+      // Augment each org with counts, admin user, and subscription metadata
       const results = await Promise.all(
         (orgs || []).map(async (row) => {
           const org = mapOrg(row);
@@ -218,12 +337,17 @@ export const supabaseDb = {
             .limit(1)
             .maybeSingle();
 
+          const subscriptionState = computeSubscriptionState(org);
+          const pendingRenewal = pendingByOrg.get(org.id) || null;
+
           return {
             ...org,
             adminEmail: adminData?.email || org.email,
             adminName: adminData?.name || "Administrateur",
             requestCount: reqCount ?? 0,
             pendingCount: pendingCount ?? 0,
+            subscriptionState,
+            pendingRenewal,
           };
         })
       );
@@ -332,6 +456,7 @@ export const supabaseDb = {
       id: string,
       preferences: {
         name?: string;
+        logoUrl?: string | null;
         matriculeFormat?: string;
         matriculePrefix?: string | null;
         primaryCurrency?: string;
@@ -342,6 +467,7 @@ export const supabaseDb = {
       const supabase = getSupabaseAdminClient();
       const updateData: any = { updated_at: Date.now() };
       if (preferences.name !== undefined) updateData.name = preferences.name;
+      if (preferences.logoUrl !== undefined) updateData.logo_url = preferences.logoUrl;
       if (preferences.matriculeFormat !== undefined) updateData.matricule_format = preferences.matriculeFormat;
       if (preferences.matriculePrefix !== undefined) updateData.matricule_prefix = preferences.matriculePrefix;
       if (preferences.primaryCurrency !== undefined) updateData.primary_currency = preferences.primaryCurrency;
@@ -389,6 +515,12 @@ export const supabaseDb = {
       const userId = `usr-${crypto.randomUUID()}`;
       const passwordHash = await hashPassword(input.adminPassword);
 
+      let trialMonths = 1;
+      try {
+        const settings = await supabaseDb.subscriptions.getSettings();
+        trialMonths = Math.max(1, settings.trialMonths || 1);
+      } catch (_) {}
+
       const orgPayload = {
         id: orgId,
         name: input.name,
@@ -398,6 +530,9 @@ export const supabaseDb = {
         phone: input.phone || null,
         address: input.address || null,
         status: "ACTIVE",
+        activated_at: now,
+        subscription_expires_at: addCalendarMonths(now, trialMonths),
+        service_stopped: false,
         created_at: now,
         updated_at: now,
       };
@@ -426,7 +561,7 @@ export const supabaseDb = {
       };
     },
 
-    async approveOnboarding(orgId: string): Promise<any> {
+    async approveOnboarding(orgId: string, origin?: string): Promise<any> {
       const supabase = getSupabaseAdminClient();
       const now = Date.now();
 
@@ -468,17 +603,47 @@ export const supabaseDb = {
       const tempPassword = meta.tempPassword || `Pass@${Math.random().toString(36).slice(-6)}!`;
       const passwordHash = await hashPassword(tempPassword);
 
-      // Activate organization
-      await supabase
+      let trialMonths = 1;
+      try {
+        const settings = await supabaseDb.subscriptions.getSettings();
+        trialMonths = Math.max(1, settings.trialMonths || 1);
+      } catch (_) {}
+
+      // Activate organization and start 1st free month from activation timestamp
+      const { error: orgApproveErr } = await supabase
         .from("organizations")
-        .update({ status: "ACTIVE", updated_at: now })
+        .update({
+          status: "ACTIVE",
+          activated_at: now,
+          subscription_expires_at: addCalendarMonths(now, trialMonths),
+          service_stopped: false,
+          service_stopped_at: null,
+          updated_at: now,
+        })
         .eq("id", orgId);
 
+      if (orgApproveErr) {
+        throw new Error(`Erreur d'activation de l'entreprise : ${orgApproveErr.message}`);
+      }
+
       // Activate user & set password
-      await supabase
+      const { error: userApproveErr } = await supabase
         .from("users")
         .update({ status: "ACTIVE", password_hash: passwordHash, updated_at: now })
         .eq("id", admin.id);
+
+      if (userApproveErr) {
+        await supabase
+          .from("organizations")
+          .update({
+            status: org.status,
+            activated_at: orgData.activated_at ?? null,
+            subscription_expires_at: orgData.subscription_expires_at ?? null,
+            updated_at: now,
+          })
+          .eq("id", orgId);
+        throw new Error(`Erreur d'activation de l'administrateur : ${userApproveErr.message}`);
+      }
 
       // Insert approval audit log
       await supabase.from("audit_logs").insert({
@@ -492,52 +657,22 @@ export const supabaseDb = {
         created_at: now,
       });
 
-      // Send official welcome email
-      const host = process.env.APP_URL || "http://localhost:3000";
-      const loginUrl = `${host}/login`;
-      const emailHtml = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta charset="utf-8" />
-            <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-            <link rel="preconnect" href="https://fonts.googleapis.com" />
-            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-            <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap" rel="stylesheet" />
-            <style>
-              @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&display=swap');
-              body, table, td, p, a, h1, h2, h3, span { font-family: 'Poppins', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important; }
-            </style>
-          </head>
-          <body style="background-color: #ffffff; padding: 24px; margin: 0; color: #263445;">
-            <div style="max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 16px; border: 1px solid #e2e8f0; overflow: hidden;">
-              <div style="padding: 36px 32px; line-height: 1.6; background: #ffffff;">
-                <h2 style="color: #062653; margin-top: 0; font-size: 19px; font-weight: 700;">Félicitations ! Votre espace est activé</h2>
-                <p style="margin: 12px 0; color: #334155; font-size: 14px;">Votre entreprise <strong>${org.name}</strong> a été validée avec succès sur <strong>RKonekte</strong>.</p>
-                <div style="margin: 20px 0; background: transparent;">
-                  <p style="margin: 0 0 6px 0; font-size: 13px; font-weight: 700; color: #062653;">
-                    <span style="color: #FF7900; font-size: 12px; text-transform: uppercase; letter-spacing: 0.5px;">Important (N.B.) —</span> Vos identifiants
-                  </p>
-                  <p style="margin: 0 0 6px 0; font-size: 13px; color: #334155;">Identifiant (Email) : <strong>${admin.email}</strong></p>
-                  <p style="margin: 0; font-size: 13px; color: #334155;">Mot de passe temporaire : <strong style="font-family: monospace; color: #062653;">${tempPassword}</strong></p>
-                </div>
-                <div style="text-align: center;">
-                  <a href="${loginUrl}" style="display: inline-block; background-color: #FF7900; color: #ffffff !important; padding: 14px 28px; border-radius: 10px; text-decoration: none; font-weight: 600; font-size: 15px; box-shadow: 0 2px 6px rgba(255,121,0,0.25);">Se connecter à mon espace →</a>
-                </div>
-              </div>
-              <div style="background: #ffffff; padding: 24px; text-align: center; font-size: 11px; color: #94A3B8; border-top: 1px solid #F1F5F9;">
-                © 2026 RKonekte. Tous droits réservés.
-              </div>
-            </div>
-          </body>
-        </html>
-      `;
+      // Send transactional welcome email
+      const loginUrl = `${resolveAppOrigin(undefined, origin)}/login`;
+      const { subject, html: emailHtml, text: emailText } = generateCompanyApprovedEmail({
+        recipientName: admin.name || "Responsable",
+        companyName: org.name,
+        email: admin.email,
+        tempPassword,
+        loginUrl,
+      });
 
       try {
         await sendEmail({
           to: admin.email,
-          subject: `[Accès Officiel] Bienvenue sur RKonekte — ${org.name}`,
+          subject,
           html: emailHtml,
+          text: emailText,
         });
       } catch (err) {
         console.error("Failed to send welcome email:", err);
@@ -657,9 +792,17 @@ export const supabaseDb = {
       const supabase = getSupabaseAdminClient();
       let res: any = await supabase
         .from("users")
-        .select("id, organization_id, branch_id, name, email, role, status, created_at, updated_at")
+        .select("id, organization_id, branch_id, name, email, role, status, last_login_at, last_seen_at, created_at, updated_at")
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false });
+
+      if (res.error) {
+        res = await supabase
+          .from("users")
+          .select("id, organization_id, branch_id, name, email, role, status, created_at, updated_at")
+          .eq("organization_id", organizationId)
+          .order("created_at", { ascending: false });
+      }
 
       if (res.error) {
         res = await supabase
@@ -678,6 +821,8 @@ export const supabaseDb = {
         email: row.email,
         role: row.role,
         status: row.status,
+        lastLoginAt: row.last_login_at != null ? Number(row.last_login_at) : null,
+        lastSeenAt: row.last_seen_at != null ? Number(row.last_seen_at) : null,
         createdAt: Number(row.created_at),
         updatedAt: Number(row.updated_at),
       }));
@@ -762,6 +907,8 @@ export const supabaseDb = {
         email: input.email.toLowerCase().trim(),
         role: input.role,
         status: "ACTIVE",
+        lastLoginAt: null,
+        lastSeenAt: null,
         createdAt: now,
         updatedAt: now,
       };
@@ -775,6 +922,91 @@ export const supabaseDb = {
         .eq("id", id);
 
       if (error) throw new Error(`Supabase error: ${error.message}`);
+    },
+
+    async updateRole(
+      organizationId: string,
+      userId: string,
+      role: string
+    ): Promise<Omit<User, "passwordHash">> {
+      const cleanRole = role.trim();
+      if (!cleanRole) {
+        throw new Error("Le rôle système est obligatoire");
+      }
+      if (cleanRole === "SUPER_ADMIN") {
+        throw new Error("Attribution du rôle Super Administrateur interdite");
+      }
+
+      const supabase = getSupabaseAdminClient();
+      const { data: target, error: findErr } = await supabase
+        .from("users")
+        .select("id, organization_id, role, status")
+        .eq("id", userId)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (findErr) throw new Error(`Supabase error: ${findErr.message}`);
+      if (!target) {
+        throw new Error("Utilisateur introuvable dans cette entreprise");
+      }
+      if (target.role === "SUPER_ADMIN") {
+        throw new Error("Impossible de modifier le rôle d'un Super Administrateur");
+      }
+
+      if (target.role === "ORGANIZATION_ADMIN" && cleanRole !== "ORGANIZATION_ADMIN") {
+        const { data: admins, error: countErr } = await supabase
+          .from("users")
+          .select("id, status")
+          .eq("organization_id", organizationId)
+          .eq("role", "ORGANIZATION_ADMIN");
+
+        if (countErr) throw new Error(`Supabase error: ${countErr.message}`);
+        const remainingActiveAdmins = (admins || []).filter(
+          (a: any) => a.id !== userId && a.status === "ACTIVE"
+        );
+        if (remainingActiveAdmins.length === 0) {
+          throw new Error(
+            "Impossible de rétrograder le seul PDG / Propriétaire actif de l'entreprise. Désignez d'abord un autre PDG / Propriétaire."
+          );
+        }
+      }
+
+      const now = Date.now();
+      let res: any = await supabase
+        .from("users")
+        .update({ role: cleanRole, updated_at: now })
+        .eq("id", userId)
+        .eq("organization_id", organizationId)
+        .select("id, organization_id, branch_id, name, email, role, status, last_login_at, last_seen_at, created_at, updated_at")
+        .single();
+
+      if (res.error && (res.error.message?.includes("branch_id") || res.error.message?.includes("last_login_at") || res.error.message?.includes("last_seen_at"))) {
+        res = await supabase
+          .from("users")
+          .update({ role: cleanRole, updated_at: now })
+          .eq("id", userId)
+          .eq("organization_id", organizationId)
+          .select("id, organization_id, name, email, role, status, created_at, updated_at")
+          .single();
+      }
+
+      if (res.error || !res.data) {
+        throw new Error(`Supabase error: ${res.error?.message || "Mise à jour impossible"}`);
+      }
+
+      return {
+        id: res.data.id,
+        organizationId: res.data.organization_id,
+        branchId: res.data.branch_id ?? null,
+        name: res.data.name,
+        email: res.data.email,
+        role: res.data.role,
+        status: res.data.status,
+        lastLoginAt: res.data.last_login_at != null ? Number(res.data.last_login_at) : null,
+        lastSeenAt: res.data.last_seen_at != null ? Number(res.data.last_seen_at) : null,
+        createdAt: Number(res.data.created_at),
+        updatedAt: Number(res.data.updated_at),
+      };
     },
   },
 
@@ -1021,6 +1253,28 @@ export const supabaseDb = {
       }
 
       if (error) throw new Error(`Supabase error: ${error.message}`);
+
+      if (input.branchId !== undefined || (input as any).role !== undefined) {
+        try {
+          const userUpdate: Record<string, any> = { updated_at: now };
+          if (input.branchId !== undefined) userUpdate.branch_id = input.branchId || null;
+          if ((input as any).role !== undefined && (input as any).role) userUpdate.role = (input as any).role;
+          const userEmail = (input.email || data?.email || "").toLowerCase().trim();
+          if (userEmail) {
+            const { error: syncErr } = await supabase
+              .from("users")
+              .update(userUpdate)
+              .eq("organization_id", organizationId)
+              .ilike("email", userEmail);
+            if (syncErr) {
+              console.warn("Supabase user role/branch sync warning:", syncErr.message);
+            }
+          }
+        } catch (syncErr: any) {
+          console.warn("User sync caught exception:", syncErr?.message);
+        }
+      }
+
       return mapEmployee(data);
     },
 
@@ -1069,7 +1323,13 @@ export const supabaseDb = {
             .ilike("email", normEmail)
             .maybeSingle();
 
-          if (userAcc && (userAcc.role === "EMPLOYEE" || userAcc.role === "COLLABORATEUR")) {
+          if (
+            userAcc &&
+            (userAcc.role === "EMPLOYEE" ||
+              userAcc.role === "COLLABORATEUR" ||
+              userAcc.role === "CASHIER" ||
+              userAcc.role === "CAISSIER")
+          ) {
             await supabase.from("users").delete().eq("id", userAcc.id);
           }
         }
@@ -1085,15 +1345,29 @@ export const supabaseDb = {
       const supabase = getSupabaseAdminClient();
       const now = Date.now();
 
-      // 1. Check organization active
+      // 1. Check organization active and subscription not expired/stopped
       const { data: orgData } = await supabase
         .from("organizations")
-        .select("id, name, status")
+        .select("id, name, status, service_stopped, subscription_expires_at")
         .eq("id", input.organizationId)
         .eq("status", "ACTIVE")
         .maybeSingle();
 
       if (!orgData) throw new Error("Organisation introuvable ou inactive");
+      if (
+        isSubscriptionAccessBlocked({
+          status: orgData.status,
+          serviceStopped: orgData.service_stopped,
+          subscriptionExpiresAt:
+            orgData.subscription_expires_at != null
+              ? Number(orgData.subscription_expires_at)
+              : null,
+        })
+      ) {
+        throw new Error(
+          "L'abonnement de cette entreprise a expiré ou le service est suspendu."
+        );
+      }
 
       // 2. Count total requests to generate request number
       const { count: totalReqCount } = await supabase
@@ -1164,7 +1438,14 @@ export const supabaseDb = {
         action: "SUBMITTED",
         old_status: null,
         new_status: "PENDING",
-        metadata: JSON.stringify({ ip: meta?.ip, employeeNumber: input.employeeNumber }),
+        metadata: JSON.stringify({
+          ip: meta?.ip,
+          employeeNumber: input.employeeNumber,
+          employeeSignature: input.employeeSignature,
+          signatureMode: input.signatureMode,
+          typedSignatureText: input.typedSignatureText,
+          branch: input.branch,
+        }),
         created_at: now,
       });
 
@@ -1194,11 +1475,66 @@ export const supabaseDb = {
 
         if (auditData?.metadata) {
           try {
-            const meta = JSON.parse(auditData.metadata);
-            (data as any).signature_url = meta.signatureUrl;
-            (data as any).signer_name = meta.signerName;
-            (data as any).signer_role = meta.signerRole;
+            const meta = typeof auditData.metadata === "string" ? JSON.parse(auditData.metadata) : auditData.metadata;
+            (data as any).signature_url = meta?.signatureUrl;
+            (data as any).signer_name = meta?.signerName;
+            (data as any).signer_role = meta?.signerRole;
           } catch (_) {}
+        }
+      }
+
+      // Fetch SUBMITTED audit log for employee signature snapshot
+      const { data: submitAudit } = await supabase
+        .from("audit_logs")
+        .select("metadata")
+        .eq("leave_request_id", data.id)
+        .eq("action", "SUBMITTED")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (submitAudit?.metadata) {
+        try {
+          const meta = typeof submitAudit.metadata === "string" ? JSON.parse(submitAudit.metadata) : submitAudit.metadata;
+          (data as any).employee_signature = meta?.employeeSignature;
+          (data as any).signature_mode = meta?.signatureMode;
+          (data as any).typed_signature_text = meta?.typedSignatureText;
+          (data as any).branch = meta?.branch;
+        } catch (_) {}
+      }
+
+      // Fallback: check any audit log for this leave request containing employeeSignature
+      if (!(data as any).employee_signature) {
+        const { data: anyAudits } = await supabase
+          .from("audit_logs")
+          .select("metadata")
+          .eq("leave_request_id", data.id)
+          .not("metadata", "is", null);
+
+        for (const a of anyAudits || []) {
+          try {
+            const m = typeof a.metadata === "string" ? JSON.parse(a.metadata) : a.metadata;
+            if (m?.employeeSignature) {
+              (data as any).employee_signature = m.employeeSignature;
+              (data as any).signature_mode = m.signatureMode || "upload";
+              (data as any).typed_signature_text = m.typedSignatureText || null;
+              break;
+            }
+          } catch (_) {}
+        }
+      }
+
+      if (data.organization_id) {
+        const { data: orgData } = await supabase
+          .from("organizations")
+          .select("name, logo_url")
+          .eq("id", data.organization_id)
+          .maybeSingle();
+        if (orgData?.name) {
+          (data as any).organization_name = orgData.name;
+        }
+        if (orgData?.logo_url) {
+          (data as any).organization_logo = orgData.logo_url;
         }
       }
 
@@ -1238,10 +1574,51 @@ export const supabaseDb = {
 
         if (auditData?.metadata) {
           try {
-            const meta = JSON.parse(auditData.metadata);
-            (data as any).signature_url = meta.signatureUrl;
-            (data as any).signer_name = meta.signerName;
-            (data as any).signer_role = meta.signerRole;
+            const meta = typeof auditData.metadata === "string" ? JSON.parse(auditData.metadata) : auditData.metadata;
+            (data as any).signature_url = meta?.signatureUrl;
+            (data as any).signer_name = meta?.signerName;
+            (data as any).signer_role = meta?.signerRole;
+          } catch (_) {}
+        }
+      }
+
+      // Fetch SUBMITTED audit log for employee signature snapshot
+      const { data: submitAudit } = await supabase
+        .from("audit_logs")
+        .select("metadata")
+        .eq("leave_request_id", data.id)
+        .eq("action", "SUBMITTED")
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle();
+
+      if (submitAudit?.metadata) {
+        try {
+          const meta = typeof submitAudit.metadata === "string" ? JSON.parse(submitAudit.metadata) : submitAudit.metadata;
+          (data as any).employee_signature = meta?.employeeSignature;
+          (data as any).signature_mode = meta?.signatureMode;
+          (data as any).typed_signature_text = meta?.typedSignatureText;
+          (data as any).branch = meta?.branch;
+        } catch (_) {}
+      }
+
+      // Fallback: check any audit log for this leave request containing employeeSignature
+      if (!(data as any).employee_signature) {
+        const { data: anyAudits } = await supabase
+          .from("audit_logs")
+          .select("metadata")
+          .eq("leave_request_id", data.id)
+          .not("metadata", "is", null);
+
+        for (const a of anyAudits || []) {
+          try {
+            const m = typeof a.metadata === "string" ? JSON.parse(a.metadata) : a.metadata;
+            if (m?.employeeSignature) {
+              (data as any).employee_signature = m.employeeSignature;
+              (data as any).signature_mode = m.signatureMode || "upload";
+              (data as any).typed_signature_text = m.typedSignatureText || null;
+              break;
+            }
           } catch (_) {}
         }
       }
@@ -1249,11 +1626,14 @@ export const supabaseDb = {
       if (data.organization_id) {
         const { data: orgData } = await supabase
           .from("organizations")
-          .select("name")
+          .select("name, logo_url")
           .eq("id", data.organization_id)
           .maybeSingle();
         if (orgData?.name) {
           (data as any).organization_name = orgData.name;
+        }
+        if (orgData?.logo_url) {
+          (data as any).organization_logo = orgData.logo_url;
         }
       }
 
@@ -1493,7 +1873,7 @@ export const supabaseDb = {
         .order("created_at", { ascending: true });
 
       if (error) {
-        return [];
+        throw new Error(`Supabase error: ${error.message}`);
       }
       return (data || []).map(mapBranch);
     },
@@ -1518,7 +1898,6 @@ export const supabaseDb = {
       const newRow = {
         id,
         organization_id: organizationId,
-        code: (input.code || "BR").toUpperCase().trim(),
         name: (input.name || "Succursale").trim(),
         city: (input.city || "Port-au-Prince").trim(),
         address: input.address ? input.address.trim() : null,
@@ -1544,7 +1923,6 @@ export const supabaseDb = {
       const updateRow: any = {
         updated_at: now,
       };
-      if (input.code !== undefined) updateRow.code = input.code.toUpperCase().trim();
       if (input.name !== undefined) updateRow.name = input.name.trim();
       if (input.city !== undefined) updateRow.city = input.city.trim();
       if (input.address !== undefined) updateRow.address = input.address ? input.address.trim() : null;
@@ -1685,6 +2063,276 @@ export const supabaseDb = {
         .eq("organization_id", organizationId);
 
       if (error) throw new Error(`Supabase error: ${error.message}`);
+    },
+  },
+
+  // ----------------------------------------
+  // SUBSCRIPTIONS & BILLING
+  // ----------------------------------------
+  subscriptions: {
+    async getSettings(): Promise<PlatformSubscriptionSettingsData> {
+      const supabase = getSupabaseAdminClient();
+      try {
+        const { data, error } = await supabase
+          .from("platform_subscription_settings")
+          .select("*")
+          .eq("id", "default")
+          .maybeSingle();
+
+        if (error || !data) {
+          return { ...DEFAULT_SUBSCRIPTION_SETTINGS };
+        }
+        return mapSubscriptionSettings(data);
+      } catch (_) {
+        return { ...DEFAULT_SUBSCRIPTION_SETTINGS };
+      }
+    },
+
+    async upsertSettings(
+      input: Partial<Omit<PlatformSubscriptionSettingsData, "id" | "updatedAt">>
+    ): Promise<PlatformSubscriptionSettingsData> {
+      const supabase = getSupabaseAdminClient();
+      const current = await supabaseDb.subscriptions.getSettings();
+      const now = Date.now();
+
+      const payload = {
+        id: "default",
+        trial_months: input.trialMonths ?? current.trialMonths,
+        currency: input.currency ?? current.currency,
+        price_monthly: input.priceMonthly ?? current.priceMonthly,
+        price_quarterly: input.priceQuarterly ?? current.priceQuarterly,
+        price_semiannual: input.priceSemiannual ?? current.priceSemiannual,
+        price_annual: input.priceAnnual ?? current.priceAnnual,
+        discount_quarterly_pct:
+          input.discountQuarterlyPct ?? current.discountQuarterlyPct,
+        discount_semiannual_pct:
+          input.discountSemiannualPct ?? current.discountSemiannualPct,
+        discount_annual_pct: input.discountAnnualPct ?? current.discountAnnualPct,
+        payment_accounts: JSON.stringify(
+          input.paymentAccounts ?? current.paymentAccounts
+        ),
+        auto_message_title: input.autoMessageTitle ?? current.autoMessageTitle,
+        auto_message_body: input.autoMessageBody ?? current.autoMessageBody,
+        super_admin_alert_email:
+          input.superAdminAlertEmail !== undefined
+            ? input.superAdminAlertEmail
+            : current.superAdminAlertEmail,
+        updated_at: now,
+      };
+
+      const { data, error } = await supabase
+        .from("platform_subscription_settings")
+        .upsert(payload, { onConflict: "id" })
+        .select("*")
+        .single();
+
+      if (error) throw new Error(`Supabase error: ${error.message}`);
+      return mapSubscriptionSettings(data);
+    },
+
+    async listRenewalsForOrg(orgId: string): Promise<SubscriptionRenewalItem[]> {
+      const supabase = getSupabaseAdminClient();
+      const { data, error } = await supabase
+        .from("subscription_renewals")
+        .select("*")
+        .eq("organization_id", orgId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.warn("listRenewalsForOrg warning:", error.message);
+        return [];
+      }
+      return (data || []).map(mapSubscriptionRenewal);
+    },
+
+    async getRenewalById(id: string): Promise<SubscriptionRenewalItem | null> {
+      const supabase = getSupabaseAdminClient();
+      const { data, error } = await supabase
+        .from("subscription_renewals")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+
+      if (error || !data) return null;
+      return mapSubscriptionRenewal(data);
+    },
+
+    async createRenewalRow(row: {
+      id: string;
+      organizationId: string;
+      durationMonths: number;
+      amountExpected: number;
+      currency: string;
+      paymentMethod: string;
+      paymentReference?: string | null;
+      payerCompanyName?: string | null;
+      payerNote?: string | null;
+      proofDataUrl?: string | null;
+      proofFileName?: string | null;
+      status: "PENDING" | "APPROVED" | "REJECTED";
+      periodStart?: number | null;
+      periodEnd?: number | null;
+      submittedByUserId?: string | null;
+      submittedByName?: string | null;
+      submittedByEmail?: string | null;
+      reviewedByUserId?: string | null;
+      reviewedByName?: string | null;
+      reviewedAt?: number | null;
+      rejectionReason?: string | null;
+      createdAt: number;
+      updatedAt: number;
+    }): Promise<SubscriptionRenewalItem> {
+      const supabase = getSupabaseAdminClient();
+      const payload = {
+        id: row.id,
+        organization_id: row.organizationId,
+        duration_months: row.durationMonths,
+        amount_expected: row.amountExpected,
+        currency: row.currency,
+        payment_method: row.paymentMethod,
+        payment_reference: row.paymentReference ?? null,
+        payer_company_name: row.payerCompanyName ?? null,
+        payer_note: row.payerNote ?? null,
+        proof_data_url: row.proofDataUrl ?? null,
+        proof_file_name: row.proofFileName ?? null,
+        status: row.status,
+        period_start: row.periodStart ?? null,
+        period_end: row.periodEnd ?? null,
+        submitted_by_user_id: row.submittedByUserId ?? null,
+        submitted_by_name: row.submittedByName ?? null,
+        submitted_by_email: row.submittedByEmail ?? null,
+        reviewed_by_user_id: row.reviewedByUserId ?? null,
+        reviewed_by_name: row.reviewedByName ?? null,
+        reviewed_at: row.reviewedAt ?? null,
+        rejection_reason: row.rejectionReason ?? null,
+        created_at: row.createdAt,
+        updated_at: row.updatedAt,
+      };
+
+      const { data, error } = await supabase
+        .from("subscription_renewals")
+        .insert(payload)
+        .select("*")
+        .single();
+
+      if (error) throw new Error(`Supabase error: ${error.message}`);
+      return mapSubscriptionRenewal(data);
+    },
+
+    async updateRenewalRow(
+      id: string,
+      orgId: string,
+      patch: Partial<{
+        durationMonths: number;
+        amountExpected: number;
+        currency: string;
+        paymentMethod: string;
+        paymentReference: string | null;
+        payerCompanyName: string | null;
+        payerNote: string | null;
+        proofDataUrl: string | null;
+        proofFileName: string | null;
+        status: "PENDING" | "APPROVED" | "REJECTED";
+        periodStart: number | null;
+        periodEnd: number | null;
+        reviewedByUserId: string | null;
+        reviewedByName: string | null;
+        reviewedAt: number | null;
+        rejectionReason: string | null;
+        updatedAt: number;
+      }>
+    ): Promise<SubscriptionRenewalItem> {
+      const supabase = getSupabaseAdminClient();
+      const updateObj: any = { updated_at: patch.updatedAt ?? Date.now() };
+      if (patch.durationMonths !== undefined) updateObj.duration_months = patch.durationMonths;
+      if (patch.amountExpected !== undefined) updateObj.amount_expected = patch.amountExpected;
+      if (patch.currency !== undefined) updateObj.currency = patch.currency;
+      if (patch.paymentMethod !== undefined) updateObj.payment_method = patch.paymentMethod;
+      if (patch.paymentReference !== undefined) updateObj.payment_reference = patch.paymentReference;
+      if (patch.payerCompanyName !== undefined) updateObj.payer_company_name = patch.payerCompanyName;
+      if (patch.payerNote !== undefined) updateObj.payer_note = patch.payerNote;
+      if (patch.proofDataUrl !== undefined) updateObj.proof_data_url = patch.proofDataUrl;
+      if (patch.proofFileName !== undefined) updateObj.proof_file_name = patch.proofFileName;
+      if (patch.status !== undefined) updateObj.status = patch.status;
+      if (patch.periodStart !== undefined) updateObj.period_start = patch.periodStart;
+      if (patch.periodEnd !== undefined) updateObj.period_end = patch.periodEnd;
+      if (patch.reviewedByUserId !== undefined) updateObj.reviewed_by_user_id = patch.reviewedByUserId;
+      if (patch.reviewedByName !== undefined) updateObj.reviewed_by_name = patch.reviewedByName;
+      if (patch.reviewedAt !== undefined) updateObj.reviewed_at = patch.reviewedAt;
+      if (patch.rejectionReason !== undefined) updateObj.rejection_reason = patch.rejectionReason;
+
+      const { data, error } = await supabase
+        .from("subscription_renewals")
+        .update(updateObj)
+        .eq("id", id)
+        .eq("organization_id", orgId)
+        .select("*")
+        .single();
+
+      if (error) throw new Error(`Supabase error: ${error.message}`);
+      return mapSubscriptionRenewal(data);
+    },
+
+    async deletePendingRenewal(id: string, orgId: string): Promise<void> {
+      const supabase = getSupabaseAdminClient();
+      const { error } = await supabase
+        .from("subscription_renewals")
+        .delete()
+        .eq("id", id)
+        .eq("organization_id", orgId)
+        .eq("status", "PENDING");
+
+      if (error) throw new Error(`Supabase error: ${error.message}`);
+    },
+
+    async updateOrgSubscriptionFields(
+      orgId: string,
+      patch: Partial<{
+        status: "ACTIVE" | "DISABLED";
+        activatedAt: number | null;
+        lastRenewedAt: number | null;
+        subscriptionExpiresAt: number | null;
+        serviceStopped: boolean;
+        serviceStoppedAt: number | null;
+        lastReminderType: string | null;
+        lastReminderCycleExp: number | null;
+      }>
+    ): Promise<Organization> {
+      const supabase = getSupabaseAdminClient();
+      const updateObj: any = { updated_at: Date.now() };
+      if (patch.status !== undefined) updateObj.status = patch.status;
+      if (patch.activatedAt !== undefined) updateObj.activated_at = patch.activatedAt;
+      if (patch.lastRenewedAt !== undefined) updateObj.last_renewed_at = patch.lastRenewedAt;
+      if (patch.subscriptionExpiresAt !== undefined)
+        updateObj.subscription_expires_at = patch.subscriptionExpiresAt;
+      if (patch.serviceStopped !== undefined) updateObj.service_stopped = patch.serviceStopped;
+      if (patch.serviceStoppedAt !== undefined) updateObj.service_stopped_at = patch.serviceStoppedAt;
+      if (patch.lastReminderType !== undefined) updateObj.last_reminder_type = patch.lastReminderType;
+      if (patch.lastReminderCycleExp !== undefined)
+        updateObj.last_reminder_cycle_exp = patch.lastReminderCycleExp;
+
+      const { data, error } = await supabase
+        .from("organizations")
+        .update(updateObj)
+        .eq("id", orgId)
+        .select("*")
+        .single();
+
+      if (error) throw new Error(`Supabase error: ${error.message}`);
+      return mapOrg(data);
+    },
+
+    async getOrgAdminUser(orgId: string): Promise<{ id: string; name: string; email: string } | null> {
+      const supabase = getSupabaseAdminClient();
+      const { data } = await supabase
+        .from("users")
+        .select("id, name, email")
+        .eq("organization_id", orgId)
+        .eq("role", "ORGANIZATION_ADMIN")
+        .limit(1)
+        .maybeSingle();
+
+      return data ? { id: data.id, name: data.name, email: data.email } : null;
     },
   },
 };

@@ -30,7 +30,7 @@ pre,
 }
 
 :root {
-  --background: #F4F6F9;
+  --background: #FFFFFF;
   --foreground: #263445;
   --navy-primary: #062653;
   --navy-dark: #031B3A;
@@ -55,6 +55,29 @@ body {
 /* Professional business inputs and focus states */
 input, select, textarea {
   color: #263445;
+}
+
+/* Supprimer les flèches / fléchettes (stepper arrows) des champs numériques */
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.no-spinner::-webkit-inner-spin-button,
+.no-spinner::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.no-spinner {
+  -moz-appearance: textfield;
+  appearance: textfield;
 }
 
 select {
@@ -96,3 +119,116 @@ input:focus, select:focus, textarea:focus {
 ::-webkit-scrollbar-thumb:hover {
   background: #94A3B8;
 }
+
+/* Slide-over drawer animations */
+@keyframes slideInRight {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-right {
+  animation: slideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes fadeInOverlay {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.animate-fade-in-overlay {
+  animation: fadeInOverlay 0.2s ease-out forwards;
+}
+
+
+/* ==========================================================================
+   OFFICIAL PRINT STYLES (UNIVERSAL FOR ALL RKONEKTE DOCUMENTS)
+   ========================================================================== */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm 10mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    height: auto !important;
+    min-height: auto !important;
+    overflow: visible !important;
+    position: static !important;
+    width: 100% !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* 1. Masquer tous les éléments de navigation, barres latérales, en-têtes et modales non imprimables */
+  nav,
+  aside,
+  header,
+  footer,
+  [data-sidebar],
+  .print\:hidden,
+  button,
+  .no-print,
+  #system-toast-container,
+  [aria-hidden="true"],
+  .fixed.inset-0 {
+    display: none !important;
+  }
+
+  /* 2. Réinitialiser les contraintes de hauteur fixe et d'overflow de la structure AdminShell */
+  .h-screen,
+  .overflow-hidden,
+  .overflow-y-auto,
+  .overflow-x-auto,
+  main,
+  div[class*="h-screen"],
+  div[class*="overflow-"],
+  div[class*="flex-1"] {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    position: static !important;
+    display: block !important;
+    padding: 0 !important;
+    margin: 0 !important;
+    background: transparent !important;
+    box-shadow: none !important;
+    border: none !important;
+  }
+
+  /* 3. Feuille officielle imprimable pure et centrée (sans marges parasites ni ombres) */
+  .print-sheet {
+    display: block !important;
+    box-shadow: none !important;
+    filter: none !important;
+    border: 1px solid #cbd5e1 !important;
+    border-radius: 0px !important;
+    margin: 0 auto !important;
+    padding: 16px 24px !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    background: #ffffff !important;
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  /* 4. Forcer la fidélité des couleurs (#062653, badges, textes) et bordures nettes */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}
+

@@ -5,6 +5,7 @@ import {
   approveOnboardingRequest,
   rejectOnboardingRequest,
 } from "@/lib/services/organizations";
+import { resolveAppOrigin } from "@/lib/notifications/email";
 
 export async function GET() {
   try {
@@ -30,9 +31,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (action === "APPROVE") {
-      const host = req.headers.get("host") || "localhost:3000";
-      const protocol = host.includes("localhost") ? "http" : "https";
-      const origin = `${protocol}://${host}`;
+      const origin = resolveAppOrigin(req.headers);
 
       const result = await approveOnboardingRequest(organizationId, origin);
       return NextResponse.json({

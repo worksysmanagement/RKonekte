@@ -17,6 +17,7 @@ import {
 } from "lucide-react";
 import { Modal } from "@/components/ui/Modal";
 import { processTransparentImage } from "@/lib/utils/signature";
+import { showSystemToast } from "@/components/ui/SystemToast";
 
 export interface SignerItem {
   id: string;
@@ -90,7 +91,6 @@ export default function SignaturesPage() {
   const [spendingLimitHTG, setSpendingLimitHTG] = useState<number>(100000);
   const [formSignatureUrl, setFormSignatureUrl] = useState<string | null>(null);
   const [activeInputMode, setActiveInputMode] = useState<"upload" | "draw">("upload");
-  const [toast, setToast] = useState<string | null>(null);
 
   // Canvas drawing ref and state
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -231,8 +231,7 @@ export default function SignaturesPage() {
     if (!formSignatureUrl) return;
     const transparent = await processTransparentImage(formSignatureUrl);
     setFormSignatureUrl(transparent);
-    setToast("Fond blanc supprimé avec succès ! Arrière-plan transparent activé.");
-    setTimeout(() => setToast(null), 3000);
+    showSystemToast("Fond blanc supprimé avec succès ! Arrière-plan transparent activé.");
   };
 
   const handleSaveSigner = async (e: React.FormEvent) => {
@@ -270,10 +269,10 @@ export default function SignaturesPage() {
         console.warn("Failed to persist signature delegation to Supabase:", err);
       }
 
-      setToast(`Délégation et spécimen mis à jour pour ${selectedSigner.userName}.`);
+      showSystemToast(`Délégation et spécimen mis à jour pour ${selectedSigner.userName}.`);
     } else {
       if (!formName.trim() || !formEmail.trim()) {
-        alert("Veuillez renseigner le nom et l'email du signataire.");
+        showSystemToast("Veuillez renseigner le nom et l'email du signataire.", "error");
         return;
       }
       const newSigner: SignerItem = {
@@ -307,10 +306,9 @@ export default function SignaturesPage() {
         console.warn("Failed to persist new signature delegation to Supabase:", err);
       }
 
-      setToast(`Nouveau signataire « ${formName} » habilité avec succès.`);
+      showSystemToast(`Nouveau signataire « ${formName} » habilité avec succès.`);
     }
     setSignerModalOpen(false);
-    setTimeout(() => setToast(null), 4000);
   };
 
   return (
@@ -318,12 +316,7 @@ export default function SignaturesPage() {
       {/* 1. PAGE HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7900] bg-[#FFF4EB] px-2 py-0.5 rounded border border-[#FF7900]/20">
-              Module Sécurité
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold text-[#062653] tracking-tight mt-1">
+          <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
             Droits de signature
           </h1>
           <p className="text-xs text-[#64748B] mt-0.5">
@@ -333,31 +326,15 @@ export default function SignaturesPage() {
 
         <button
           onClick={openCreate}
-          className="px-4 py-2 bg-[#062653] hover:bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xs transition-colors flex items-center gap-2 self-start cursor-pointer border-b-2 border-[#FF7900]"
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors flex items-center gap-2 self-start cursor-pointer"
         >
-          <Plus className="w-4 h-4 text-[#FF7900]" />
+          <Plus className="w-4 h-4 text-white" />
           Habiliter un signataire
         </button>
       </div>
 
-      {/* 2. TOAST FEEDBACK */}
-      {toast && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{toast}</span>
-          </div>
-          <button
-            onClick={() => setToast(null)}
-            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* 3. EXPLANATORY BANNER */}
-      <div className="bg-[#FFF4EB] border border-[#FF7900]/20 rounded-xl p-4 text-xs text-[#263445] flex items-start gap-3">
+      {/* 2. EXPLANATORY BANNER */}
+      <div className="bg-white border border-[#DCE2EA] rounded-xl p-4 text-xs text-[#263445] flex items-start gap-3">
         <ShieldCheck className="w-5 h-5 text-[#FF7900] shrink-0 mt-0.5" />
         <div>
           <span className="font-bold text-[#062653] block text-sm">
@@ -644,10 +621,10 @@ export default function SignaturesPage() {
                     <button
                       type="button"
                       onClick={() => setFormSignatureUrl(null)}
-                      className="text-rose-600 hover:text-rose-800 p-1"
+                      className="p-1.5 bg-red-500 hover:bg-red-600 text-white rounded-lg cursor-pointer shadow-xs flex items-center justify-center transition-colors"
                       title="Supprimer ce spécimen"
                     >
-                      <Trash2 className="w-3.5 h-3.5" />
+                      <Trash2 className="w-3.5 h-3.5 text-white" />
                     </button>
                   </div>
                 </div>

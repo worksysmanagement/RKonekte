@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { requireTenantUser, handleApiError } from "@/lib/auth/guard";
 import { getOrganizationById, updateOrganizationPreferences } from "@/lib/services/organizations";
+import { normalizeMatriculeFormat } from "@/lib/utils/matricule";
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
         address: org.address,
         logoUrl: org.logoUrl,
         status: org.status,
-        matriculeFormat: org.matriculeFormat || "INITIALS_BRANCH_SEQ",
+        matriculeFormat: normalizeMatriculeFormat(org.matriculeFormat),
         matriculePrefix: org.matriculePrefix || null,
         primaryCurrency: org.primaryCurrency || "HTG",
         dateFormat: org.dateFormat || "DD/MM/YYYY",
@@ -50,6 +51,7 @@ export async function PUT(req: NextRequest) {
 
     const updated = await updateOrganizationPreferences(organizationId, {
       name: body.name ? String(body.name).trim() : undefined,
+      logoUrl: body.logoUrl !== undefined ? (body.logoUrl ? String(body.logoUrl) : null) : undefined,
       matriculeFormat: body.matriculeFormat ? String(body.matriculeFormat).trim() : undefined,
       matriculePrefix:
         body.matriculePrefix !== undefined
@@ -69,7 +71,8 @@ export async function PUT(req: NextRequest) {
         id: updated.id,
         name: updated.name,
         slug: updated.slug,
-        matriculeFormat: updated.matriculeFormat || "INITIALS_BRANCH_SEQ",
+        logoUrl: updated.logoUrl || null,
+        matriculeFormat: normalizeMatriculeFormat(updated.matriculeFormat),
         matriculePrefix: updated.matriculePrefix || null,
         primaryCurrency: updated.primaryCurrency || "HTG",
         dateFormat: updated.dateFormat || "DD/MM/YYYY",

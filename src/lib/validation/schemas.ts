@@ -48,6 +48,10 @@ export const submitLeaveRequestSchema = z
         }
       ),
     contactEmail: z.string().trim().email("Adresse email invalide").optional().or(z.literal("")),
+    employeeSignature: z.string().optional().nullable(),
+    signatureMode: z.string().optional().nullable(),
+    typedSignatureText: z.string().optional().nullable(),
+    branch: z.string().optional().nullable(),
     turnstileToken: z.string().optional(),
   })
   .refine(
@@ -157,11 +161,29 @@ export const createOrgUserSchema = z.object({
 
 export type CreateOrgUserInput = z.infer<typeof createOrgUserSchema>;
 
+export const SYSTEM_USER_ROLES = [
+  "ORGANIZATION_ADMIN",
+  "ADMINISTRATEUR",
+  "RH",
+  "SECRETARY",
+  "BRANCH_MANAGER",
+  "FINANCIAL_MANAGER",
+  "CASHIER",
+  "EMPLOYEE",
+] as const;
+
+export const updateUserRoleSchema = z
+  .object({
+    role: z.string().trim().min(1, "Le rôle système est obligatoire"),
+  })
+  .strict();
+
+export type UpdateUserRoleInput = z.infer<typeof updateUserRoleSchema>;
+
 // ----------------------------------------------------
 // BRANCH SCHEMAS
 // ----------------------------------------------------
 export const branchSchema = z.object({
-  code: z.string().trim().min(2, "Le code succursale est obligatoire"),
   name: z.string().trim().min(2, "Le nom de la succursale est obligatoire"),
   city: z.string().trim().min(2, "La ville est obligatoire"),
   address: z.string().trim().optional().nullable(),

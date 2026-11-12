@@ -37,7 +37,7 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#F4F6F9] flex flex-col justify-center items-center px-4 sm:px-6 py-12">
+    <div className="min-h-screen bg-white flex flex-col justify-center items-center px-4 sm:px-6 py-12">
       <div className="max-w-md w-full bg-white rounded-3xl border border-[#DCE2EA] shadow-xl p-8 sm:p-10 text-center">
         {/* Brand Header */}
         <div className="mb-6 flex flex-col items-center justify-center text-center">
@@ -74,7 +74,11 @@ export default function ForgotPasswordPage() {
               <div className="font-bold text-[#062653]">Instructions :</div>
               <ul className="list-disc pl-4 space-y-1 text-slate-500">
                 <li>Le lien est sécurisé et valable pendant 1 heure.</li>
-                <li>Pensez à vérifier vos courriers indésirables (spams) si nécessaire.</li>
+                <li>
+                  <strong className="font-bold text-[#062653]">
+                    Pensez à vérifier vos courriers indésirables (spams) si nécessaire.
+                  </strong>
+                </li>
               </ul>
             </div>
 

@@ -6,7 +6,14 @@ import { eq, desc } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth/password";
 import { hashToken } from "@/lib/security/tokens";
 import { validateStrongPassword } from "@/lib/validation/password";
-import { setSessionCookie } from "@/lib/auth/session";
+import {
+  clearSessionCookie,
+  clearStoppedNoticeCookie,
+  setSessionCookie,
+  setStoppedNoticeCookie,
+} from "@/lib/auth/session";
+import { isSubscriptionAccessBlocked } from "@/lib/utils/subscription";
+import { recordUserLoginActivity } from "@/lib/services/user-activity";
 
 /**
  * GET: Checks if a password reset token is valid.
@@ -252,12 +259,10 @@ export async function POST(req: NextRequest) {
       updatedUser = userRow;
 
       if (orgId) {
-        // Ensure organization status is ACTIVE as well
         const { data: oRow } = await supabase
           .from("organizations")
-          .update({ status: "ACTIVE", updated_at: now })
+          .select("*")
           .eq("id", orgId)
-          .select()
           .maybeSingle();
         orgData = oRow;
       }
@@ -300,11 +305,18 @@ export async function POST(req: NextRequest) {
         })
         .where(eq(users.id, userId));
 
-      if (orgId) {
-        await db
-          .update(organizations)
-          .set({ status: "ACTIVE", updatedAt: now })
-          .where(eq(organizations.id, orgId));
+      if (!updatedUser) {
+        const [uRow] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
+        updatedUser = uRow || null;
+      }
+
+      if (orgId && !orgData) {
+        const [oRow] = await db
+          .select()
+          .from(organizations)
+          .where(eq(organizations.id, orgId))
+          .limit(1);
+        orgData = oRow || null;
       }
 
       await db
@@ -315,12 +327,60 @@ export async function POST(req: NextRequest) {
         .where(eq(auditLogs.id, matchedLog.id));
     } catch (_) {}
 
-    // Establish session cookie so user is seamlessly logged in
     const finalRole = updatedUser?.role || "ORGANIZATION_ADMIN";
     const finalName = updatedUser?.name || matchedMetadata.userName || "Administrateur";
     const finalEmail = updatedUser?.email || matchedMetadata.email;
     const finalOrgName = orgData?.name || "Organisation";
     const finalOrgSlug = orgData?.slug || "org";
+
+    // Block immediate auto-login if organization is inactive or subscription is expired/stopped
+    if (finalRole !== "SUPER_ADMIN") {
+      if (!orgData || orgData.status !== "ACTIVE") {
+        await clearSessionCookie();
+        await clearStoppedNoticeCookie();
+        return NextResponse.json({
+          success: true,
+          message:
+            "Votre mot de passe a été modifié avec succès. L'accès reste toutefois bloqué tant que votre entreprise n'est pas activée.",
+          redirectUrl: "/login?inactive=1",
+        });
+      }
+
+      const rawExp = orgData.subscription_expires_at ?? orgData.subscriptionExpiresAt;
+      const orgBlocked = isSubscriptionAccessBlocked({
+        status: orgData.status,
+        serviceStopped: orgData.service_stopped ?? orgData.serviceStopped,
+        subscriptionExpiresAt: rawExp != null ? Number(rawExp) : null,
+      });
+
+      if (orgBlocked) {
+        await clearSessionCookie();
+        await setStoppedNoticeCookie({
+          purpose: "SERVICE_STOPPED_NOTICE",
+          organizationId: orgData.id,
+          organizationName: finalOrgName,
+          userId,
+          userName: finalName,
+          userEmail: finalEmail,
+          isAdmin: finalRole === "ORGANIZATION_ADMIN",
+        });
+        return NextResponse.json({
+          success: true,
+          message:
+            "Votre mot de passe a été modifié. L'abonnement de votre entreprise est expiré ou suspendu ; veuillez procéder à la réactivation.",
+          redirectUrl: "/login?stopped=1",
+        });
+      }
+    }
+
+    await recordUserLoginActivity({
+      userId,
+      organizationId: orgId || null,
+      role: finalRole,
+      email: finalEmail,
+      nowMs: now,
+      source: "RESET_PASSWORD",
+    });
 
     try {
       await setSessionCookie({

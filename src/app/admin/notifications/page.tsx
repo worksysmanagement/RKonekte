@@ -35,6 +35,7 @@ interface NotificationItem {
 type FilterTab =
   | "ALL"
   | "UNREAD"
+  | "SYSTEM"
   | "LEAVE"
   | "SALARY_RAISE"
   | "SIGNATURE"
@@ -53,32 +54,100 @@ export default function AdminNotificationsPage() {
         setLoading(true);
 
         // 1. Détection du rôle de l'utilisateur connecté
-        const meRes = await fetch("/api/auth/me");
+        const meRes = await fetch("/api/auth/me", { cache: "no-store" });
         let role = "EMPLOYEE";
+        let subscriptionSummary: any = null;
         if (meRes.ok) {
           const meData = await meRes.json();
           if (meData?.user?.role) {
             role = meData.user.role;
           }
+          subscriptionSummary = meData?.subscriptionSummary || null;
         }
         if (!isMounted) return;
         setCurrentUserRole(role);
 
         const isEmp =
           role === "EMPLOYEE" ||
+          role === "COLLABORATEUR" ||
+          role === "CASHIER" ||
+          role === "CAISSIER" ||
           role.toLowerCase().includes("employ") ||
           role.toLowerCase().includes("collab") ||
+          role.toLowerCase().includes("caissier") ||
+          role.toLowerCase().includes("cashier") ||
           role.toLowerCase().includes("operat");
 
-        // 2. Pour les employés : le flux représente les alertes venant de l'administration.
-        // Conformément aux consignes : aucune alerte pour l'instant (0 alerte).
+        // 2. Pour les employés : le flux représente les alertes venant de l'administration
+        // (planifications & communications officielles ciblant l'employé, sa succursale ou tous les employés).
         if (isEmp) {
-          setNotifications([]);
+          try {
+            const evRes = await fetch("/api/admin/events");
+            if (evRes.ok && isMounted) {
+              const evData = await evRes.json();
+              const readIds = new Set<string>(
+                JSON.parse(localStorage.getItem("rkonekte_read_event_notifs") || "[]")
+              );
+              const alertEvents = (Array.isArray(evData?.events) ? evData.events : []).filter(
+                (ev: any) => !ev.isPersonal && ev.notifyImmediate !== false
+              );
+              const mapped: NotificationItem[] = alertEvents.map((ev: any) => ({
+                id: ev.id,
+                category: "ADMIN_ANNOUNCEMENT",
+                title: ev.title,
+                description: `${ev.description ? `${ev.description} — ` : ""}Programmé le ${ev.date} de ${ev.startTime || "09:00"} à ${ev.endTime || "10:00"}${ev.location ? ` (${ev.location})` : ""}.`,
+                timestamp: ev.date || (ev.createdAt ? new Date(ev.createdAt).toLocaleDateString("fr-FR") : "Récent"),
+                link: "/admin/events",
+                unread: !readIds.has(ev.id),
+                meta: `${ev.audienceTargetName || "Administration"} • ${ev.creatorName || "Direction"}`,
+              }));
+              setNotifications(mapped);
+              setLoading(false);
+              return;
+            }
+          } catch (_) {}
+          if (isMounted) setNotifications([]);
           setLoading(false);
           return;
         }
 
-        // 3. Pour l'administration : affichage des demandes soumises par les employés
+        // 3. Pour l'administration : affichage des demandes soumises par les employés + alerte abonnement (J-7)
+        const adminNotifs: NotificationItem[] = [];
+        if (
+          role === "ORGANIZATION_ADMIN" &&
+          subscriptionSummary?.shouldShowCountdownBanner &&
+          !subscriptionSummary?.isExpired &&
+          !subscriptionSummary?.isAccessBlocked
+        ) {
+          const readIds = new Set<string>(
+            JSON.parse(localStorage.getItem("rkonekte_read_event_notifs") || "[]")
+          );
+          const subId = `sub-alert-${subscriptionSummary.subscriptionExpiresAt ?? "exp"}-${subscriptionSummary.daysRemaining ?? "none"}`;
+          const expFormatted = subscriptionSummary.subscriptionExpiresAt
+            ? new Date(subscriptionSummary.subscriptionExpiresAt).toLocaleDateString("fr-FR", {
+                day: "2-digit",
+                month: "long",
+                year: "numeric",
+              })
+            : "—";
+          const daysLeft = subscriptionSummary.daysRemaining;
+          const title =
+            daysLeft === 0
+              ? "Votre plan RKonekte se termine aujourd'hui (J-0)"
+              : `Votre plan se termine dans ${daysLeft} jour${daysLeft > 1 ? "s" : ""} (J-${daysLeft})`;
+          const description = `Votre période en cours expire le ${expFormatted}. Renouvelez dès maintenant (1, 3, 6 ou 12 mois) — tout paiement en avance prolonge directement à partir de votre date d'expiration sans perdre un seul jour.`;
+          adminNotifs.push({
+            id: subId,
+            category: "SYSTEM",
+            title,
+            description,
+            timestamp: `Échéance : ${expFormatted}`,
+            link: "/admin/subscription",
+            unread: !readIds.has(subId),
+            meta: `Compte à rebours J-${daysLeft ?? 0} • Abonnement & Paiement`,
+          });
+        }
+
         const res = await fetch("/api/admin/requests?limit=50");
         if (res.ok) {
           const data = await res.json();
@@ -93,8 +162,11 @@ export default function AdminNotificationsPage() {
               unread: r.status === "PENDING",
               meta: `${r.requestNumber || r.id} • ${r.department || "Non renseigné"}`,
             }));
-            setNotifications(mapped);
+            adminNotifs.push(...mapped);
           }
+        }
+        if (isMounted) {
+          setNotifications(adminNotifs);
         }
       } catch (err) {
         console.warn("Could not load notifications:", err);
@@ -113,8 +185,13 @@ export default function AdminNotificationsPage() {
 
   const isEmployee =
     currentUserRole === "EMPLOYEE" ||
+    currentUserRole === "COLLABORATEUR" ||
+    currentUserRole === "CASHIER" ||
+    currentUserRole === "CAISSIER" ||
     currentUserRole?.toLowerCase().includes("employ") ||
     currentUserRole?.toLowerCase().includes("collab") ||
+    currentUserRole?.toLowerCase().includes("caissier") ||
+    currentUserRole?.toLowerCase().includes("cashier") ||
     currentUserRole?.toLowerCase().includes("operat");
 
   const unreadCount = useMemo(() => {
@@ -122,10 +199,24 @@ export default function AdminNotificationsPage() {
   }, [notifications]);
 
   const markAllAsRead = () => {
+    try {
+      const existing = new Set<string>(
+        JSON.parse(localStorage.getItem("rkonekte_read_event_notifs") || "[]")
+      );
+      notifications.forEach((n) => existing.add(n.id));
+      localStorage.setItem("rkonekte_read_event_notifs", JSON.stringify(Array.from(existing)));
+    } catch (_) {}
     setNotifications((prev) => prev.map((n) => ({ ...n, unread: false })));
   };
 
   const markSingleAsRead = (id: string) => {
+    try {
+      const existing = new Set<string>(
+        JSON.parse(localStorage.getItem("rkonekte_read_event_notifs") || "[]")
+      );
+      existing.add(id);
+      localStorage.setItem("rkonekte_read_event_notifs", JSON.stringify(Array.from(existing)));
+    } catch (_) {}
     setNotifications((prev) =>
       prev.map((n) => (n.id === id ? { ...n, unread: false } : n))
     );
@@ -138,6 +229,7 @@ export default function AdminNotificationsPage() {
     return notifications.filter((n) => {
       // Tab filter
       if (filterTab === "UNREAD" && !n.unread) return false;
+      if (filterTab === "SYSTEM" && n.category !== "SYSTEM") return false;
       if (filterTab === "LEAVE" && n.category !== "LEAVE") return false;
       if (filterTab === "SALARY_RAISE" && n.category !== "SALARY_RAISE") return false;
       if (filterTab === "SIGNATURE" && n.category !== "SIGNATURE") return false;
@@ -160,12 +252,7 @@ export default function AdminNotificationsPage() {
       {/* 1. PAGE HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7900] bg-[#FFF4EB] px-2 py-0.5 rounded border border-[#FF7900]/20">
-              {isEmployee ? "Alertes Administratives" : "Centre d'Alertes"}
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold text-[#062653] tracking-tight mt-1">
+          <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
             Centre de Notifications
           </h1>
           <p className="text-xs text-[#64748B] mt-0.5">
@@ -248,6 +335,17 @@ export default function AdminNotificationsPage() {
                 }`}
               >
                 Signatures
+              </button>
+
+              <button
+                onClick={() => setFilterTab("SYSTEM")}
+                className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                  filterTab === "SYSTEM"
+                    ? "bg-[#062653] text-white"
+                    : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653]"
+                }`}
+              >
+                Abonnement & Système
               </button>
             </div>
 

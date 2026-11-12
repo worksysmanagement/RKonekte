@@ -19,19 +19,39 @@ import {
   User,
   Lock,
   Bell,
+  LayoutDashboard,
+  Building2,
+  PlusCircle,
+  CreditCard,
 } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
 import { ModuleKey, TabPermission } from "@/lib/types/roles";
 
 interface AdminSidebarProps {
-  role?: "SUPER_ADMIN" | "ORGANIZATION_ADMIN" | "SECRETARY" | "FINANCIAL_MANAGER" | "BRANCH_MANAGER" | "EMPLOYEE" | string;
+  role?: "SUPER_ADMIN" | "ORGANIZATION_ADMIN" | "SECRETARY" | "FINANCIAL_MANAGER" | "BRANCH_MANAGER" | "EMPLOYEE" | "CASHIER" | string;
   organizationName?: string;
 }
 
-export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
+export function AdminSidebar({ role: initialRole, organizationName }: AdminSidebarProps) {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const { isCollapsed } = useSidebar();
+  const [logo, setLogo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("rk_company_logo");
+      if (cached) setLogo(cached);
+
+      const handler = (e: any) => {
+        if (e.detail?.logoUrl !== undefined) {
+          setLogo(e.detail.logoUrl);
+        }
+      };
+      window.addEventListener("rkonekte_organization_updated", handler);
+      return () => window.removeEventListener("rkonekte_organization_updated", handler);
+    }
+  }, []);
 
   // Helper to check active state including query params when present
   const isLinkActive = (href: string) => {
@@ -59,16 +79,26 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
     );
   };
 
-  // Dynamic permissions from DB
+  // Dynamic role & permissions synchronized from DB
+  const [activeRole, setActiveRole] = useState(initialRole);
   const [permissions, setPermissions] = useState<Record<ModuleKey, TabPermission> | null>(null);
+
+  useEffect(() => {
+    setActiveRole(initialRole);
+  }, [initialRole]);
 
   useEffect(() => {
     let isMounted = true;
     fetch("/api/admin/my-permissions")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (isMounted && data?.permissions) {
-          setPermissions(data.permissions);
+        if (isMounted) {
+          if (data?.role) {
+            setActiveRole(data.role);
+          }
+          if (data?.permissions) {
+            setPermissions(data.permissions);
+          }
         }
       })
       .catch(() => {});
@@ -76,6 +106,8 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
       isMounted = false;
     };
   }, []);
+
+  const role = activeRole;
 
   // Role flags
   const isSuperAdmin = role === "SUPER_ADMIN";
@@ -86,57 +118,133 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
   const isEmployee =
     role === "EMPLOYEE" ||
     role === "COLLABORATEUR" ||
+    role === "CASHIER" ||
+    role === "CAISSIER" ||
     (typeof role === "string" &&
-      (role.toLowerCase().includes("employ") || role.toLowerCase().includes("collab")));
+      (role.toLowerCase().includes("employ") ||
+        role.toLowerCase().includes("collab") ||
+        role.toLowerCase().includes("caissier") ||
+        role.toLowerCase().includes("cashier")));
+
+  // Helper to check sub-tab permission
+  const isSubTabAllowed = (moduleKey: ModuleKey, subTabId: string, fallback: boolean) => {
+    if (isSuperAdmin || isOrgAdmin) return true;
+    const perm = permissions?.[moduleKey];
+    if (!perm) return fallback;
+    if (!perm.view && !perm.create) return false;
+    if (Array.isArray(perm.subTabs)) {
+      return perm.subTabs.includes(subTabId);
+    }
+    return fallback;
+  };
 
   // Permission rules per module (governed dynamically by admin via DB, with strict defaults)
-  const canSeeSuperAdmin = isSuperAdmin;
   const canSeeDashboard = permissions?.dashboard
     ? permissions.dashboard.view
     : isEmployee
     ? false
     : true;
 
-  // Requests: By default visible for employee (Congé, Signature d'autorisation)
-  const canSeeLeaves = permissions?.requests
-    ? permissions.requests.view
-    : isSuperAdmin || isOrgAdmin || isSecretary || isBranch || isEmployee;
-  const canSeeSignatureAuth = permissions?.requests
-    ? permissions.requests.view
-    : isSuperAdmin || isOrgAdmin || isSecretary || isFinancial || isEmployee;
-  const canSeeRequestsSection = canSeeLeaves || canSeeSignatureAuth;
+  // Requests: By default visible for employee (Congé, Signature d'autorisation, Augmentation de salaire)
+  const canSeeLeaves = isSubTabAllowed(
+    "requests",
+    "leaves",
+    permissions?.requests
+      ? permissions.requests.view
+      : isSuperAdmin || isOrgAdmin || isSecretary || isBranch || isEmployee
+  );
+  const canSeeSignatureAuth = isSubTabAllowed(
+    "requests",
+    "signature_auth",
+    permissions?.requests
+      ? permissions.requests.view
+      : isSuperAdmin || isOrgAdmin || isSecretary || isFinancial || isEmployee
+  );
+  const canSeeSalaryRaise = isSubTabAllowed(
+    "requests",
+    "salary_raise",
+    permissions?.requests
+      ? permissions.requests.view && (isSuperAdmin || isOrgAdmin || isSecretary || isFinancial)
+      : isSuperAdmin || isOrgAdmin || isSecretary || isFinancial
+  );
+  const canSeeRequestsSection = canSeeLeaves || canSeeSignatureAuth || canSeeSalaryRaise;
 
   // Employees: Hidden by default for employee
-  const canSeeEmployeesList = permissions?.employees
-    ? permissions.employees.view
-    : isSuperAdmin || isOrgAdmin || isSecretary || isFinancial || isBranch;
-  const canSeeNewEmployee = permissions?.employees
-    ? permissions.employees.create
-    : isSuperAdmin || isOrgAdmin || isSecretary;
-  const canSeeEmployeesSection = permissions?.employees
-    ? permissions.employees.view
-    : canSeeEmployeesList || canSeeNewEmployee;
+  const canSeeEmployeesList = isSubTabAllowed(
+    "employees",
+    "list",
+    permissions?.employees
+      ? permissions.employees.view
+      : isSuperAdmin || isOrgAdmin || isSecretary || isFinancial || isBranch
+  );
+  const canSeeNewEmployee = isSubTabAllowed(
+    "employees",
+    "new",
+    permissions?.employees
+      ? permissions.employees.create
+      : isSuperAdmin || isOrgAdmin || isSecretary
+  );
+  const canSeeEmployeesSection = canSeeEmployeesList || canSeeNewEmployee;
 
   // Branches: Hidden by default for employee
-  const canSeeBranchesList = permissions?.branches
-    ? permissions.branches.view
-    : isSuperAdmin || isOrgAdmin || isBranch;
-  const canSeeNewBranch = permissions?.branches
-    ? permissions.branches.create
-    : isSuperAdmin || isOrgAdmin;
-  const canSeeBranchesSection = permissions?.branches
-    ? permissions.branches.view
-    : isSuperAdmin || isOrgAdmin || isBranch;
+  const canSeeBranchesList = isSubTabAllowed(
+    "branches",
+    "list",
+    permissions?.branches
+      ? permissions.branches.view
+      : isSuperAdmin || isOrgAdmin || isBranch
+  );
+  const canSeeNewBranch = isSubTabAllowed(
+    "branches",
+    "new",
+    permissions?.branches
+      ? permissions.branches.create
+      : isSuperAdmin || isOrgAdmin
+  );
+  const canSeeBranchesSection = canSeeBranchesList || canSeeNewBranch;
 
-  // Financial Operations: Hidden by default for employee
-  const canSeeFinances = permissions?.financial_ops
+  const isCashier =
+    role === "CASHIER" ||
+    role === "CAISSIER" ||
+    (typeof role === "string" &&
+      (role.toLowerCase().includes("caissier") || role.toLowerCase().includes("cashier")));
+
+  // Financial Operations: Hidden by default for employee & cashier (Admin / Direction only)
+  const canSeeFinancesDefault = permissions?.financial_ops
     ? permissions.financial_ops.view
-    : isSuperAdmin || isOrgAdmin || isFinancial;
+    : (isSuperAdmin || isOrgAdmin || isFinancial) && !isEmployee && !isCashier;
+  const canSeeAccounts = isSubTabAllowed("financial_ops", "accounts", canSeeFinancesDefault);
+  const canSeeBankReports = isSubTabAllowed("financial_ops", "report", canSeeFinancesDefault);
+  const canSeeFinances = canSeeAccounts || canSeeBankReports;
 
-  // Financial Reports: Hidden by default for employee
-  const canSeeReports = permissions?.financial_reports
-    ? permissions.financial_reports.view
-    : isSuperAdmin || isOrgAdmin || isFinancial;
+  // Financial Reports: Visible for SuperAdmin, OrgAdmin, Financial Manager, Cashier (or explicit permission)
+  const canSeeReportsSummaryDefault =
+    !isCashier &&
+    (isSuperAdmin ||
+      isOrgAdmin ||
+      isFinancial ||
+      (permissions?.financial_reports ? permissions.financial_reports.view : true));
+
+  const canSeeCashierEntryDefault =
+    isSuperAdmin ||
+    isOrgAdmin ||
+    isFinancial ||
+    isCashier ||
+    (permissions?.financial_reports
+      ? permissions.financial_reports.create || permissions.financial_reports.edit || permissions.financial_reports.view
+      : true);
+
+  const canSeeReportsSummary = isSubTabAllowed(
+    "financial_reports",
+    "reports_summary",
+    canSeeReportsSummaryDefault
+  );
+  const canSeeCashierEntry = isSubTabAllowed(
+    "financial_reports",
+    "cashier_entry",
+    canSeeCashierEntryDefault
+  );
+  const canSeeReports = canSeeReportsSummary || canSeeCashierEntry;
 
   // Events: Visible by default for employee
   const canSeeEvents = permissions?.events ? permissions.events.view : true;
@@ -147,7 +255,11 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
     : isSuperAdmin || isOrgAdmin || isSecretary || isBranch;
 
   // Access Management: Hidden by default for employee
-  const canSeeAccess = permissions?.users ? permissions.users.view : isSuperAdmin || isOrgAdmin;
+  const canSeeAccessDefault = permissions?.users ? permissions.users.view : isSuperAdmin || isOrgAdmin;
+  const canSeeUsersList = isSubTabAllowed("users", "users_list", canSeeAccessDefault);
+  const canSeeRoles = isSubTabAllowed("users", "roles", canSeeAccessDefault);
+  const canSeeSignatures = isSubTabAllowed("users", "signatures", canSeeAccessDefault);
+  const canSeeAccess = canSeeUsersList || canSeeRoles || canSeeSignatures;
 
   // Système: Centre de notifications (visible by default)
   const canSeeNotifications = permissions?.notifications
@@ -155,9 +267,11 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
     : true;
 
   // Système: Configurations
-  const canSeeConfig = permissions?.configuration
-    ? permissions.configuration.view
-    : isSuperAdmin || isOrgAdmin || isEmployee;
+  const canSeeConfigGeneral = isSubTabAllowed("configuration", "profile", !isEmployee);
+  const canSeeProfile = isSubTabAllowed("configuration", "profile", true);
+  const canSeeSecurity = isSubTabAllowed("configuration", "security", true);
+  const canSeeConfig =
+    canSeeConfigGeneral || canSeeProfile || canSeeSecurity;
 
   // Active state flags
   const isDashboardActive = isLinkActive("/admin/dashboard");
@@ -169,14 +283,46 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
   const isEventsActive = pathname.startsWith("/admin/events");
   const isCustomerSpaceActive = pathname.startsWith("/admin/espace-client");
   const isAccessActive = pathname.startsWith("/admin/users");
-  const isConfigActive = pathname.startsWith("/admin/configuration");
+  const isSubscriptionActive = pathname.startsWith("/admin/subscription");
+  const isConfigActive = pathname.startsWith("/admin/configuration") || isSubscriptionActive;
   const isGeneralPrefActive = pathname === "/admin/configuration";
-  const isSignatureActive = pathname.startsWith("/admin/configuration/signature");
   const isProfileActive = pathname.startsWith("/admin/configuration/profile");
   const isSecurityActive = pathname.startsWith("/admin/configuration/security");
-  const isNotificationsSettingsActive = pathname.startsWith("/admin/configuration/notifications");
   const isSupportActive = pathname.startsWith("/admin/support");
-  const isSuperAdminActive = pathname.startsWith("/super-admin");
+
+  const superAdminNavItems = [
+    {
+      href: "/super-admin",
+      label: "Vue d'ensemble",
+      icon: LayoutDashboard,
+      active: pathname === "/super-admin",
+    },
+    {
+      href: "/super-admin/organizations",
+      label: "Entreprises clientes",
+      icon: Building2,
+      active:
+        pathname === "/super-admin/organizations" ||
+        (pathname.startsWith("/super-admin/organizations/") &&
+          !pathname.startsWith("/super-admin/organizations/new")),
+    },
+    {
+      href: "/super-admin/organizations/new",
+      label: "Ajouter une entreprise",
+      icon: PlusCircle,
+      active:
+        pathname === "/super-admin/organizations/new" ||
+        pathname.startsWith("/super-admin/organizations/new/"),
+    },
+    {
+      href: "/super-admin/subscription-settings",
+      label: "Tarifs & Comptes",
+      icon: CreditCard,
+      active:
+        pathname === "/super-admin/subscription-settings" ||
+        pathname.startsWith("/super-admin/subscription-settings/"),
+    },
+  ];
 
   // Accordion open/close state: strictly ONE menu open at a time
   const [openMenus, setOpenMenus] = useState<Record<string, boolean>>(() => {
@@ -188,7 +334,6 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
     else if (isReportsActive) initial.reports = true;
     else if (isAccessActive) initial.acces = true;
     else if (isConfigActive) initial.config = true;
-    else if (isSuperAdminActive) initial.superAdmin = true;
     return initial;
   });
 
@@ -201,7 +346,6 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
     else if (isReportsActive) setOpenMenus({ reports: true });
     else if (isAccessActive) setOpenMenus({ acces: true });
     else if (isConfigActive) setOpenMenus({ config: true });
-    else if (isSuperAdminActive) setOpenMenus({ superAdmin: true });
     else setOpenMenus({});
   }, [pathname]);
 
@@ -252,50 +396,106 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
 
   return (
     <aside
-      className={`bg-[#062653] text-[#F4F6F9] font-['Poppins',sans-serif] flex flex-col shrink-0 border-r border-[#031B3A] h-screen sticky top-0 overflow-hidden select-none transition-[width] duration-300 ease-in-out ${
+      className={`bg-[#062653] text-[#F4F6F9] font-['Poppins',sans-serif] flex flex-col shrink-0 border-r border-[#031B3A] h-screen sticky top-0 overflow-hidden select-none transition-[width] duration-300 ease-in-out print:hidden ${
         isCollapsed ? "w-[72px]" : "w-64 sm:w-[270px]"
       }`}
     >
       {/* 1. TOP HEADER */}
       <div className="h-16 flex items-center justify-center px-3 bg-[#031B3A] border-b border-[#0D3E82]/40 shrink-0 text-center">
         {isCollapsed ? (
-          <div
-            className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white font-extrabold text-sm select-none shadow-xs"
-            title={organizationName || "Entreprise"}
-          >
-            {(organizationName || "R").charAt(0).toUpperCase()}
-          </div>
+          !isSuperAdmin && logo ? (
+            <div
+              className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center p-1 select-none shadow-xs"
+              title={organizationName || "Entreprise"}
+            >
+              <img src={logo} alt="Logo" className="max-w-full max-h-full object-contain" />
+            </div>
+          ) : isSuperAdmin ? (
+            <div
+              className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white font-extrabold text-sm select-none shadow-xs"
+              title="Super Administration"
+            >
+              <Shield className="w-4 h-4 text-white" />
+            </div>
+          ) : (
+            <div
+              className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white font-extrabold text-sm select-none shadow-xs"
+              title={organizationName || "Entreprise"}
+            >
+              {(organizationName || "R").charAt(0).toUpperCase()}
+            </div>
+          )
         ) : (
-          <h2
-            className="text-sm sm:text-base font-bold text-white truncate text-center"
-            title={organizationName || (isSuperAdmin ? "Super Administration" : "Entreprise")}
-          >
-            {organizationName || (isSuperAdmin ? "Super Administration" : "Entreprise Connectée")}
-          </h2>
+          <div className="flex items-center justify-center gap-2 max-w-full px-2">
+            {!isSuperAdmin && logo && (
+              <img
+                src={logo}
+                alt="Logo"
+                className="max-h-7 max-w-[36px] object-contain drop-shadow-xs"
+              />
+            )}
+            <h2
+              className="text-sm sm:text-base font-bold text-white truncate text-center"
+              title={organizationName || (isSuperAdmin ? "Super Administration" : "Entreprise")}
+            >
+              {organizationName || (isSuperAdmin ? "Super Administration" : "Entreprise Connectée")}
+            </h2>
+          </div>
         )}
       </div>
 
       {/* 2. NAVIGATION */}
-      {isCollapsed ? (
+      {isSuperAdmin ? (
+        isCollapsed ? (
+          <nav className="flex-1 px-2.5 py-4 space-y-2 overflow-y-auto overflow-x-hidden">
+            {superAdminNavItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  title={item.label}
+                  className={`w-11 h-11 mx-auto flex items-center justify-center rounded-xl transition-all duration-200 relative group cursor-pointer ${
+                    item.active
+                      ? "bg-white/15 text-white font-bold ring-1 ring-white/20 shadow-xs"
+                      : "text-slate-300 hover:text-white hover:bg-white/10"
+                  }`}
+                >
+                  <Icon className="w-5 h-5 text-white shrink-0" />
+                  <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+                    {item.label}
+                  </div>
+                </Link>
+              );
+            })}
+          </nav>
+        ) : (
+          <nav className="flex-1 px-3.5 py-4 space-y-1.5 overflow-y-auto">
+            <div className="px-3.5 pt-1 pb-1.5 text-[10px] font-bold text-slate-400 uppercase tracking-widest select-none">
+              Vue d'ensemble
+            </div>
+            {superAdminNavItems.map((item) => {
+              const Icon = item.icon;
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-[13px] font-semibold rounded-lg transition-colors text-white hover:bg-white/10 ${
+                    item.active
+                      ? "bg-white/15 font-bold shadow-xs"
+                      : "text-slate-300 hover:text-white"
+                  }`}
+                >
+                  <Icon className="w-5 h-5 text-white shrink-0" />
+                  <span className="truncate">{item.label}</span>
+                </Link>
+              );
+            })}
+          </nav>
+        )
+      ) : isCollapsed ? (
         /* COLLAPSED ICON-ONLY RAIL (Only icons remain, centered, with tooltips) */
         <nav className="flex-1 px-2.5 py-4 space-y-2 overflow-y-auto overflow-x-hidden">
-          {/* SUPER-ADMIN */}
-          {canSeeSuperAdmin && (
-            <Link
-              href="/super-admin"
-              title="Super-Administration"
-              className={`w-11 h-11 mx-auto flex items-center justify-center rounded-xl transition-all duration-200 relative group cursor-pointer ${
-                isSuperAdminActive
-                  ? "bg-white/15 text-white font-bold ring-1 ring-white/20 shadow-xs"
-                  : "text-slate-300 hover:text-white hover:bg-white/10"
-              }`}
-            >
-              <Shield className="w-5 h-5 text-white shrink-0" />
-              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
-                Super-Administration
-              </div>
-            </Link>
-          )}
 
           {/* TABLEAU DE BORD */}
           {canSeeDashboard && (
@@ -415,8 +615,8 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
           {/* RAPPORTS FINANCIERS */}
           {canSeeReports && (
             <Link
-              href="/admin/financial-reports"
-              title="Rapports Financiers"
+              href={isCashier ? "/admin/financial-reports?tab=entry" : "/admin/financial-reports?tab=reports"}
+              title={isCashier ? "Saisie de Caisse" : "Rapports Financiers"}
               className={`w-11 h-11 mx-auto flex items-center justify-center rounded-xl transition-all duration-200 relative group cursor-pointer ${
                 isReportsActive
                   ? "bg-white/15 text-white font-bold ring-1 ring-white/20 shadow-xs"
@@ -430,7 +630,7 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
                 className="w-5 h-5 object-contain shrink-0"
               />
               <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
-                Rapports Financiers
+                {isCashier ? "Saisie de Caisse" : "Rapports Financiers"}
               </div>
             </Link>
           )}
@@ -572,73 +772,6 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
           Vue d'ensemble
         </div>
 
-        {/* SUPER-ADMINISTRATION (Visible pour SUPER_ADMIN) */}
-        {canSeeSuperAdmin && (
-          <div>
-            <button
-              type="button"
-              onClick={() => toggleMenu("superAdmin")}
-              className={`w-full flex items-center justify-between px-3.5 py-2.5 text-[13px] font-semibold rounded-lg transition-colors text-white hover:bg-white/10 ${
-                isSuperAdminActive ? "bg-white/10 font-bold" : "bg-transparent"
-              }`}
-            >
-              <div className="flex items-center gap-3 truncate">
-                <Shield className="w-5 h-5 text-white shrink-0" />
-                <span className="truncate">Super-Administration</span>
-              </div>
-              <ChevronDown
-                className={`w-4 h-4 text-slate-300 transition-transform duration-200 shrink-0 ml-1.5 ${
-                  openMenus.superAdmin ? "rotate-180" : ""
-                }`}
-              />
-            </button>
-            {openMenus.superAdmin && (
-              <div className="mt-1.5 ml-4 pl-3 space-y-1">
-                <Link
-                  href="/super-admin"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    pathname === "/super-admin"
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Vue d'ensemble
-                </Link>
-                <Link
-                  href="/super-admin/organizations"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    isLinkActive("/super-admin/organizations") && !pathname.includes("/new")
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Entreprises clientes
-                </Link>
-                <Link
-                  href="/super-admin/onboarding-requests"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    isLinkActive("/super-admin/onboarding-requests")
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Demandes d'adhésion en ligne
-                </Link>
-                <Link
-                  href="/super-admin/organizations/new"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    isLinkActive("/super-admin/organizations/new")
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Ajouter une entreprise
-                </Link>
-              </div>
-            )}
-          </div>
-        )}
-
         {/* 1. TABLEAU DE BORD (Lien direct sans sous-menu) */}
         {canSeeDashboard && (
           <div>
@@ -708,6 +841,18 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
                     }`}
                   >
                     Signature d'autorisation
+                  </Link>
+                )}
+                {canSeeSalaryRaise && (
+                  <Link
+                    href="/admin/requests/salary-raise"
+                    className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
+                      isLinkActive("/admin/requests/salary-raise")
+                        ? "bg-white/15 text-white font-semibold"
+                        : "text-slate-300 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    Attribution de salaire
                   </Link>
                 )}
               </div>
@@ -854,36 +999,30 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
             </button>
             {openMenus.finances && (
               <div className="mt-1.5 ml-4 pl-3 space-y-1">
-                <Link
-                  href="/admin/financial-operations?tab=deposits"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    isLinkActive("/admin/financial-operations?tab=deposits")
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Dépôts bancaires
-                </Link>
-                <Link
-                  href="/admin/financial-operations?tab=withdrawals"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    isLinkActive("/admin/financial-operations?tab=withdrawals")
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Retraits bancaires
-                </Link>
-                <Link
-                  href="/admin/financial-operations?tab=expenses"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    isLinkActive("/admin/financial-operations?tab=expenses")
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Dépenses
-                </Link>
+                {canSeeAccounts && (
+                  <Link
+                    href="/admin/financial-operations?tab=accounts"
+                    className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
+                      isLinkActive("/admin/financial-operations?tab=accounts")
+                        ? "bg-white/15 text-white font-semibold"
+                        : "text-slate-300 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    Comptes bancaires
+                  </Link>
+                )}
+                {canSeeBankReports && (
+                  <Link
+                    href="/admin/financial-operations?tab=report"
+                    className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
+                      isLinkActive("/admin/financial-operations?tab=report")
+                        ? "bg-white/15 text-white font-semibold"
+                        : "text-slate-300 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    Rapport des transactions
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -916,46 +1055,34 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
             </button>
             {openMenus.reports && (
               <div className="mt-1.5 ml-4 pl-3 space-y-1">
-                <Link
-                  href="/admin/financial-reports?period=daily"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    isLinkActive("/admin/financial-reports?period=daily")
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Rapport journalier
-                </Link>
-                <Link
-                  href="/admin/financial-reports?period=weekly"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    isLinkActive("/admin/financial-reports?period=weekly")
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Rapport hebdomadaire
-                </Link>
-                <Link
-                  href="/admin/financial-reports?period=monthly"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    isLinkActive("/admin/financial-reports?period=monthly")
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Rapport mensuel
-                </Link>
-                <Link
-                  href="/admin/financial-reports?period=yearly"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    isLinkActive("/admin/financial-reports?period=yearly")
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Rapport annuel
-                </Link>
+                {/* Sous-onglet 1: Synthèse & Rapports Consolidés (Visible pour admin / direction financière, jamais pour caissier) */}
+                {canSeeReportsSummary && (
+                  <Link
+                    href="/admin/financial-reports?tab=reports"
+                    className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
+                      isLinkActive("/admin/financial-reports?tab=reports") ||
+                      (pathname === "/admin/financial-reports" && (!searchParams.get("tab") || searchParams.get("tab") === "reports") && !isCashier)
+                        ? "bg-white/15 text-white font-semibold"
+                        : "text-slate-300 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    Synthèse & Rapports Consolidés
+                  </Link>
+                )}
+                {/* Sous-onglet 2: Saisie de Caisse Journalière (Visible pour caissiers et administrateurs) */}
+                {canSeeCashierEntry && (
+                  <Link
+                    href="/admin/financial-reports?tab=entry"
+                    className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
+                      isLinkActive("/admin/financial-reports?tab=entry") ||
+                      (pathname === "/admin/financial-reports" && (searchParams.get("tab") === "entry" || isCashier))
+                        ? "bg-white/15 text-white font-semibold"
+                        : "text-slate-300 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    Saisie de Caisse
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -1027,36 +1154,42 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
             </button>
             {openMenus.acces && (
               <div className="mt-1.5 ml-4 pl-3 space-y-1">
-                <Link
-                  href="/admin/users"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    pathname === "/admin/users"
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Liste des utilisateurs
-                </Link>
-                <Link
-                  href="/admin/users/roles"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    pathname.startsWith("/admin/users/roles")
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Rôles & Permissions
-                </Link>
-                <Link
-                  href="/admin/users/signatures"
-                  className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                    pathname.startsWith("/admin/users/signatures")
-                      ? "bg-white/15 text-white font-semibold"
-                      : "text-slate-300 hover:text-white hover:bg-white/5"
-                  }`}
-                >
-                  Droits de signature
-                </Link>
+                {canSeeUsersList && (
+                  <Link
+                    href="/admin/users"
+                    className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
+                      pathname === "/admin/users"
+                        ? "bg-white/15 text-white font-semibold"
+                        : "text-slate-300 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    Liste des utilisateurs
+                  </Link>
+                )}
+                {canSeeRoles && (
+                  <Link
+                    href="/admin/users/roles"
+                    className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
+                      pathname.startsWith("/admin/users/roles")
+                        ? "bg-white/15 text-white font-semibold"
+                        : "text-slate-300 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    Rôles & Permissions
+                  </Link>
+                )}
+                {canSeeSignatures && (
+                  <Link
+                    href="/admin/users/signatures"
+                    className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
+                      pathname.startsWith("/admin/users/signatures")
+                        ? "bg-white/15 text-white font-semibold"
+                        : "text-slate-300 hover:text-white hover:bg-white/5"
+                    }`}
+                  >
+                    Droits de signature
+                  </Link>
+                )}
               </div>
             )}
           </div>
@@ -1117,7 +1250,7 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
               </button>
               {openMenus.config && (
                 <div className="mt-1.5 ml-4 pl-3 space-y-1">
-                  {!isEmployee && (
+                  {!isEmployee && canSeeConfigGeneral && (
                     <Link
                       href="/admin/configuration"
                       className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
@@ -1129,48 +1262,40 @@ export function AdminSidebar({ role, organizationName }: AdminSidebarProps) {
                       Préférences générales
                     </Link>
                   )}
-                  {!isEmployee && (
+                  {canSeeProfile && (
                     <Link
-                      href="/admin/configuration/signature"
+                      href="/admin/configuration/profile"
                       className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                        pathname.startsWith("/admin/configuration/signature")
+                        pathname.startsWith("/admin/configuration/profile")
                           ? "bg-white/15 text-white font-semibold"
                           : "text-slate-300 hover:text-white hover:bg-white/5"
                       }`}
                     >
-                      Création de signature
+                      Mon dossier personnel
                     </Link>
                   )}
-                  <Link
-                    href="/admin/configuration/profile"
-                    className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                      pathname.startsWith("/admin/configuration/profile")
-                        ? "bg-white/15 text-white font-semibold"
-                        : "text-slate-300 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    Mon dossier personnel
-                  </Link>
-                  <Link
-                    href="/admin/configuration/security"
-                    className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                      pathname.startsWith("/admin/configuration/security")
-                        ? "bg-white/15 text-white font-semibold"
-                        : "text-slate-300 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    Sécurité du compte
-                  </Link>
-                  {!isEmployee && (
+                  {canSeeSecurity && (
                     <Link
-                      href="/admin/configuration/notifications"
+                      href="/admin/configuration/security"
                       className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                        pathname.startsWith("/admin/configuration/notifications")
+                        pathname.startsWith("/admin/configuration/security")
                           ? "bg-white/15 text-white font-semibold"
                           : "text-slate-300 hover:text-white hover:bg-white/5"
                       }`}
                     >
-                      Paramètres de notification
+                      Sécurité du compte
+                    </Link>
+                  )}
+                  {role === "ORGANIZATION_ADMIN" && (
+                    <Link
+                      href="/admin/subscription"
+                      className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
+                        isSubscriptionActive
+                          ? "bg-white/15 text-white font-semibold"
+                          : "text-slate-300 hover:text-white hover:bg-white/5"
+                      }`}
+                    >
+                      Abonnement & Paiement
                     </Link>
                   )}
                 </div>

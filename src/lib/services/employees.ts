@@ -1,5 +1,5 @@
 import { getDb } from "@/lib/db/client";
-import { employees, Employee, InsertEmployee, leaveRequests } from "@/db/schema";
+import { employees, Employee, InsertEmployee, leaveRequests, users } from "@/db/schema";
 import { eq, and, desc, sql, or, like } from "drizzle-orm";
 import { EmployeeInput } from "@/lib/validation/schemas";
 import { supabaseDb } from "@/lib/supabase/db";
@@ -245,6 +245,24 @@ export async function updateEmployee(
     .update(employees)
     .set(updateData)
     .where(and(eq(employees.id, id), eq(employees.organizationId, organizationId)));
+
+  if ((input.branchId !== undefined || input.role !== undefined) && (current.email || input.email)) {
+    try {
+      const targetEmail = (input.email || current.email || "").toLowerCase().trim();
+      if (targetEmail) {
+        const userUpdate: Record<string, any> = { updatedAt: now };
+        if (input.branchId !== undefined) userUpdate.branchId = input.branchId || null;
+        if (input.role !== undefined && input.role) userUpdate.role = input.role;
+
+        await db
+          .update(users)
+          .set(userUpdate)
+          .where(and(eq(users.organizationId, organizationId), eq(users.email, targetEmail)));
+      }
+    } catch {
+      // Non-critical
+    }
+  }
 
   const [updated] = await db
     .select()

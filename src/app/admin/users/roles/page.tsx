@@ -20,6 +20,7 @@ import {
   HierarchyLevel,
   TabPermission,
   MODULE_LABELS,
+  MODULE_SUB_TABS,
   HIERARCHY_LABELS,
 } from "@/lib/types/roles";
 
@@ -27,7 +28,6 @@ export default function RolesPermissionsPage() {
   const [roles, setRoles] = useState<RoleModel[]>([]);
   const [rolesLoading, setRolesLoading] = useState(true);
   const [hierarchyFilter, setHierarchyFilter] = useState<string>("ALL");
-  const [roleToast, setRoleToast] = useState<string | null>(null);
 
   // Role Create / Edit Modal State
   const [roleModalOpen, setRoleModalOpen] = useState(false);
@@ -112,18 +112,64 @@ export default function RolesPermissionsPage() {
   );
   const isOwnerRole = Boolean(currentEditingRole?.isDefaultOwner);
 
+  const isSubTabChecked = (mKey: ModuleKey, subTabId: string) => {
+    const p = rolePermissions[mKey];
+    if (!p || !p.view) return false;
+    if (!p.subTabs) return true; // Actif par défaut si non spécifié
+    return p.subTabs.includes(subTabId);
+  };
+
+  const toggleSubTab = (mKey: ModuleKey, subTabId: string) => {
+    if (isOwnerRole) return;
+    setRolePermissions((prev) => {
+      const cur = prev[mKey] || { view: false, create: false, edit: false, delete: false };
+      const allSubTabs = MODULE_SUB_TABS[mKey] || [];
+      const allIds = allSubTabs.map((s) => s.id);
+      const currentActiveIds = cur.subTabs ? [...cur.subTabs] : (cur.view ? [...allIds] : []);
+
+      let newSubTabs: string[];
+      if (currentActiveIds.includes(subTabId)) {
+        newSubTabs = currentActiveIds.filter((id) => id !== subTabId);
+      } else {
+        newSubTabs = [...currentActiveIds, subTabId];
+      }
+
+      const hasAnyActive = newSubTabs.length > 0;
+      return {
+        ...prev,
+        [mKey]: {
+          ...cur,
+          view: hasAnyActive,
+          subTabs: newSubTabs,
+          create: hasAnyActive ? cur.create : false,
+          edit: hasAnyActive ? cur.edit : false,
+          delete: hasAnyActive ? cur.delete : false,
+        },
+      };
+    });
+  };
+
   const togglePermission = (mKey: ModuleKey, permKey: keyof TabPermission) => {
     setRolePermissions((prev) => {
       const current = prev[mKey] || { view: false, create: false, edit: false, delete: false };
       const nextVal = !current[permKey];
+      const allIds = (MODULE_SUB_TABS[mKey] || []).map((s) => s.id);
       const updated = { ...current, [permKey]: nextVal };
       if (nextVal && (permKey === "create" || permKey === "edit" || permKey === "delete")) {
         updated.view = true;
+        if (!updated.subTabs || updated.subTabs.length === 0) {
+          updated.subTabs = [...allIds];
+        }
       }
-      if (!nextVal && permKey === "view") {
-        updated.create = false;
-        updated.edit = false;
-        updated.delete = false;
+      if (permKey === "view") {
+        if (nextVal) {
+          updated.subTabs = [...allIds];
+        } else {
+          updated.subTabs = [];
+          updated.create = false;
+          updated.edit = false;
+          updated.delete = false;
+        }
       }
       return { ...prev, [mKey]: updated };
     });
@@ -132,12 +178,13 @@ export default function RolesPermissionsPage() {
   const applyPresetPermissions = (mode: "all" | "readonly" | "none") => {
     const next: Record<ModuleKey, TabPermission> = {} as any;
     (Object.keys(MODULE_LABELS) as ModuleKey[]).forEach((key) => {
+      const allIds = (MODULE_SUB_TABS[key] || []).map((s) => s.id);
       if (mode === "all") {
-        next[key] = { view: true, create: true, edit: true, delete: true };
+        next[key] = { view: true, create: true, edit: true, delete: true, subTabs: allIds };
       } else if (mode === "readonly") {
-        next[key] = { view: true, create: false, edit: false, delete: false };
+        next[key] = { view: true, create: false, edit: false, delete: false, subTabs: allIds };
       } else {
-        next[key] = { view: false, create: false, edit: false, delete: false };
+        next[key] = { view: false, create: false, edit: false, delete: false, subTabs: [] };
       }
     });
     setRolePermissions(next);
@@ -147,11 +194,12 @@ export default function RolesPermissionsPage() {
     setRolePermissions((prev) => {
       const cur = prev[mKey] || { view: false, create: false, edit: false, delete: false };
       const allActive = cur.view && cur.create && cur.edit && cur.delete;
+      const allIds = (MODULE_SUB_TABS[mKey] || []).map((s) => s.id);
       return {
         ...prev,
         [mKey]: allActive
-          ? { view: false, create: false, edit: false, delete: false }
-          : { view: true, create: true, edit: true, delete: true },
+          ? { view: false, create: false, edit: false, delete: false, subTabs: [] }
+          : { view: true, create: true, edit: true, delete: true, subTabs: allIds },
       };
     });
   };
@@ -222,12 +270,7 @@ export default function RolesPermissionsPage() {
       {/* 1. PAGE HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7900] bg-[#FFF4EB] px-2 py-0.5 rounded border border-[#FF7900]/20">
-              Module Sécurité
-            </span>
-          </div>
-          <h1 className="text-2xl font-bold text-[#062653] tracking-tight mt-1">
+          <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
             Rôles & Permissions
           </h1>
           <p className="text-xs text-[#64748B] mt-0.5">
@@ -237,30 +280,14 @@ export default function RolesPermissionsPage() {
 
         <button
           onClick={openCreateRoleModal}
-          className="px-4 py-2 bg-[#062653] hover:bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xs transition-colors flex items-center gap-2 self-start cursor-pointer border-b-2 border-[#FF7900]"
+          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold rounded-lg shadow-xs transition-colors flex items-center gap-2 self-start cursor-pointer"
         >
-          <Plus className="w-4 h-4 text-[#FF7900]" />
+          <Plus className="w-4 h-4 text-white" />
           Ajouter un rôle hiérarchique
         </button>
       </div>
 
-      {/* 2. TOAST FEEDBACK */}
-      {roleToast && (
-        <div className="p-3.5 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl flex items-center justify-between text-xs font-semibold shadow-xs">
-          <div className="flex items-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-            <span>{roleToast}</span>
-          </div>
-          <button
-            onClick={() => setRoleToast(null)}
-            className="text-emerald-700 hover:text-emerald-900 text-xs font-bold"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-
-      {/* 3. EXPLANATORY BANNER */}
+      {/* 2. EXPLANATORY BANNER */}
       <div className="bg-[#FFF4EB] border border-[#FF7900]/20 rounded-xl p-4 text-xs text-[#263445] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-start gap-3">
           <Shield className="w-5 h-5 text-[#FF7900] shrink-0 mt-0.5" />
@@ -369,33 +396,63 @@ export default function RolesPermissionsPage() {
                       </span>
                     </div>
 
-                    <div className="flex flex-wrap gap-1.5 max-h-[140px] overflow-y-auto pr-1">
+                    <div className="flex flex-wrap gap-1.5 max-h-[160px] overflow-y-auto pr-1">
                       {(Object.keys(MODULE_LABELS) as ModuleKey[]).map((mKey) => {
                         const perm = r.permissions?.[mKey];
-                        if (!perm?.view) return null;
+                        if (!perm?.view && !perm?.create) return null;
+                        const subTabs = MODULE_SUB_TABS[mKey] || [];
+                        const activeSubTabs = subTabs.filter((st) => {
+                          if (!perm.subTabs) return true;
+                          return perm.subTabs.includes(st.id);
+                        });
+                        const isPartial = subTabs.length > 0 && activeSubTabs.length < subTabs.length;
+
                         return (
                           <div
                             key={mKey}
-                            className="px-2 py-1 rounded-md bg-slate-50 border border-slate-200 text-[11px] flex items-center gap-1.5 text-slate-800 font-medium"
+                            className={`px-2 py-1 rounded-md border text-[11px] flex flex-col gap-0.5 font-medium ${
+                              isPartial
+                                ? "bg-amber-50/70 border-amber-200 text-amber-950"
+                                : "bg-slate-50 border-slate-200 text-slate-800"
+                            }`}
                           >
-                            <span className="font-semibold">{MODULE_LABELS[mKey]}</span>
-                            <div className="flex items-center gap-0.5 text-[9px] font-bold text-slate-500">
-                              {perm.create && (
-                                <span className="text-blue-600" title="Peut créer">
-                                  +C
-                                </span>
-                              )}
-                              {perm.edit && (
-                                <span className="text-amber-600" title="Peut modifier">
-                                  ✎M
-                                </span>
-                              )}
-                              {perm.delete && (
-                                <span className="text-rose-600" title="Peut supprimer">
-                                  🗑S
-                                </span>
-                              )}
+                            <div className="flex items-center gap-1.5 justify-between">
+                              <span className="font-semibold">{MODULE_LABELS[mKey]}</span>
+                              <div className="flex items-center gap-1">
+                                {isPartial && (
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-200/80 text-amber-900 border border-amber-300">
+                                    {activeSubTabs.length}/{subTabs.length}
+                                  </span>
+                                )}
+                                <div className="flex items-center gap-0.5 text-[9px] font-bold text-slate-500">
+                                  {perm.create && (
+                                    <span className="text-blue-600" title="Peut créer">
+                                      +C
+                                    </span>
+                                  )}
+                                  {perm.edit && (
+                                    <span className="text-amber-600" title="Peut modifier">
+                                      ✎M
+                                    </span>
+                                  )}
+                                  {perm.delete && (
+                                    <span className="text-rose-600" title="Peut supprimer">
+                                      🗑S
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
                             </div>
+                            {subTabs.length > 0 ? (
+                              <span
+                                className="text-[9px] text-slate-500 font-normal truncate max-w-[240px]"
+                                title={activeSubTabs.map((s) => s.name).join(", ")}
+                              >
+                                ↳ {activeSubTabs.length > 0
+                                  ? activeSubTabs.map((s) => s.name).join(" • ")
+                                  : "Aucun sous-onglet sélectionné"}
+                              </span>
+                            ) : null}
                           </div>
                         );
                       })}
@@ -420,9 +477,9 @@ export default function RolesPermissionsPage() {
                         <button
                           type="button"
                           onClick={() => handleDeleteRole(r)}
-                          className="px-2.5 py-1.5 text-xs font-semibold text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer flex items-center gap-1"
+                          className="px-3 py-1.5 text-xs font-bold text-white bg-red-500 hover:bg-red-600 rounded-lg transition-colors cursor-pointer flex items-center gap-1.5 shadow-xs"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-3.5 h-3.5 text-white" />
                           <span>Supprimer</span>
                         </button>
                       )}
@@ -568,7 +625,7 @@ export default function RolesPermissionsPage() {
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#F4F6F9] text-[11px] font-bold text-[#062653] border-b border-[#DCE2EA] sticky top-0 z-10">
                     <tr>
-                      <th className="px-4 py-2.5">Onglet Système</th>
+                      <th className="px-4 py-2.5">Onglet & Sous-onglets Système</th>
                       <th className="px-3 py-2.5 text-center">Accès Onglet</th>
                       <th className="px-3 py-2.5 text-center">Consulter</th>
                       <th className="px-3 py-2.5 text-center">Créer (+C)</th>
@@ -585,6 +642,7 @@ export default function RolesPermissionsPage() {
                         edit: false,
                         delete: false,
                       };
+                      const subTabs = MODULE_SUB_TABS[mKey] || [];
 
                       return (
                         <tr
@@ -593,15 +651,58 @@ export default function RolesPermissionsPage() {
                             p.view ? "bg-white" : "bg-slate-50/60 opacity-75"
                           }`}
                         >
-                          <td className="px-4 py-2.5 font-semibold text-[#062653]">
-                            <div className="flex items-center gap-2">
-                              <span
-                                className={`w-2 h-2 rounded-full ${
-                                  p.view ? "bg-emerald-500" : "bg-slate-300"
-                                }`}
-                              />
-                              <span>{MODULE_LABELS[mKey]}</span>
+                          <td className="px-4 py-3 font-semibold text-[#062653]">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-2">
+                                <span
+                                  className={`w-2 h-2 rounded-full shrink-0 ${
+                                    p.view ? "bg-emerald-500" : "bg-slate-300"
+                                  }`}
+                                />
+                                <span className="font-bold">{MODULE_LABELS[mKey]}</span>
+                              </div>
+                              {subTabs.length > 0 && p.view && (
+                                <span className="text-[10px] font-bold text-[#062653] bg-slate-100 px-2 py-0.5 rounded border border-[#DCE2EA]">
+                                  {subTabs.filter((s) => isSubTabChecked(mKey, s.id)).length} / {subTabs.length} sous-onglets
+                                </span>
+                              )}
                             </div>
+                            {subTabs.length > 0 && (
+                              <div className="mt-2 ml-4 pl-2.5 border-l-2 border-[#DCE2EA] space-y-1.5">
+                                <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
+                                  Sous-onglets autorisés :
+                                </span>
+                                {subTabs.map((st) => {
+                                  const isChecked = isSubTabChecked(mKey, st.id);
+                                  return (
+                                    <label
+                                      key={st.id}
+                                      className={`flex items-start gap-2 text-[11px] p-2 rounded-lg border transition-all cursor-pointer ${
+                                        isChecked
+                                          ? "bg-emerald-50/70 border-emerald-300/80 text-emerald-950 font-medium"
+                                          : "bg-slate-50/70 border-slate-200/60 text-slate-500 hover:bg-slate-100"
+                                      }`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        disabled={isOwnerRole}
+                                        checked={isChecked}
+                                        onChange={() => toggleSubTab(mKey, st.id)}
+                                        className="w-4 h-4 mt-0.5 accent-emerald-600 rounded cursor-pointer shrink-0"
+                                      />
+                                      <div className="flex-1 min-w-0">
+                                        <div className="font-bold text-xs leading-tight">
+                                          {st.name}
+                                        </div>
+                                        <div className="text-[10px] text-slate-500 leading-normal mt-0.5">
+                                          {st.scope}
+                                        </div>
+                                      </div>
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </td>
 
                           {/* Toggle View */}

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth/session";
+import { handleApiError, requireAuth, requireTenantUser } from "@/lib/auth/guard";
 import { getDb } from "@/lib/db/client";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
@@ -7,7 +7,11 @@ import { verifyPassword, hashPassword } from "@/lib/auth/password";
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getSession();
+    const authSession = await requireAuth();
+    const session =
+      authSession.role !== "SUPER_ADMIN"
+        ? (await requireTenantUser()).user
+        : authSession;
     if (!session || !session.id) {
       return NextResponse.json(
         { error: "Session non authentifiée. Veuillez vous reconnecter." },
@@ -104,6 +108,9 @@ export async function POST(req: NextRequest) {
       message: "Mot de passe mis à jour avec succès.",
     });
   } catch (err: any) {
+    if (err?.name === "AuthError") {
+      return handleApiError(err);
+    }
     console.error("Change password error:", err);
     return NextResponse.json(
       { error: "Erreur serveur lors de la mise à jour du mot de passe." },

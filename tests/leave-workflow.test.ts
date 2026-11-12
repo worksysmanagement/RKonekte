@@ -229,4 +229,32 @@ describe("Leave Request Lifecycle & Workflow Tests", () => {
       rejectLeaveRequest(req.leaveRequest.id, orgId, "usr-sec", "Changement d'avis", undefined, db)
     ).rejects.toThrow("La demande n'est plus en attente ou n'a pas été trouvée");
   });
+
+  it("Rejects leave request creation when organization subscription is expired or stopped", async () => {
+    const expiredAt = Date.now() - 2 * 86400_000;
+    await db
+      .update(organizations)
+      .set({ subscriptionExpiresAt: expiredAt, serviceStopped: false })
+      .where(eq(organizations.id, orgId));
+
+    await expect(
+      createLeaveRequest(
+        {
+          organizationId: orgId,
+          firstName: "Alice",
+          lastName: "Smith",
+          employeeNumber: "EMP-100",
+          department: "Sales",
+          position: "Rep",
+          leaveType: "ANNUAL",
+          startDate: "2026-10-10",
+          endDate: "2026-10-12",
+          requestedDays: 3,
+          contactPhone: "+22501020304",
+        },
+        undefined,
+        db
+      )
+    ).rejects.toThrow(/expiré|suspendu/i);
+  });
 });

@@ -64,7 +64,7 @@ export default function MyProfileDossierPage() {
           employeeNumber: cached.employeeNumber || "",
           firstName: cached.firstName || "",
           lastName: cached.lastName || "",
-          branch: cached.branch || "Siège Principal",
+          branch: cached.branch || "",
           department: sanitizeDefault(cached.department),
           position: sanitizeDefault(cached.position),
           phone: cached.phone || "",
@@ -93,7 +93,7 @@ export default function MyProfileDossierPage() {
             employeeNumber: data.profile.employeeNumber || "",
             firstName: data.profile.firstName || "",
             lastName: data.profile.lastName || "",
-            branch: data.profile.branch || "Siège Principal",
+            branch: data.profile.branch || "",
             department: sanitizeDefault(data.profile.department),
             position: sanitizeDefault(data.profile.position),
             phone: data.profile.phone || "",
@@ -295,7 +295,9 @@ export default function MyProfileDossierPage() {
                 <div>
                   <span className="text-[#64748B] font-semibold block">Succursale</span>
                   <span className="font-bold text-[#263445] mt-0.5 block">
-                    {profileData.branch || "Siège Principal"}
+                    {profileData.branch || (
+                      <span className="text-[#94A3B8] font-normal italic">Non assignée</span>
+                    )}
                   </span>
                 </div>
                 <div>
