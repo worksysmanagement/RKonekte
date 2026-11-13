@@ -46,7 +46,20 @@ export async function listActiveOrganizations(dbInstance?: any) {
 
 export async function listAllOrganizationsForSuperAdmin(dbInstance?: any) {
   if (!dbInstance) {
-    return await supabaseDb.organizations.listAllForSuperAdmin();
+    try {
+      return await supabaseDb.organizations.listAllForSuperAdmin();
+    } catch (e: any) {
+      if (
+        process.env.NODE_ENV === "test" ||
+        process.env.VITEST ||
+        !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+        !process.env.SUPABASE_SERVICE_ROLE_KEY
+      ) {
+        // Fall back to SQLite database
+      } else {
+        throw e;
+      }
+    }
   }
   const db = dbInstance || getDb();
   const orgs = await db.select().from(organizations).orderBy(desc(organizations.createdAt));

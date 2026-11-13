@@ -179,6 +179,79 @@ export function downloadPdfBlob(blob: Blob, fileName: string) {
 }
 
 /**
+ * Nettoie un titre de document en nom de fichier lisible avec des espaces normaux
+ * (sans remplacer les espaces, apostrophes ou accents par des "_").
+ */
+export function sanitizePdfFileName(
+  rawTitle?: string | null,
+  extension: string = "pdf",
+  fallback: string = "Document d'autorisation"
+): string {
+  const extClean = extension.replace(/^\.+/, "").trim();
+  const baseInput = (rawTitle || "").trim();
+  const withoutExt = extClean
+    ? baseInput.replace(new RegExp(`\\.${extClean}$`, "i"), "")
+    : baseInput.replace(/\.(pdf|docx?)$/i, "");
+
+  let cleaned = withoutExt
+    .replace(/[\\/:*?"<>|\x00-\x1f]/g, " ")
+    .replace(/_+/g, " ")
+    .replace(/\s+/g, " ")
+    .replace(/^[\s.]+|[\s.]+$/g, "");
+
+  if (!cleaned) {
+    cleaned = fallback;
+  }
+
+  if (cleaned.length > 100) {
+    const sliced = cleaned.slice(0, 100);
+    const lastSpace = sliced.lastIndexOf(" ");
+    cleaned = (lastSpace > 40 ? sliced.slice(0, lastSpace) : sliced).trim();
+  }
+
+  return extClean ? `${cleaned}.${extClean}` : cleaned;
+}
+
+/**
+ * Formate un titre lisible pour l'en-tête d'aperçu PDF en supprimant les "_"
+ * hérités d'anciens noms de fichiers et en privilégiant le titre d'origine complet.
+ */
+export function formatPdfDisplayTitle(
+  fileName?: string | null,
+  description?: string | null
+): string {
+  const rawFile = (fileName || "").trim();
+  const withoutExt = rawFile.replace(/\.(pdf|docx?)$/i, "");
+  const cleanedFromFile = withoutExt
+    .replace(/_+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+
+  const desc = (description || "").trim();
+  if (desc && !desc.includes("_") && rawFile.includes("_")) {
+    const normalizeAscii = (text: string) =>
+      text
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase();
+
+    const fileTokens = normalizeAscii(cleanedFromFile)
+      .split(/[^a-z0-9]+/)
+      .filter((t) => t.length >= 4);
+    const normDesc = normalizeAscii(desc);
+
+    if (
+      fileTokens.length >= 2 &&
+      fileTokens.slice(0, 3).every((tok) => normDesc.includes(tok))
+    ) {
+      return desc;
+    }
+  }
+
+  return cleanedFromFile || desc || "Document officiel";
+}
+
+/**
  * Imprime directement un document PDF (Blob, URL ou DataURL base64)
  * de façon compatible et réactive sans bloquer l'interface ni imprimer la page web.
  */
@@ -204,7 +277,8 @@ export function printPdfDocument(pdfUrlOrBlob: string | Blob, title: string = "D
       blobUrl = String(pdfUrlOrBlob);
     }
 
-    const escapedTitle = title.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const cleanTitle = formatPdfDisplayTitle(title) || "Document PDF";
+    const escapedTitle = cleanTitle.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     // Ouvrir un onglet / fenêtre dédié exclusivement au document PDF avec déclenchement d'impression natif
     const printWin = window.open("", "_blank");
@@ -217,7 +291,7 @@ export function printPdfDocument(pdfUrlOrBlob: string | Blob, title: string = "D
             <meta name="viewport" content="width=device-width, initial-scale=1.0" />
             <title>${escapedTitle}</title>
             <style>
-              @page { size: auto; margin: 0; }
+              @page { size: A4 portrait; margin: 0; }
               html, body {
                 height: 100%;
                 width: 100%;
@@ -232,6 +306,17 @@ export function printPdfDocument(pdfUrlOrBlob: string | Blob, title: string = "D
                 border: none;
                 display: block;
                 background-color: #ffffff;
+              }
+              @media print {
+                html, body {
+                  background-color: #ffffff;
+                  width: 210mm;
+                  height: 297mm;
+                }
+                iframe {
+                  width: 100%;
+                  height: 100%;
+                }
               }
             </style>
           </head>
@@ -325,7 +410,8 @@ export function openPdfFullscreen(pdfUrlOrBlob: string | Blob, title: string = "
       shouldRevoke = true;
     }
 
-    const escapedTitle = title.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+    const cleanTitle = formatPdfDisplayTitle(title) || "Document PDF";
+    const escapedTitle = cleanTitle.replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
     // 1. Essayer d'ouvrir un nouvel onglet avec document HTML dédié
     const newWindow = window.open("", "_blank");
@@ -400,15 +486,16 @@ export function downloadPdfDocument(pdfUrlOrBlob: string | Blob, fileName: strin
   if (typeof window === "undefined") return;
 
   try {
+    const cleanFileName = sanitizePdfFileName(fileName, "pdf", "Document officiel");
     if (typeof pdfUrlOrBlob === "string" && pdfUrlOrBlob.startsWith("data:")) {
       const blob = dataUrlToPdfBlob(pdfUrlOrBlob);
-      downloadPdfBlob(blob, fileName);
+      downloadPdfBlob(blob, cleanFileName);
     } else if (pdfUrlOrBlob instanceof Blob) {
-      downloadPdfBlob(pdfUrlOrBlob, fileName);
+      downloadPdfBlob(pdfUrlOrBlob, cleanFileName);
     } else {
       const a = document.createElement("a");
       a.href = pdfUrlOrBlob;
-      a.download = fileName;
+      a.download = cleanFileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);

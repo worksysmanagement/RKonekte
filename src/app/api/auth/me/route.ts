@@ -10,8 +10,8 @@ import {
 import { getSupabaseAdminClient } from "@/lib/supabase/server";
 import { mapOrg } from "@/lib/supabase/db";
 import { getDb } from "@/lib/db/client";
-import { users, branches, organizations } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { users, branches, organizations, employees } from "@/db/schema";
+import { eq, and } from "drizzle-orm";
 import {
   computeSubscriptionState,
   isSubscriptionAccessBlocked,
@@ -30,6 +30,7 @@ export async function GET(req: NextRequest) {
   let branchId = session.branchId || null;
   let branchName = session.branchName;
   let role = session.role;
+  let employeeNumber: string | undefined = session.employeeNumber;
   let org: any = null;
   let dbUserRecord: any = null;
   let dbReachable = false;
@@ -65,14 +66,37 @@ export async function GET(req: NextRequest) {
     }
 
     if (session.email && role !== "SUPER_ADMIN") {
-      const { data: empData } = await supabase
+      let empQuery = supabase
         .from("employees")
-        .select("branch_id, role")
-        .ilike("email", session.email.toLowerCase().trim())
-        .maybeSingle();
+        .select("branch_id, role, employee_number")
+        .ilike("email", session.email.toLowerCase().trim());
+      if (session.organizationId) {
+        empQuery = empQuery.eq("organization_id", session.organizationId);
+      }
+      const { data: initialEmpData } = await empQuery.maybeSingle();
+      let empData: any = initialEmpData;
+
+      // Fallback match by full name within organization if email wasn't matched
+      if (!empData && session.organizationId && session.name) {
+        const normalizedTargetName = session.name.trim().toLowerCase();
+        const { data: orgEmps } = await supabase
+          .from("employees")
+          .select("branch_id, role, employee_number, first_name, last_name")
+          .eq("organization_id", session.organizationId);
+        if (Array.isArray(orgEmps)) {
+          empData =
+            orgEmps.find(
+              (e: any) =>
+                `${e.first_name || ""} ${e.last_name || ""}`.trim().toLowerCase() ===
+                normalizedTargetName
+            ) || null;
+        }
+      }
+
       if (empData) {
         if (empData.branch_id) branchId = empData.branch_id;
         if (empData.role && !dbUser?.role) role = empData.role;
+        if (empData.employee_number) employeeNumber = empData.employee_number;
       }
     }
 
@@ -119,6 +143,51 @@ export async function GET(req: NextRequest) {
           if (b) branchName = b.name;
         }
       }
+      if (session.email && role !== "SUPER_ADMIN") {
+        const normalizedEmail = session.email.toLowerCase().trim();
+        const empConditions = session.organizationId
+          ? and(
+              eq(employees.organizationId, session.organizationId),
+              eq(employees.email, normalizedEmail)
+            )
+          : eq(employees.email, normalizedEmail);
+        const [initialLocalEmp] = await db
+          .select()
+          .from(employees)
+          .where(empConditions)
+          .limit(1);
+        let localEmp: any = initialLocalEmp;
+
+        if (!localEmp && session.organizationId && session.name) {
+          const normalizedTargetName = session.name.trim().toLowerCase();
+          const orgLocalEmps = await db
+            .select()
+            .from(employees)
+            .where(eq(employees.organizationId, session.organizationId));
+          localEmp = orgLocalEmps.find(
+            (e) =>
+              `${e.firstName || ""} ${e.lastName || ""}`.trim().toLowerCase() ===
+              normalizedTargetName
+          );
+        }
+
+        if (localEmp) {
+          if (localEmp.branchId && !branchId) {
+            const resolvedBranchId = String(localEmp.branchId);
+            branchId = resolvedBranchId;
+            const [b] = await db
+              .select()
+              .from(branches)
+              .where(eq(branches.id, resolvedBranchId))
+              .limit(1);
+            if (b) branchName = b.name;
+          }
+          if (localEmp.employeeNumber) {
+            employeeNumber = localEmp.employeeNumber;
+          }
+        }
+      }
+
       if (session.organizationId && role !== "SUPER_ADMIN") {
         const [dbOrg] = await db
           .select()
@@ -194,9 +263,14 @@ export async function GET(req: NextRequest) {
     role,
     branchId,
     branchName,
+    ...(employeeNumber ? { employeeNumber } : {}),
   };
 
-  if (role !== session.role || branchId !== session.branchId) {
+  if (
+    role !== session.role ||
+    branchId !== session.branchId ||
+    employeeNumber !== session.employeeNumber
+  ) {
     try {
       await setSessionCookie(enrichedUser);
     } catch (_) {}

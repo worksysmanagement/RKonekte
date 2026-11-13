@@ -27,7 +27,7 @@ export function PaymentAccountLogo({
   if (account.logoUrl && !imgError) {
     return (
       <div
-        className={`${className} rounded-xl border border-slate-200 bg-white flex items-center justify-center overflow-hidden p-1.5 shrink-0 shadow-2xs`}
+        className={`${className} rounded-xl bg-white flex items-center justify-center overflow-hidden p-1.5 shrink-0 shadow-xs`}
       >
         <img
           src={account.logoUrl}
@@ -43,7 +43,7 @@ export function PaymentAccountLogo({
   if (key.includes("moncash")) {
     return (
       <div
-        className={`${className} rounded-xl border border-rose-200 bg-rose-50 text-rose-600 flex items-center justify-center shrink-0`}
+        className={`${className} rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center shrink-0`}
         title="MonCash"
       >
         <Smartphone className="w-5 h-5" />
@@ -53,7 +53,7 @@ export function PaymentAccountLogo({
   if (key.includes("unibank")) {
     return (
       <div
-        className={`${className} rounded-xl border border-amber-200 bg-amber-50 text-[#062653] flex items-center justify-center shrink-0`}
+        className={`${className} rounded-xl bg-amber-50 text-[#062653] flex items-center justify-center shrink-0`}
         title="Unibank"
       >
         <Landmark className="w-5 h-5" />
@@ -63,7 +63,7 @@ export function PaymentAccountLogo({
   if (key.includes("sogebank")) {
     return (
       <div
-        className={`${className} rounded-xl border border-sky-200 bg-sky-50 text-[#062653] flex items-center justify-center shrink-0`}
+        className={`${className} rounded-xl bg-sky-50 text-[#062653] flex items-center justify-center shrink-0`}
         title="Sogebank"
       >
         <Landmark className="w-5 h-5" />
@@ -73,7 +73,7 @@ export function PaymentAccountLogo({
 
   return (
     <div
-      className={`${className} rounded-xl border border-slate-200 bg-slate-50 text-[#FF7900] flex items-center justify-center shrink-0`}
+      className={`${className} rounded-xl bg-[#F4F6F9] text-[#FF7900] flex items-center justify-center shrink-0`}
     >
       <CreditCard className="w-5 h-5" />
     </div>
@@ -194,7 +194,7 @@ export function ProofPreviewModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl bg-white rounded-2xl border border-slate-200 shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+        className="w-full max-w-3xl bg-white rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between gap-3 bg-[#F8FAFC]">
@@ -234,7 +234,7 @@ export function ProofPreviewModal({
               <iframe
                 src={pdfBlobUrl}
                 title={proofFileName || "Preuve PDF"}
-                className="w-full h-[65vh] rounded-lg bg-white border border-slate-200"
+                className="w-full h-[65vh] rounded-lg bg-white shadow-xs"
               />
             ) : (
               <div className="text-xs text-slate-500">Chargement du PDF...</div>

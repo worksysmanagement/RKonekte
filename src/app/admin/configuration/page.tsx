@@ -243,11 +243,11 @@ export default function GeneralPreferencesPage() {
   };
 
   return (
-    <div className="space-y-6 max-w-5xl">
+    <div className="space-y-6 w-full">
       {/* 1. HEADER */}
       <div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7900] bg-[#FFF4EB] px-2 py-0.5 rounded border border-[#FF7900]/20 flex items-center gap-1">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7900] bg-[#FFF4EB] px-2 py-0.5 rounded flex items-center gap-1">
             <Sparkles className="w-3 h-3 text-[#FF7900]" />
             Paramètres Système
           </span>
@@ -261,7 +261,7 @@ export default function GeneralPreferencesPage() {
       </div>
 
       {/* 2. FORM CONTAINER */}
-      <form onSubmit={handleSave} className="bg-white rounded-2xl border border-[#DCE2EA] p-6 sm:p-8 shadow-xs space-y-8">
+      <form onSubmit={handleSave} className="bg-white rounded-2xl p-6 sm:p-8 shadow-xs space-y-8">
         {/* SECTION A : IDENTITÉ & NOM OFFICIEL */}
         <div className="space-y-4">
           <div className="flex items-center gap-2 pb-2 border-b border-[#F1F5F9]">
@@ -287,11 +287,11 @@ export default function GeneralPreferencesPage() {
 
               {logoUrl ? (
                 /* ÉTAT : LOGO CONFIGURÉ AVEC PRÉVISUALISATION TRANSPARENTE */
-                <div className="p-4 rounded-xl border border-[#DCE2EA] bg-[#F8FAFC] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="p-4 rounded-xl bg-[#F4F6F9] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="flex items-center gap-4">
                     {/* Cadre avec grille de transparence pour valider l'absence de fond */}
                     <div
-                      className="w-28 h-20 rounded-xl border border-slate-300 flex items-center justify-center p-2 shrink-0 bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:8px_8px] bg-slate-100 shadow-inner"
+                      className="w-28 h-20 rounded-xl flex items-center justify-center p-2 shrink-0 bg-[radial-gradient(#94a3b8_1px,transparent_1px)] [background-size:8px_8px] bg-slate-100 shadow-inner"
                       title="Prévisualisation sur grille transparente (vérification de l'absence de fond)"
                     >
                       <img
@@ -336,8 +336,8 @@ export default function GeneralPreferencesPage() {
                 </div>
               ) : (
                 /* ÉTAT : AUCUN LOGO - ZONE D'IMPORT */
-                <label className="border-2 border-dashed border-[#DCE2EA] hover:border-[#FF7900] bg-[#F8FAFC] hover:bg-[#FFF9F5] rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all group">
-                  <div className="w-12 h-12 rounded-xl bg-white border border-[#DCE2EA] group-hover:border-[#FF7900]/40 flex items-center justify-center text-[#062653] group-hover:text-[#FF7900] mb-2.5 shadow-xs transition-colors">
+                <label className="bg-[#F4F6F9] hover:bg-[#FFF4EB]/60 rounded-2xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-all group">
+                  <div className="w-12 h-12 rounded-xl bg-white flex items-center justify-center text-[#062653] group-hover:text-[#FF7900] mb-2.5 shadow-xs transition-colors">
                     <Upload className="w-5 h-5" />
                   </div>
                   <span className="text-xs font-bold text-[#062653] group-hover:text-[#FF7900] transition-colors">
@@ -366,7 +366,7 @@ export default function GeneralPreferencesPage() {
                 value={companyName}
                 onChange={(e) => setCompanyName(e.target.value)}
                 placeholder="Ex: e-biznis"
-                className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653] focus:bg-white focus:border-[#FF7900] transition-colors"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-bold text-[#062653] focus:bg-white transition-colors"
               />
               <span className="text-[11px] text-[#64748B] mt-1.5 block">
                 Ce nom officiel apparaît sur l'en-tête de tous les documents, rapports financiers et formulaires de congé générés.
@@ -396,7 +396,7 @@ export default function GeneralPreferencesPage() {
               <select
                 value={matriculeFormat}
                 onChange={(e) => setMatriculeFormat(e.target.value)}
-                className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs font-semibold text-[#062653] focus:bg-white focus:border-[#FF7900] transition-colors cursor-pointer"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-semibold text-[#062653] focus:bg-white transition-colors cursor-pointer"
               >
                 {formatOptions.map((opt) => (
                   <option key={opt.id} value={opt.id}>
@@ -410,7 +410,7 @@ export default function GeneralPreferencesPage() {
             </div>
 
             {/* APERÇU EN TEMPS RÉEL DU MATRICULE GÉNÉRÉ */}
-            <div className="p-4 bg-gradient-to-br from-[#F4F6F9] to-slate-50 border border-[#DCE2EA] rounded-xl space-y-2">
+            <div className="p-4 bg-[#F4F6F9] rounded-xl space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
                   Aperçu du prochain matricule généré :
@@ -418,7 +418,7 @@ export default function GeneralPreferencesPage() {
                 <span className="text-[10px] text-slate-400 italic">Séq. 001</span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="font-mono text-base font-extrabold text-[#062653] bg-white border border-slate-200 px-3 py-1.5 rounded-lg shadow-xs tracking-wider">
+                <span className="font-mono text-base font-extrabold text-[#062653] bg-white px-3 py-1.5 rounded-lg shadow-xs tracking-wider">
                   {livePreview}
                 </span>
               </div>
@@ -430,7 +430,7 @@ export default function GeneralPreferencesPage() {
 
           {/* CHAMP PRÉFIXE SUR MESURE SI CUSTOM EST SÉLECTIONNÉ */}
           {matriculeFormat === "CUSTOM" && (
-            <div className="p-4 bg-orange-50/60 border border-orange-200/80 rounded-xl space-y-2 animate-in fade-in duration-200">
+            <div className="p-4 bg-orange-50/70 rounded-xl space-y-2 animate-in fade-in duration-200">
               <label className="block text-xs font-bold text-[#062653]">
                 Préfixe personnalisé de l'entreprise (2 à 6 lettres majuscules) :
               </label>
@@ -441,7 +441,7 @@ export default function GeneralPreferencesPage() {
                   placeholder={`Ex: ${getOrganizationAcronym(companyName)}Z`}
                   value={matriculePrefix}
                   onChange={(e) => setMatriculePrefix(e.target.value.toUpperCase())}
-                  className="w-48 h-10 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-mono font-bold text-[#062653] focus:border-[#FF7900] uppercase"
+                  className="w-48 h-10 px-3.5 bg-white shadow-2xs rounded-xl text-xs font-mono font-bold text-[#062653] uppercase"
                 />
                 <span className="text-xs text-[#64748B]">
                   Exemple résultant : <strong className="font-mono text-[#062653]">{livePreview}</strong>
@@ -469,7 +469,7 @@ export default function GeneralPreferencesPage() {
               <select
                 value={language}
                 onChange={(e) => setLanguage(e.target.value)}
-                className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs font-semibold text-[#062653] focus:bg-white"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-semibold text-[#062653] focus:bg-white transition-colors"
               >
                 <option value="fr">Français (Standard entreprise)</option>
                 <option value="en">English (US)</option>
@@ -485,7 +485,7 @@ export default function GeneralPreferencesPage() {
               <select
                 value={primaryCurrency}
                 onChange={(e) => setPrimaryCurrency(e.target.value)}
-                className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs font-semibold text-[#062653] focus:bg-white"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-semibold text-[#062653] focus:bg-white transition-colors"
               >
                 <option value="HTG">HTG - Gourde Haïtienne (G)</option>
                 <option value="USD">USD - Dollar Américain ($)</option>
@@ -502,7 +502,7 @@ export default function GeneralPreferencesPage() {
               <select
                 value={dateFormat}
                 onChange={(e) => setDateFormat(e.target.value)}
-                className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs font-semibold text-[#062653] focus:bg-white"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-semibold text-[#062653] focus:bg-white transition-colors"
               >
                 <option value="DD/MM/YYYY">JJ/MM/AAAA (ex. 12/10/2026)</option>
                 <option value="YYYY-MM-DD">AAAA-MM-JJ (ISO 8601)</option>
@@ -513,7 +513,7 @@ export default function GeneralPreferencesPage() {
         </div>
 
         {/* 3. BOUTON ENREGISTRER */}
-        <div className="pt-5 border-t border-[#DCE2EA] flex items-center justify-between">
+        <div className="pt-5 border-t border-slate-100 flex items-center justify-between">
           <p className="text-[11px] text-[#64748B] italic">
             Les modifications prennent effet immédiatement sur tous les formulaires et documents générés.
           </p>

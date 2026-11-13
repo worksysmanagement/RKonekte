@@ -184,22 +184,22 @@ export function EmployeeSalaryRaiseView() {
     switch (status) {
       case "APPROVED":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             Approuvée par la Direction
           </span>
         );
       case "REJECTED":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
-            <XCircle className="w-3.5 h-3.5 text-rose-600" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600">
+            <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
             Refusée
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-            <Clock className="w-3.5 h-3.5 text-amber-600" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FF7900]">
+            <Clock className="w-3.5 h-3.5 text-[#FF7900] shrink-0" />
             En attente de décision
           </span>
         );
@@ -209,7 +209,7 @@ export function EmployeeSalaryRaiseView() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Header Collaborateur */}
-      <div className="bg-white rounded-2xl p-5 border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div className="bg-white rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
             Demande d'augmentation
@@ -253,13 +253,13 @@ export function EmployeeSalaryRaiseView() {
       </div>
 
       {/* Onglets Faciles */}
-      <div className="flex items-center gap-2 border-b border-[#DCE2EA] pb-1">
+      <div className="flex items-center gap-2 pb-1">
         <button
           onClick={() => setActiveTab("form")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
             activeTab === "form"
               ? "bg-[#062653] text-white shadow-xs"
-              : "bg-white text-[#64748B] hover:text-[#062653] hover:bg-slate-50 border border-transparent"
+              : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653] hover:bg-slate-200/70"
           }`}
         >
           <Plus className="w-4 h-4" />
@@ -274,7 +274,7 @@ export function EmployeeSalaryRaiseView() {
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all relative ${
             activeTab === "history"
               ? "bg-[#062653] text-white shadow-xs"
-              : "bg-white text-[#64748B] hover:text-[#062653] hover:bg-slate-50 border border-transparent"
+              : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653] hover:bg-slate-200/70"
           }`}
         >
           <svg className="w-4 h-4 shrink-0" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -298,7 +298,7 @@ export function EmployeeSalaryRaiseView() {
 
       {/* FORMULAIRE DIRECT */}
       {activeTab === "form" && (
-        <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xs p-6 md:p-8 animate-in fade-in">
+        <div className="bg-white rounded-2xl shadow-xs p-6 md:p-8 animate-in fade-in">
           <div className="mb-6">
             <h2 className="text-lg font-bold text-[#062653]">
               Formuler ma demande d'augmentation
@@ -320,7 +320,7 @@ export function EmployeeSalaryRaiseView() {
                   onChange={(e) => setCurrentSalary(e.target.value)}
                   placeholder="Ex: 50,000"
                   required
-                  className="w-full px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 outline-hidden"
+                  className="w-full px-3.5 py-2.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] outline-hidden"
                 />
               </div>
 
@@ -333,7 +333,7 @@ export function EmployeeSalaryRaiseView() {
                   value={requestedSalary}
                   onChange={(e) => setRequestedSalary(e.target.value)}
                   placeholder="Ex: 65,000"
-                  className="w-full px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-bold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 outline-hidden"
+                  className="w-full px-3.5 py-2.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] font-bold outline-hidden"
                   required
                 />
               </div>
@@ -345,7 +345,7 @@ export function EmployeeSalaryRaiseView() {
                 <select
                   value={currency}
                   onChange={(e) => setCurrency(e.target.value)}
-                  className="w-full px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-bold focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 outline-hidden"
+                  className="w-full px-3.5 py-2.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] font-bold outline-hidden"
                 >
                   <option value="HTG">HTG (Gourde Haïtienne)</option>
                   <option value="USD">USD (Dollar US)</option>
@@ -363,7 +363,7 @@ export function EmployeeSalaryRaiseView() {
                 onChange={(e) => setReason(e.target.value)}
                 rows={4}
                 placeholder="Décrivez vos accomplissements récents, vos nouvelles responsabilités ou les raisons motivant cette revalorisation..."
-                className="w-full px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 outline-hidden"
+                className="w-full px-3.5 py-2.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] outline-hidden"
                 required
               />
             </div>
@@ -406,7 +406,7 @@ export function EmployeeSalaryRaiseView() {
           </div>
 
           {myRequests.length === 0 ? (
-            <div className="bg-white rounded-2xl p-12 text-center border border-[#DCE2EA] shadow-xs">
+            <div className="bg-white rounded-2xl p-12 text-center shadow-xs">
               <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
                 <TrendingUp className="w-6 h-6" />
               </div>
@@ -426,14 +426,14 @@ export function EmployeeSalaryRaiseView() {
               {myRequests.map((req, idx) => (
                 <div
                   key={`${req.id}-${idx}`}
-                  className="bg-white p-5 rounded-2xl border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
+                  className="bg-white p-5 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4"
                 >
                   <div className="space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="font-mono text-xs font-bold text-[#062653] bg-slate-100 px-2 py-0.5 rounded-md">
                         {req.id}
                       </span>
-                      <span className="text-xs font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2.5 py-0.5 rounded-full">
+                      <span className="text-xs font-bold text-emerald-600">
                         {req.requestedSalary} {req.currency}
                       </span>
                       {req.currentSalary && req.currentSalary !== "Non spécifié" && (
@@ -443,18 +443,18 @@ export function EmployeeSalaryRaiseView() {
                       )}
                     </div>
 
-                    <p className="text-xs text-slate-700 bg-[#F8FAFC] p-3 rounded-xl border border-slate-200">
+                    <p className="text-xs text-slate-700 bg-[#F4F6F9] p-3 rounded-xl">
                       <strong>Argumentaire :</strong> {req.reason}
                     </p>
 
                     {req.status === "APPROVED" && (
-                      <div className="text-xs text-emerald-800 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
+                      <div className="text-xs text-emerald-800 bg-emerald-50 p-2.5 rounded-lg">
                         🎉 Félicitations ! Votre demande a été validée par la Direction ({req.decidedBy || "Direction Générale"}).
                       </div>
                     )}
 
                     {req.status === "REJECTED" && (
-                      <div className="text-xs text-rose-800 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+                      <div className="text-xs text-rose-800 bg-rose-50 p-2.5 rounded-lg">
                         Votre demande n'a pas été retenue pour cette période.
                       </div>
                     )}

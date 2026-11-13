@@ -523,7 +523,7 @@ export default function AdminEmployeesPage() {
       </div>
 
       {/* Filter & Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="bg-white p-4 rounded-xl shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
           {/* Status Tabs */}
           {[
@@ -557,7 +557,7 @@ export default function AdminEmployeesPage() {
                 window.dispatchEvent(new CustomEvent("branchChange", { detail: { branchId: norm } }));
               }
             }}
-            className="h-8 px-2.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs font-semibold text-[#263445] focus:bg-white cursor-pointer"
+            className="h-8 px-2.5 bg-[#F4F6F9] rounded-lg text-xs font-semibold text-[#263445] focus:bg-white cursor-pointer"
           >
             <option value="ALL">Toutes les succursales</option>
             {availableBranches.map((b) => (
@@ -575,14 +575,14 @@ export default function AdminEmployeesPage() {
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder="Rechercher par nom, matricule, poste..."
-            className="w-full h-10 pl-9 pr-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs text-[#263445] placeholder:text-[#64748B] focus:bg-white transition-all"
+            className="w-full h-10 pl-9 pr-3.5 bg-[#F4F6F9] rounded-lg text-xs text-[#263445] placeholder:text-[#64748B] focus:bg-white transition-all"
           />
           <Search className="w-4 h-4 text-[#64748B] absolute left-3 top-3" />
         </form>
       </div>
 
       {/* Employees Table */}
-      <div className="bg-white rounded-xl border border-[#DCE2EA] shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-[#64748B] text-xs">Chargement des employés...</div>
         ) : filteredEmployees.length === 0 ? (
@@ -592,7 +592,7 @@ export default function AdminEmployeesPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-[#DCE2EA]">
+              <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-slate-200/70">
                 <tr>
                   <th className="px-5 py-3.5">Matricule</th>
                   <th className="px-5 py-3.5">Employé</th>
@@ -748,8 +748,8 @@ export default function AdminEmployeesPage() {
       {/* DETAIL DRAWER / MODAL */}
       {mounted && selectedEmployee && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[9999] flex items-center justify-center p-4 animate-fadeIn">
-          <div className="relative bg-white rounded-2xl border border-[#DCE2EA] shadow-2xl max-w-3xl lg:max-w-4xl w-full p-6 sm:p-7 space-y-5 animate-scaleUp max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#DCE2EA]">
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-3xl lg:max-w-4xl w-full p-6 sm:p-7 space-y-5 animate-scaleUp max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <span className="text-[11px] font-mono font-bold text-[#FF7900]">
                   {selectedEmployee.employeeNumber}
@@ -770,7 +770,7 @@ export default function AdminEmployeesPage() {
 
             {/* 1. INFORMATIONS PRINCIPALES & CONTACT */}
             <div>
-              <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-[#DCE2EA] mb-3">
+              <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-slate-100 mb-3">
                 1. Informations Principales & Contact
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-xs">
@@ -802,7 +802,7 @@ export default function AdminEmployeesPage() {
                       setSelectedEmployee(null);
                       openEditModal(emp);
                     }}
-                    className="px-2 py-1 bg-white hover:bg-slate-100 border border-slate-200 text-[11px] font-semibold text-[#062653] rounded-lg shadow-2xs transition-colors cursor-pointer"
+                    className="px-2 py-1 bg-white hover:bg-slate-100 text-[11px] font-semibold text-[#062653] rounded-lg shadow-2xs transition-colors cursor-pointer"
                     title="Changer la succursale de cet employé"
                   >
                     Changer
@@ -823,7 +823,7 @@ export default function AdminEmployeesPage() {
 
             {/* 2. POSTE & PROFIL D'ACCÈS */}
             <div>
-              <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-[#DCE2EA] mb-3">
+              <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-slate-100 mb-3">
                 2. Poste & Profil d'accès
               </h3>
               <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
@@ -852,7 +852,7 @@ export default function AdminEmployeesPage() {
 
             {/* 3. INFORMATIONS PERSONNELLES & ÉTUDES */}
             <div>
-              <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-[#DCE2EA] mb-3">
+              <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-slate-100 mb-3">
                 3. Informations Personnelles & Études
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
@@ -879,7 +879,7 @@ export default function AdminEmployeesPage() {
 
             {/* 4. SANTÉ & DOSSIER MÉDICAL */}
             <div>
-              <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-[#DCE2EA] mb-3">
+              <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-slate-100 mb-3">
                 4. Santé & Dossier Médical
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
@@ -887,7 +887,7 @@ export default function AdminEmployeesPage() {
                   <span className="text-[#64748B] font-semibold">Groupe Sanguin</span>
                   <div className="mt-0.5">
                     {selectedEmployee.bloodGroup ? (
-                      <span className="inline-block px-2.5 py-0.5 bg-rose-50 border border-rose-200 text-rose-700 font-bold rounded-lg">
+                      <span className="inline-block px-2.5 py-0.5 bg-rose-50 text-rose-700 font-bold rounded-lg">
                         {selectedEmployee.bloodGroup}
                       </span>
                     ) : (
@@ -904,7 +904,7 @@ export default function AdminEmployeesPage() {
 
             {/* 5. APPEL EN CAS D'URGENCE */}
             <div>
-              <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-[#DCE2EA] mb-3">
+              <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-slate-100 mb-3">
                 5. Appel en Cas d'Urgence
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
@@ -925,10 +925,10 @@ export default function AdminEmployeesPage() {
 
             {/* 6. ACCÈS AU SYSTÈME & RÉINITIALISATION */}
             <div>
-              <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-[#DCE2EA] mb-3">
+              <h3 className="text-xs font-bold text-[#FF7900] uppercase tracking-wider pb-1.5 border-b border-slate-100 mb-3">
                 6. Accès au Système & Réinitialisation
               </h3>
-              <div className="p-3.5 bg-[#F4F6F9] rounded-xl border border-[#DCE2EA] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="p-3.5 bg-[#F4F6F9] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="text-xs font-bold text-[#062653]">
@@ -1001,7 +1001,7 @@ export default function AdminEmployeesPage() {
               </div>
             </div>
 
-            <div className="pt-3 border-t border-[#DCE2EA] flex items-center justify-between">
+            <div className="pt-3 border-t border-slate-100 flex items-center justify-between">
               <button
                 type="button"
                 onClick={() => {
@@ -1030,8 +1030,8 @@ export default function AdminEmployeesPage() {
       {/* CREATE / EDIT MODAL */}
       {mounted && isModalOpen && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[9999] flex items-center justify-center p-4 animate-fadeIn">
-          <div className="relative bg-white rounded-2xl border border-[#DCE2EA] shadow-2xl max-w-3xl lg:max-w-4xl w-full p-6 sm:p-8 space-y-6 animate-scaleUp max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#DCE2EA]">
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-3xl lg:max-w-4xl w-full p-6 sm:p-8 space-y-6 animate-scaleUp max-h-[92vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <span className="text-[11px] font-mono font-bold text-[#FF7900]">
                   {editingEmployee ? formData.employeeNumber : "Nouveau collaborateur"}
@@ -1051,7 +1051,7 @@ export default function AdminEmployeesPage() {
             </div>
 
             {formError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-medium flex items-center gap-2">
+              <div className="p-3 bg-rose-50 text-rose-800 rounded-xl text-xs font-medium flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 {formError}
               </div>
@@ -1060,7 +1060,7 @@ export default function AdminEmployeesPage() {
             <form onSubmit={handleFormSubmit} className="space-y-6">
               {/* SECTION 1 : INFORMATIONS PRINCIPALES */}
               <div>
-                <div className="flex items-center justify-between mb-3 pb-1 border-b border-[#DCE2EA]">
+                <div className="flex items-center justify-between mb-3 pb-1 border-b border-slate-100">
                   <h4 className="text-[11px] font-bold text-[#FF7900] uppercase tracking-wider">
                     1. Informations Principales
                   </h4>
@@ -1078,7 +1078,7 @@ export default function AdminEmployeesPage() {
                       value={formData.lastName}
                       onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                       placeholder="Nom de famille"
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     />
                   </div>
 
@@ -1092,7 +1092,7 @@ export default function AdminEmployeesPage() {
                       value={formData.firstName}
                       onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                       placeholder="Prénom"
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     />
                   </div>
 
@@ -1106,7 +1106,7 @@ export default function AdminEmployeesPage() {
                       value={formData.phone}
                       onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                       placeholder="+509 3000-0000"
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     />
                   </div>
 
@@ -1130,7 +1130,7 @@ export default function AdminEmployeesPage() {
                           branch: found ? found.name : "",
                         });
                       }}
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     >
                       <option value="" disabled={availableBranches.length > 0}>
                         {availableBranches.length === 0
@@ -1155,7 +1155,7 @@ export default function AdminEmployeesPage() {
                       value={formData.employeeNumber}
                       onChange={(e) => setFormData({ ...formData, employeeNumber: e.target.value.toUpperCase() })}
                       placeholder="Ex: E-BIZNIS-001"
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-bold font-mono focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] font-bold font-mono focus:bg-white transition-colors"
                     />
                   </div>
 
@@ -1169,7 +1169,7 @@ export default function AdminEmployeesPage() {
                       value={formData.email}
                       onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                       placeholder="employe@entreprise.com"
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     />
                   </div>
                 </div>
@@ -1177,7 +1177,7 @@ export default function AdminEmployeesPage() {
 
               {/* SECTION 2 : POSTE & PROFIL D'ACCÈS */}
               <div>
-                <div className="flex items-center justify-between mb-3 pb-1 border-b border-[#DCE2EA]">
+                <div className="flex items-center justify-between mb-3 pb-1 border-b border-slate-100">
                   <h4 className="text-[11px] font-bold text-[#FF7900] uppercase tracking-wider">
                     2. Poste & Profil d'accès
                   </h4>
@@ -1194,7 +1194,7 @@ export default function AdminEmployeesPage() {
                       value={formData.position}
                       onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                       placeholder="Ex: Conseiller commercial, Mécanicien..."
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     />
                     <p className="text-[10px] text-[#64748B] mt-1">
                       Activité ou métier exercé au sein de l'entreprise.
@@ -1208,7 +1208,7 @@ export default function AdminEmployeesPage() {
                     <select
                       value={formData.role}
                       onChange={(e) => setFormData({ ...formData, role: e.target.value })}
-                      className="w-full h-10 px-3 bg-white border border-[#062653] font-semibold rounded-xl text-xs text-[#062653] focus:border-[#FF7900] transition-colors cursor-pointer"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] focus:bg-white font-semibold rounded-xl text-xs text-[#062653] transition-colors cursor-pointer"
                     >
                       {ASSIGNED_ROLES.map((r) => (
                         <option key={r.value} value={r.value}>
@@ -1230,7 +1230,7 @@ export default function AdminEmployeesPage() {
                       value={formData.department}
                       onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                       placeholder="Ex: Ventes, Comptabilité"
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     />
                   </div>
 
@@ -1246,7 +1246,7 @@ export default function AdminEmployeesPage() {
                           status: e.target.value as "ACTIVE" | "INACTIVE",
                         })
                       }
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     >
                       <option value="ACTIVE">Actif (En service)</option>
                       <option value="INACTIVE">Inactif (Suspendu)</option>
@@ -1257,7 +1257,7 @@ export default function AdminEmployeesPage() {
 
               {/* SECTION 3 : INFORMATIONS PERSONNELLES & ÉTUDES */}
               <div>
-                <div className="flex items-center justify-between mb-3 pb-1 border-b border-[#DCE2EA]">
+                <div className="flex items-center justify-between mb-3 pb-1 border-b border-slate-100">
                   <h4 className="text-[11px] font-bold text-[#FF7900] uppercase tracking-wider">
                     3. Informations Personnelles & Études
                   </h4>
@@ -1271,7 +1271,7 @@ export default function AdminEmployeesPage() {
                         Date de naissance
                       </label>
                       {calculateAge(formData.birthDate) !== null && (
-                        <span className="text-[10px] font-bold text-[#FF7900] bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+                        <span className="text-[10px] font-bold text-[#FF7900] bg-orange-50 px-2 py-0.5 rounded-md">
                           Âge calculé : {calculateAge(formData.birthDate)} ans
                         </span>
                       )}
@@ -1280,7 +1280,7 @@ export default function AdminEmployeesPage() {
                       type="date"
                       value={formData.birthDate}
                       onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     />
                   </div>
 
@@ -1293,7 +1293,7 @@ export default function AdminEmployeesPage() {
                       value={formData.studyDomain}
                       onChange={(e) => setFormData({ ...formData, studyDomain: e.target.value })}
                       placeholder="Ex: Comptabilité, Gestion, Informatique..."
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     />
                   </div>
                 </div>
@@ -1301,7 +1301,7 @@ export default function AdminEmployeesPage() {
 
               {/* SECTION 4 : SANTÉ & DOSSIER MÉDICAL */}
               <div>
-                <div className="flex items-center justify-between mb-3 pb-1 border-b border-[#DCE2EA]">
+                <div className="flex items-center justify-between mb-3 pb-1 border-b border-slate-100">
                   <h4 className="text-[11px] font-bold text-[#FF7900] uppercase tracking-wider">
                     4. Santé & Dossier Médical
                   </h4>
@@ -1316,7 +1316,7 @@ export default function AdminEmployeesPage() {
                     <select
                       value={formData.bloodGroup}
                       onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors font-medium"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors font-medium"
                     >
                       <option value="">Non renseigné</option>
                       {BLOOD_GROUPS.map((grp) => (
@@ -1336,7 +1336,7 @@ export default function AdminEmployeesPage() {
                       value={formData.medicalNotes}
                       onChange={(e) => setFormData({ ...formData, medicalNotes: e.target.value })}
                       placeholder="Ex: Asthme, Allergie pénicilline, Diabète (laisser vide si aucune)"
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     />
                   </div>
                 </div>
@@ -1344,7 +1344,7 @@ export default function AdminEmployeesPage() {
 
               {/* SECTION 5 : APPEL EN CAS D'URGENCE */}
               <div>
-                <div className="flex items-center justify-between mb-3 pb-1 border-b border-[#DCE2EA]">
+                <div className="flex items-center justify-between mb-3 pb-1 border-b border-slate-100">
                   <h4 className="text-[11px] font-bold text-[#FF7900] uppercase tracking-wider">
                     5. Appel en Cas d'Urgence
                   </h4>
@@ -1361,7 +1361,7 @@ export default function AdminEmployeesPage() {
                       value={formData.emergencyContactName}
                       onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
                       placeholder="Ex: Marie Joseph"
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     />
                   </div>
 
@@ -1374,7 +1374,7 @@ export default function AdminEmployeesPage() {
                       value={formData.emergencyContactRelation}
                       onChange={(e) => setFormData({ ...formData, emergencyContactRelation: e.target.value })}
                       placeholder="Ex: Épouse, Père, Proche..."
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     />
                   </div>
 
@@ -1387,14 +1387,14 @@ export default function AdminEmployeesPage() {
                       value={formData.emergencyContactPhone}
                       onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
                       placeholder="Ex: +509 3000-0000"
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                      className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                     />
                   </div>
                 </div>
               </div>
 
               {/* FOOTER ACTIONS */}
-              <div className="pt-3 border-t border-[#DCE2EA] flex flex-col sm:flex-row items-center justify-between gap-3">
+              <div className="pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
                 {editingEmployee && (formData.email || editingEmployee.email) ? (
                   <button
                     type="button"
@@ -1430,7 +1430,7 @@ export default function AdminEmployeesPage() {
                   <button
                     type="button"
                     onClick={() => setIsModalOpen(false)}
-                    className="flex-1 sm:flex-none px-4 py-2.5 bg-white border border-[#DCE2EA] text-[#64748B] hover:bg-slate-50 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
+                    className="flex-1 sm:flex-none px-4 py-2.5 bg-[#F4F6F9] text-[#64748B] hover:bg-slate-200/70 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
                   >
                     Annuler
                   </button>
@@ -1459,7 +1459,7 @@ export default function AdminEmployeesPage() {
       {/* INVITATION & PASSWORD RESET MODAL */}
       {mounted && inviteModalData?.open && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[9999] flex items-center justify-center p-4 animate-fadeIn">
-          <div className="relative bg-white rounded-2xl border border-[#DCE2EA] shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 animate-scaleUp">
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 animate-scaleUp">
             {/* Close cross button (X) */}
             <button
               type="button"
@@ -1509,7 +1509,7 @@ export default function AdminEmployeesPage() {
                   type="text"
                   readOnly
                   value={inviteModalData.inviteLink}
-                  className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] select-all font-mono"
+                  className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] select-all font-mono"
                 />
                 <button
                   type="button"
@@ -1549,7 +1549,7 @@ export default function AdminEmployeesPage() {
               </button>
             </div>
 
-            <div className="pt-3 border-t border-[#DCE2EA] flex justify-end">
+            <div className="pt-3 border-t border-slate-100 flex justify-end">
               <button
                 type="button"
                 onClick={() => setInviteModalData(null)}
@@ -1566,8 +1566,8 @@ export default function AdminEmployeesPage() {
       {/* CONFIRMATION MODAL BEFORE GIVING ACCESS / SENDING INVITE */}
       {mounted && confirmInviteData && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[9999] flex items-center justify-center p-4 animate-fadeIn">
-          <div className="relative bg-white rounded-2xl border border-[#DCE2EA] shadow-2xl max-w-md w-full p-6 space-y-4 animate-scaleUp">
-            <div className="flex items-center justify-between pb-3 border-b border-[#DCE2EA]">
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-scaleUp">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2.5">
                 <div
                   className={`w-9 h-9 rounded-xl flex items-center justify-center shadow-xs ${
@@ -1601,13 +1601,13 @@ export default function AdminEmployeesPage() {
             </div>
 
             {confirmInviteError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
+              <div className="p-3 bg-rose-50 text-rose-700 text-xs rounded-xl flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 <span>{confirmInviteError}</span>
               </div>
             )}
 
-            <div className="p-3 bg-slate-50 border border-[#DCE2EA] rounded-xl text-xs text-[#263445]">
+            <div className="p-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445]">
               <p className="font-semibold text-[#062653] mb-0.5">
                 {confirmInviteData.connectionStatus === "CONNECTE"
                   ? "Réinitialiser le mot de passe de ce compte ?"
@@ -1649,7 +1649,7 @@ export default function AdminEmployeesPage() {
                   onChange={(e) =>
                     setConfirmInviteData({ ...confirmInviteData, email: e.target.value })
                   }
-                  className="w-full h-10 px-3.5 border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                  className="w-full h-10 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                 />
               </div>
 
@@ -1662,7 +1662,7 @@ export default function AdminEmployeesPage() {
                   onChange={(e) =>
                     setConfirmInviteData({ ...confirmInviteData, role: e.target.value })
                   }
-                  className="w-full h-10 px-3.5 border border-[#062653] rounded-xl text-xs font-semibold text-[#062653] focus:bg-white focus:border-[#FF7900] transition-colors cursor-pointer shadow-xs"
+                  className="w-full h-10 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-semibold text-[#062653] focus:bg-white transition-colors cursor-pointer"
                 >
                   {ASSIGNED_ROLES.map((r) => (
                     <option key={r.value} value={r.value}>
@@ -1675,11 +1675,11 @@ export default function AdminEmployeesPage() {
                 </p>
               </div>
 
-              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#DCE2EA]">
+              <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                 <button
                   type="button"
                   onClick={() => setConfirmInviteData(null)}
-                  className="px-4 py-2.5 text-xs font-semibold text-[#64748B] hover:bg-slate-100 rounded-xl cursor-pointer transition-colors"
+                  className="px-4 py-2.5 bg-[#F4F6F9] text-xs font-semibold text-[#64748B] hover:bg-slate-200/70 rounded-xl cursor-pointer transition-colors"
                 >
                   Annuler
                 </button>

@@ -288,18 +288,13 @@ export default function RolesPermissionsPage() {
       </div>
 
       {/* 2. EXPLANATORY BANNER */}
-      <div className="bg-[#FFF4EB] border border-[#FF7900]/20 rounded-xl p-4 text-xs text-[#263445] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <Shield className="w-5 h-5 text-[#FF7900] shrink-0 mt-0.5" />
-          <div>
-            <span className="font-bold text-[#062653] block text-sm">
-              Hiérarchie de l'Entreprise & Droits d'Accès par Onglet
-            </span>
-            <p className="text-[#64748B] mt-0.5">
-              Configurez les rôles de votre organisation et déterminez pour chaque onglet les autorisations précises : <strong>Consulter</strong>, <strong>Créer</strong>, <strong>Modifier</strong> et <strong>Supprimer</strong>.
-            </p>
-          </div>
-        </div>
+      <div className="text-xs text-[#263445]">
+        <span className="font-bold text-[#062653] block text-sm">
+          Hiérarchie de l'Entreprise & Droits d'Accès par Onglet
+        </span>
+        <p className="text-[#64748B] mt-0.5">
+          Configurez les rôles de votre organisation et déterminez pour chaque onglet les autorisations précises : <strong>Consulter</strong>, <strong>Créer</strong>, <strong>Modifier</strong> et <strong>Supprimer</strong>.
+        </p>
       </div>
 
       {/* 4. HIERARCHY FILTER PILLS */}
@@ -321,7 +316,7 @@ export default function RolesPermissionsPage() {
             className={`px-3 py-1.5 rounded-lg font-semibold shrink-0 transition-all cursor-pointer ${
               hierarchyFilter === f.key
                 ? "bg-[#062653] text-white shadow-xs"
-                : "bg-white text-slate-600 hover:bg-slate-100 border border-[#DCE2EA]"
+                : "bg-white text-slate-600 hover:bg-slate-100 shadow-2xs"
             }`}
           >
             {f.label}
@@ -347,7 +342,7 @@ export default function RolesPermissionsPage() {
             return (
               <div
                 key={r.id}
-                className="bg-white rounded-xl border border-[#DCE2EA] shadow-xs p-5 flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow"
+                className="bg-white rounded-xl shadow-xs p-5 flex flex-col justify-between space-y-4 hover:shadow-md transition-shadow"
               >
                 <div className="space-y-3">
                   <div className="flex items-start justify-between gap-3">
@@ -365,16 +360,16 @@ export default function RolesPermissionsPage() {
                         </h3>
                         <div className="flex items-center gap-1.5 mt-1 flex-wrap">
                           <span
-                            className={`px-2 py-0.5 text-[10px] font-bold rounded-md border ${levelInfo.color}`}
+                            className={`px-2 py-0.5 text-[10px] font-bold rounded-md ${levelInfo.color}`}
                           >
                             {levelInfo.badge}
                           </span>
                           {r.isSystem ? (
-                            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-slate-100 text-slate-600 border border-slate-200">
+                            <span className="px-2 py-0.5 text-[10px] font-semibold rounded-md bg-slate-100 text-slate-600">
                               Rôle Système
                             </span>
                           ) : (
-                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-50 text-emerald-700 border border-emerald-200">
+                            <span className="px-2 py-0.5 text-[10px] font-bold rounded-md bg-emerald-50 text-emerald-700">
                               Rôle Personnalisé
                             </span>
                           )}
@@ -388,7 +383,7 @@ export default function RolesPermissionsPage() {
                   </p>
 
                   {/* Permissions Overview */}
-                  <div className="pt-2 border-t border-[#DCE2EA]/60 space-y-2">
+                  <div className="pt-2 border-t border-slate-100 space-y-2">
                     <div className="flex items-center justify-between text-[11px] font-bold text-slate-500">
                       <span>Onglets accordés :</span>
                       <span className="text-[#062653] font-mono">
@@ -410,17 +405,17 @@ export default function RolesPermissionsPage() {
                         return (
                           <div
                             key={mKey}
-                            className={`px-2 py-1 rounded-md border text-[11px] flex flex-col gap-0.5 font-medium ${
+                            className={`px-2 py-1 rounded-md text-[11px] flex flex-col gap-0.5 font-medium ${
                               isPartial
-                                ? "bg-amber-50/70 border-amber-200 text-amber-950"
-                                : "bg-slate-50 border-slate-200 text-slate-800"
+                                ? "bg-amber-50/80 text-amber-950"
+                                : "bg-[#F4F6F9] text-slate-800"
                             }`}
                           >
                             <div className="flex items-center gap-1.5 justify-between">
                               <span className="font-semibold">{MODULE_LABELS[mKey]}</span>
                               <div className="flex items-center gap-1">
                                 {isPartial && (
-                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-200/80 text-amber-900 border border-amber-300">
+                                  <span className="px-1.5 py-0.2 rounded text-[9px] font-bold bg-amber-200/80 text-amber-900">
                                     {activeSubTabs.length}/{subTabs.length}
                                   </span>
                                 )}
@@ -461,7 +456,7 @@ export default function RolesPermissionsPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="pt-3 border-t border-[#DCE2EA] flex items-center justify-end gap-2">
+                <div className="pt-3 border-t border-slate-100 flex items-center justify-end gap-2">
                   {r.isDefaultOwner ? (
                     <button
                       type="button"
@@ -515,14 +510,14 @@ export default function RolesPermissionsPage() {
       >
         <form onSubmit={handleSaveRole} className="space-y-5 text-xs">
           {roleFormError && (
-            <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-medium flex items-center gap-2">
+            <div className="p-3 bg-rose-50 rounded-lg text-rose-700 text-xs font-medium flex items-center gap-2">
               <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
               {roleFormError}
             </div>
           )}
 
           {isOwnerRole && (
-            <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-xs flex items-center gap-2">
+            <div className="p-3 bg-amber-50 rounded-lg text-amber-900 text-xs flex items-center gap-2">
               <Crown className="w-4 h-4 text-amber-600 shrink-0" />
               <span>
                 Le compte Président Directeur Général (PDG) détient le statut de super-propriétaire de l'entreprise avec l'ensemble des droits garantis.
@@ -543,7 +538,7 @@ export default function RolesPermissionsPage() {
                 value={roleName}
                 onChange={(e) => setRoleName(e.target.value)}
                 placeholder="ex. Directeur des Opérations, Contrôleur, Superviseur"
-                className="w-full h-9 px-3 border border-[#DCE2EA] rounded-lg text-xs text-[#263445] focus:bg-white focus:outline-hidden focus:border-[#062653] disabled:bg-slate-100 font-medium"
+                className="w-full h-9 px-3 bg-[#F4F6F9] rounded-lg text-xs text-[#263445] focus:bg-white focus:outline-hidden disabled:bg-slate-100 font-medium transition-colors"
               />
             </div>
 
@@ -555,7 +550,7 @@ export default function RolesPermissionsPage() {
                 disabled={isOwnerRole}
                 value={roleLevel}
                 onChange={(e) => setRoleLevel(e.target.value as HierarchyLevel)}
-                className="w-full h-9 px-3 border border-[#DCE2EA] rounded-lg text-xs text-[#263445] bg-white font-medium focus:outline-hidden focus:border-[#062653] disabled:bg-slate-100"
+                className="w-full h-9 px-3 bg-[#F4F6F9] rounded-lg text-xs text-[#263445] font-medium focus:bg-white focus:outline-hidden disabled:bg-slate-100 transition-colors"
               >
                 <option value="DIRECTION">Niveau 1 — Direction & Propriétaire</option>
                 <option value="MANAGEMENT">Niveau 2 — Management & Cadres</option>
@@ -575,12 +570,12 @@ export default function RolesPermissionsPage() {
               value={roleDescription}
               onChange={(e) => setRoleDescription(e.target.value)}
               placeholder="ex. Supervision des activités courantes, validation des demandes et contrôle des rapports..."
-              className="w-full h-9 px-3 border border-[#DCE2EA] rounded-lg text-xs text-[#263445] focus:bg-white focus:outline-hidden focus:border-[#062653] disabled:bg-slate-100"
+              className="w-full h-9 px-3 bg-[#F4F6F9] rounded-lg text-xs text-[#263445] focus:bg-white focus:outline-hidden disabled:bg-slate-100 transition-colors"
             />
           </div>
 
           {/* PERMISSIONS MATRIX */}
-          <div className="space-y-2 pt-2 border-t border-[#DCE2EA]">
+          <div className="space-y-2 pt-2 border-t border-slate-100">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <div>
                 <h4 className="font-bold text-[#062653] text-xs flex items-center gap-1.5">
@@ -597,21 +592,21 @@ export default function RolesPermissionsPage() {
                   <button
                     type="button"
                     onClick={() => applyPresetPermissions("all")}
-                    className="px-2.5 py-1 rounded-md bg-[#FFF4EB] text-[#FF7900] hover:bg-[#FFE8D6] text-[10px] font-bold border border-[#FF7900]/30 transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-md bg-[#FFF4EB] text-[#FF7900] hover:bg-[#FFE8D6] text-[10px] font-bold transition-colors cursor-pointer"
                   >
                     Tout accorder
                   </button>
                   <button
                     type="button"
                     onClick={() => applyPresetPermissions("readonly")}
-                    className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 text-[10px] font-bold border border-slate-300 transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-md bg-slate-100 text-slate-700 hover:bg-slate-200 text-[10px] font-bold transition-colors cursor-pointer"
                   >
                     Lecture seule
                   </button>
                   <button
                     type="button"
                     onClick={() => applyPresetPermissions("none")}
-                    className="px-2.5 py-1 rounded-md bg-rose-50 text-rose-600 hover:bg-rose-100 text-[10px] font-bold border border-rose-200 transition-colors cursor-pointer"
+                    className="px-2.5 py-1 rounded-md bg-rose-50 text-rose-600 hover:bg-rose-100 text-[10px] font-bold transition-colors cursor-pointer"
                   >
                     Tout réinitialiser
                   </button>
@@ -620,10 +615,10 @@ export default function RolesPermissionsPage() {
             </div>
 
             {/* Matrix Table */}
-            <div className="border border-[#DCE2EA] rounded-xl overflow-hidden bg-white shadow-2xs">
+            <div className="rounded-xl overflow-hidden bg-white shadow-2xs">
               <div className="max-h-[360px] overflow-y-auto">
                 <table className="w-full text-left text-xs">
-                  <thead className="bg-[#F4F6F9] text-[11px] font-bold text-[#062653] border-b border-[#DCE2EA] sticky top-0 z-10">
+                  <thead className="bg-[#F4F6F9] text-[11px] font-bold text-[#062653] border-b border-slate-200/70 sticky top-0 z-10">
                     <tr>
                       <th className="px-4 py-2.5">Onglet & Sous-onglets Système</th>
                       <th className="px-3 py-2.5 text-center">Accès Onglet</th>
@@ -634,7 +629,7 @@ export default function RolesPermissionsPage() {
                       <th className="px-3 py-2.5 text-right">Action</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-[#DCE2EA]">
+                  <tbody className="divide-y divide-slate-100">
                     {(Object.keys(MODULE_LABELS) as ModuleKey[]).map((mKey) => {
                       const p = rolePermissions[mKey] || {
                         view: false,
@@ -662,13 +657,13 @@ export default function RolesPermissionsPage() {
                                 <span className="font-bold">{MODULE_LABELS[mKey]}</span>
                               </div>
                               {subTabs.length > 0 && p.view && (
-                                <span className="text-[10px] font-bold text-[#062653] bg-slate-100 px-2 py-0.5 rounded border border-[#DCE2EA]">
+                                <span className="text-[10px] font-bold text-[#062653] bg-slate-100 px-2 py-0.5 rounded">
                                   {subTabs.filter((s) => isSubTabChecked(mKey, s.id)).length} / {subTabs.length} sous-onglets
                                 </span>
                               )}
                             </div>
                             {subTabs.length > 0 && (
-                              <div className="mt-2 ml-4 pl-2.5 border-l-2 border-[#DCE2EA] space-y-1.5">
+                              <div className="mt-2 ml-4 pl-2.5 border-l-2 border-slate-200/70 space-y-1.5">
                                 <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider block">
                                   Sous-onglets autorisés :
                                 </span>
@@ -677,10 +672,10 @@ export default function RolesPermissionsPage() {
                                   return (
                                     <label
                                       key={st.id}
-                                      className={`flex items-start gap-2 text-[11px] p-2 rounded-lg border transition-all cursor-pointer ${
+                                      className={`flex items-start gap-2 text-[11px] p-2 rounded-lg transition-all cursor-pointer ${
                                         isChecked
-                                          ? "bg-emerald-50/70 border-emerald-300/80 text-emerald-950 font-medium"
-                                          : "bg-slate-50/70 border-slate-200/60 text-slate-500 hover:bg-slate-100"
+                                          ? "bg-emerald-50/80 text-emerald-950 font-medium"
+                                          : "bg-[#F4F6F9] text-slate-500 hover:bg-slate-200/60"
                                       }`}
                                     >
                                       <input
@@ -785,11 +780,11 @@ export default function RolesPermissionsPage() {
             </div>
           </div>
 
-          <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#DCE2EA]">
+          <div className="flex items-center justify-end gap-2 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={() => setRoleModalOpen(false)}
-              className="px-3.5 py-2 text-xs font-medium text-[#64748B] hover:bg-[#F4F6F9] rounded-lg cursor-pointer"
+              className="px-3.5 py-2 text-xs font-medium text-[#64748B] bg-[#F4F6F9] hover:bg-slate-200/70 rounded-lg cursor-pointer"
             >
               Fermer
             </button>
@@ -797,7 +792,7 @@ export default function RolesPermissionsPage() {
               <button
                 type="submit"
                 disabled={roleSaving}
-                className="px-4 py-2 text-xs font-semibold text-white bg-[#062653] hover:bg-[#031B3A] rounded-lg shadow-xs cursor-pointer border-b-2 border-[#FF7900]"
+                className="px-4 py-2 text-xs font-semibold text-white bg-[#062653] hover:bg-[#031B3A] rounded-lg shadow-xs cursor-pointer"
               >
                 {roleSaving
                   ? "Enregistrement..."

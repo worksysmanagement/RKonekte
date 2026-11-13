@@ -485,8 +485,15 @@ function AuthContent() {
         </div>
 
         {/* --- Bottom Footer Info --- */}
-        <div className="relative z-10 pt-3 border-t border-white/10 flex items-center text-xs text-white">
+        <div className="relative z-10 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-white">
           <span className="text-white font-medium">© 2026 RKonekte</span>
+          <a
+            href="mailto:rkonekte509@gmail.com?subject=Contact%20RKonekte"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-semibold transition-all cursor-pointer"
+          >
+            <Mail className="w-3.5 h-3.5 text-[#FF7900]" />
+            <span>Nous contacter</span>
+          </a>
         </div>
       </div>
 
@@ -499,7 +506,7 @@ function AuthContent() {
               : stoppedContext?.isAdmin && !stoppedContext?.pendingRenewal
               ? "max-w-[580px] p-6 sm:p-8"
               : "max-w-[440px] p-6 sm:p-10"
-          } bg-white rounded-3xl shadow-xl shadow-slate-200/80 border border-slate-100 relative z-10 transition-all duration-200 my-auto`}
+          } bg-white rounded-3xl shadow-xl shadow-slate-200/80 relative z-10 transition-all duration-200 my-auto`}
         >
           {/* ================= MODE: LOGIN ================= */}
           {mode === "login" && stoppedContext && !stoppedContext.isAdmin && (
@@ -547,7 +554,7 @@ function AuthContent() {
                   alt="RKonekte"
                   className="h-12 w-auto object-contain mb-2"
                 />
-                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                <span className="px-3 py-1 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800">
                   Traitement en cours
                 </span>
               </div>
@@ -570,7 +577,7 @@ function AuthContent() {
                   type="button"
                   onClick={() => fetchStoppedContext(true)}
                   disabled={stoppedRefreshing}
-                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-[#062653] text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                  className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-[#F4F6F9] hover:bg-slate-200/70 text-[#062653] text-xs font-semibold inline-flex items-center justify-center gap-2 transition-colors cursor-pointer"
                 >
                   <RefreshCw
                     className={`w-3.5 h-3.5 ${stoppedRefreshing ? "animate-spin" : ""}`}
@@ -627,7 +634,7 @@ function AuthContent() {
                     type="button"
                     onClick={() => fetchStoppedContext(true)}
                     disabled={stoppedRefreshing}
-                    className="px-2.5 py-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-[11px] font-semibold text-[#062653] flex items-center gap-1 shrink-0 cursor-pointer"
+                    className="px-2.5 py-1.5 rounded-lg bg-[#F4F6F9] hover:bg-slate-200/70 text-[11px] font-semibold text-[#062653] flex items-center gap-1 shrink-0 cursor-pointer"
                     title="Vérifier si le service a été réactivé"
                   >
                     <RefreshCw
@@ -691,7 +698,7 @@ function AuthContent() {
                 {stoppedStep === 1 && (
                   <div className="space-y-4 animate-fadeIn">
                     {stoppedContext.lastRejectedRenewal && (
-                      <div className="p-2.5 rounded-xl bg-rose-50 border border-rose-200 text-[11px] text-rose-800">
+                      <div className="p-2.5 rounded-xl bg-rose-50 text-[11px] text-rose-800">
                         <strong>Demande précédente refusée :</strong>{" "}
                         {stoppedContext.lastRejectedRenewal.rejectionReason ||
                           "Veuillez vérifier votre paiement et renvoyer votre preuve."}
@@ -711,10 +718,10 @@ function AuthContent() {
                                 key={plan.durationMonths}
                                 type="button"
                                 onClick={() => setStoppedDuration(plan.durationMonths)}
-                                className={`p-3 rounded-xl border text-left transition-all cursor-pointer ${
+                                className={`p-3 rounded-xl text-left transition-all cursor-pointer ${
                                   active
-                                    ? "border-[#FF7900] bg-[#FFF8F2] shadow-2xs"
-                                    : "border-slate-200 hover:border-slate-300 bg-white"
+                                    ? "ring-2 ring-[#FF7900] bg-[#FFF8F2] shadow-2xs"
+                                    : "bg-[#F4F6F9] hover:bg-slate-200/70"
                                 }`}
                               >
                                 <div className="flex items-center justify-between gap-1">
@@ -763,7 +770,7 @@ function AuthContent() {
                     {stoppedStep === 2 && (
                       <div className="space-y-4 animate-fadeIn">
                         {selectedPlan && (
-                          <div className="px-3.5 py-2.5 rounded-xl bg-[#F4F6F9] border border-slate-200 flex items-center justify-between text-xs">
+                          <div className="px-3.5 py-2.5 rounded-xl bg-[#F4F6F9] flex items-center justify-between text-xs">
                             <span className="text-[#64748B] font-medium">
                               Forfait choisi :{" "}
                               <strong className="text-[#062653]">{selectedPlan.label}</strong>
@@ -785,7 +792,7 @@ function AuthContent() {
                           </div>
 
                           {accounts.length === 0 ? (
-                            <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-[#64748B]">
+                            <div className="p-4 rounded-xl bg-[#F4F6F9] text-xs text-[#64748B]">
                               Aucun compte de paiement n'est configuré pour le moment.
                             </div>
                           ) : (
@@ -799,10 +806,10 @@ function AuthContent() {
                                       setStoppedMethod(acc.label);
                                       setStoppedError(null);
                                     }}
-                                    className={`p-3 rounded-xl border-2 flex items-center justify-between gap-3 cursor-pointer transition-all ${
+                                    className={`p-3 rounded-xl flex items-center justify-between gap-3 cursor-pointer transition-all ${
                                       isChosen
-                                        ? "border-[#FF7900] bg-[#FFF8F2] shadow-2xs"
-                                        : "border-slate-200 hover:border-slate-300 bg-white"
+                                        ? "ring-2 ring-[#FF7900] bg-[#FFF8F2] shadow-2xs"
+                                        : "bg-[#F4F6F9] hover:bg-slate-200/70"
                                     }`}
                                   >
                                     <div className="flex items-center gap-3 min-w-0">
@@ -839,7 +846,7 @@ function AuthContent() {
                                         e.stopPropagation();
                                         handleStoppedCopy(acc);
                                       }}
-                                      className="px-2.5 py-1.5 rounded-lg border border-slate-200 bg-white hover:bg-slate-50 text-[10px] font-semibold text-[#062653] flex items-center gap-1 shrink-0 cursor-pointer"
+                                      className="px-2.5 py-1.5 rounded-lg bg-white shadow-2xs hover:bg-slate-50 text-[10px] font-semibold text-[#062653] flex items-center gap-1 shrink-0 cursor-pointer"
                                     >
                                       {stoppedCopiedId === acc.id ? (
                                         <>
@@ -874,7 +881,7 @@ function AuthContent() {
                               setStoppedError(null);
                               setStoppedStep(1);
                             }}
-                            className="px-4 h-11 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-[#062653] flex items-center gap-1.5 cursor-pointer"
+                            className="px-4 h-11 rounded-xl bg-[#F4F6F9] hover:bg-slate-200/70 text-xs font-semibold text-[#062653] flex items-center gap-1.5 cursor-pointer"
                           >
                             <ArrowLeft className="w-4 h-4" />
                             <span>Précédent</span>
@@ -904,7 +911,7 @@ function AuthContent() {
                     {/* STEP 3 ONLY: Upload Preuve de paiement + Nom de l'entreprise optionnel */}
                     {stoppedStep === 3 && (
                       <div className="space-y-3.5 animate-fadeIn">
-                        <div className="p-3 rounded-xl bg-[#F4F6F9] border border-slate-200 flex items-center justify-between gap-3">
+                        <div className="p-3 rounded-xl bg-[#F4F6F9] flex items-center justify-between gap-3">
                           <div className="flex items-center gap-2.5 min-w-0">
                             {chosenAccount ? (
                               <PaymentAccountLogo
@@ -940,8 +947,8 @@ function AuthContent() {
                           </div>
 
                           {!stoppedProofDataUrl ? (
-                            <label className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl border-2 border-dashed border-slate-300 hover:border-[#FF7900] bg-[#F8FAFC] hover:bg-[#FFF8F2]/60 transition-all cursor-pointer text-center">
-                              <div className="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[#FF7900] shadow-2xs">
+                            <label className="flex flex-col items-center justify-center gap-2 p-5 rounded-2xl bg-[#F4F6F9] hover:bg-[#FFF8F2]/80 transition-all cursor-pointer text-center">
+                              <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#FF7900] shadow-2xs">
                                 <Upload className="w-5 h-5" />
                               </div>
                               <div className="space-y-0.5">
@@ -960,17 +967,17 @@ function AuthContent() {
                               />
                             </label>
                           ) : (
-                            <div className="p-3 rounded-2xl border border-emerald-200 bg-emerald-50/50 space-y-2.5">
+                            <div className="p-3 rounded-2xl bg-emerald-50/60 space-y-2.5">
                               <div className="flex items-center justify-between gap-2">
                                 <div className="flex items-center gap-2.5 min-w-0">
                                   {stoppedProofDataUrl.startsWith("data:image/") ? (
                                     <img
                                       src={stoppedProofDataUrl}
                                       alt="Aperçu preuve"
-                                      className="w-12 h-12 rounded-lg object-cover border border-slate-200 bg-white shrink-0"
+                                      className="w-12 h-12 rounded-lg object-cover bg-white shrink-0"
                                     />
                                   ) : (
-                                    <div className="w-12 h-12 rounded-lg bg-white border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                                    <div className="w-12 h-12 rounded-lg bg-white text-rose-600 flex items-center justify-center shrink-0">
                                       <FileText className="w-6 h-6" />
                                     </div>
                                   )}
@@ -994,7 +1001,7 @@ function AuthContent() {
                                       });
                                       setStoppedPreviewOpen(true);
                                     }}
-                                    className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-[11px] font-semibold text-[#062653] hover:bg-slate-50 flex items-center gap-1 cursor-pointer"
+                                    className="px-2.5 py-1.5 rounded-lg bg-white shadow-2xs text-[11px] font-semibold text-[#062653] hover:bg-slate-50 flex items-center gap-1 cursor-pointer"
                                   >
                                     <Eye className="w-3.5 h-3.5" />
                                     <span>Voir</span>
@@ -1005,7 +1012,7 @@ function AuthContent() {
                                       setStoppedProofDataUrl("");
                                       setStoppedProofFileName("");
                                     }}
-                                    className="p-1.5 rounded-lg bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 cursor-pointer"
+                                    className="p-1.5 rounded-lg bg-white shadow-2xs text-rose-600 hover:bg-rose-50 cursor-pointer"
                                     title="Supprimer le fichier"
                                   >
                                     <X className="w-3.5 h-3.5" />
@@ -1025,7 +1032,7 @@ function AuthContent() {
                             value={stoppedCompanyName}
                             onChange={(e) => setStoppedCompanyName(e.target.value)}
                             placeholder={`Ex : ${stoppedContext.organizationName} (optionnel)`}
-                            className="w-full h-10 px-3.5 bg-[#F8FAFC] focus:bg-white border border-slate-200 focus:border-[#FF7900] rounded-xl text-xs text-[#062653] outline-none"
+                            className="w-full h-10 px-3.5 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs text-[#062653] outline-none transition-colors"
                           />
                         </div>
 
@@ -1038,7 +1045,7 @@ function AuthContent() {
                             value={stoppedRef}
                             onChange={(e) => setStoppedRef(e.target.value)}
                             placeholder="Ex : N° de transaction ou bordereau (optionnel)"
-                            className="w-full h-10 px-3.5 bg-[#F8FAFC] focus:bg-white border border-slate-200 focus:border-[#FF7900] rounded-xl text-xs font-mono text-[#062653] outline-none"
+                            className="w-full h-10 px-3.5 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs font-mono text-[#062653] outline-none transition-colors"
                           />
                         </div>
 
@@ -1056,7 +1063,7 @@ function AuthContent() {
                               setStoppedError(null);
                               setStoppedStep(2);
                             }}
-                            className="px-4 h-11 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-[#062653] flex items-center gap-1.5 cursor-pointer"
+                            className="px-4 h-11 rounded-xl bg-[#F4F6F9] hover:bg-slate-200/70 text-xs font-semibold text-[#062653] flex items-center gap-1.5 cursor-pointer"
                           >
                             <ArrowLeft className="w-4 h-4" />
                             <span>Précédent</span>
@@ -1098,7 +1105,7 @@ function AuthContent() {
                           </p>
                         </div>
 
-                        <div className="rounded-2xl border border-slate-200 bg-[#F8FAFC] divide-y divide-slate-200/80 text-xs">
+                        <div className="rounded-2xl bg-[#F4F6F9] divide-y divide-slate-200/70 text-xs">
                           {/* Durée & montant */}
                           <div className="p-3.5 flex items-center justify-between gap-3">
                             <div>
@@ -1159,16 +1166,16 @@ function AuthContent() {
                               Preuve de paiement jointe
                             </div>
                             {stoppedProofDataUrl ? (
-                              <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white border border-slate-200">
+                              <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white shadow-2xs">
                                 <div className="flex items-center gap-2.5 min-w-0">
                                   {stoppedProofDataUrl.startsWith("data:image/") ? (
                                     <img
                                       src={stoppedProofDataUrl}
                                       alt="Aperçu preuve"
-                                      className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
+                                      className="w-10 h-10 rounded-lg object-cover shrink-0"
                                     />
                                   ) : (
-                                    <div className="w-10 h-10 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                                    <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
                                       <FileText className="w-5 h-5" />
                                     </div>
                                   )}
@@ -1185,7 +1192,7 @@ function AuthContent() {
                                     });
                                     setStoppedPreviewOpen(true);
                                   }}
-                                  className="px-2.5 py-1.5 rounded-lg bg-[#F8FAFC] border border-slate-200 text-[11px] font-semibold text-[#062653] hover:bg-slate-100 flex items-center gap-1 shrink-0 cursor-pointer"
+                                  className="px-2.5 py-1.5 rounded-lg bg-[#F4F6F9] text-[11px] font-semibold text-[#062653] hover:bg-slate-200/70 flex items-center gap-1 shrink-0 cursor-pointer"
                                 >
                                   <Eye className="w-3.5 h-3.5 text-[#FF7900]" />
                                   <span>Voir</span>
@@ -1239,7 +1246,7 @@ function AuthContent() {
                               setStoppedError(null);
                               setStoppedStep(3);
                             }}
-                            className="px-4 h-11 rounded-xl border border-slate-200 hover:bg-slate-50 text-xs font-semibold text-[#062653] flex items-center gap-1.5 cursor-pointer"
+                            className="px-4 h-11 rounded-xl bg-[#F4F6F9] hover:bg-slate-200/70 text-xs font-semibold text-[#062653] flex items-center gap-1.5 cursor-pointer"
                           >
                             <ArrowLeft className="w-4 h-4" />
                             <span>Précédent</span>
@@ -1295,7 +1302,7 @@ function AuthContent() {
 
               {/* Payment Submitted Banner */}
               {submittedBanner && (
-                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
+                <div className="mb-4 p-3 bg-emerald-50 rounded-xl text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>
                     Votre demande de renouvellement a bien été soumise. Votre processus est en cours de traitement.
@@ -1305,7 +1312,7 @@ function AuthContent() {
 
               {/* Service Resumed Banner */}
               {resumedBanner && (
-                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
+                <div className="mb-4 p-3 bg-emerald-50 rounded-xl text-emerald-800 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>Le service de votre entreprise a été réactivé ! Vous pouvez vous connecter.</span>
                 </div>
@@ -1313,7 +1320,7 @@ function AuthContent() {
 
               {/* Reset Success Message */}
               {resetSuccess && (
-                <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-emerald-700 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
+                <div className="mb-4 p-3 bg-emerald-50 rounded-xl text-emerald-700 text-xs font-semibold flex items-center gap-2 animate-fadeIn">
                   <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>Votre mot de passe a été modifié avec succès. Vous pouvez maintenant vous connecter.</span>
                 </div>
@@ -1321,7 +1328,7 @@ function AuthContent() {
 
               {/* Inactive / Unactivated Account Banner */}
               {inactiveNotice && !loginError && (
-                <div className="mb-4 p-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-900 text-xs font-medium flex items-start gap-2 animate-fadeIn">
+                <div className="mb-4 p-3 bg-amber-50 rounded-xl text-amber-900 text-xs font-medium flex items-start gap-2 animate-fadeIn">
                   <AlertCircle className="w-4 h-4 text-[#FF7900] shrink-0 mt-0.5" />
                   <span>
                     Votre entreprise ou votre compte n'est pas encore activé (ou a été désactivé). Si vous venez de soumettre votre inscription, veuillez ouvrir le lien d'activation envoyé par e-mail pour définir votre mot de passe.
@@ -1348,7 +1355,7 @@ function AuthContent() {
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
                       placeholder="Nom d'utilisateur ou e-mail"
-                      className="w-full h-12 pl-11 pr-4 bg-[#F8FAFC] hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 transition-all outline-none font-medium"
+                      className="w-full h-12 pl-11 pr-4 bg-[#F4F6F9] hover:bg-slate-100/80 focus:bg-white rounded-xl text-sm text-slate-900 placeholder:text-slate-400 transition-all outline-none font-medium"
                     />
                     <User className="w-4 h-4 text-[#091A30] absolute left-4 top-4" />
                   </div>
@@ -1363,7 +1370,7 @@ function AuthContent() {
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                       placeholder="Mot de passe"
-                      className="w-full h-12 pl-11 pr-11 bg-[#F8FAFC] hover:bg-slate-50 focus:bg-white border border-slate-200 focus:border-[#FF6B00] focus:ring-4 focus:ring-[#FF6B00]/10 rounded-xl text-sm text-slate-900 placeholder:text-slate-400 transition-all outline-none font-medium"
+                      className="w-full h-12 pl-11 pr-11 bg-[#F4F6F9] hover:bg-slate-100/80 focus:bg-white rounded-xl text-sm text-slate-900 placeholder:text-slate-400 transition-all outline-none font-medium"
                     />
                     <Lock className="w-4 h-4 text-[#091A30] absolute left-4 top-4" />
                     <button
@@ -1393,7 +1400,7 @@ function AuthContent() {
                       id="rememberMe"
                       checked={rememberMe}
                       onChange={(e) => setRememberMe(e.target.checked)}
-                      className="w-4 h-4 rounded text-[#091A30] accent-[#091A30] focus:ring-[#091A30] border-slate-300 cursor-pointer"
+                      className="w-4 h-4 rounded text-[#091A30] accent-[#091A30] focus:ring-[#091A30] cursor-pointer"
                     />
                     <label
                       htmlFor="rememberMe"
@@ -1425,7 +1432,7 @@ function AuthContent() {
               </form>
 
               {/* Toggle to Registration Form */}
-              <div className="mt-8 pt-5 border-t border-[#DCE2EA] text-center">
+              <div className="mt-8 pt-5 border-t border-slate-100 text-center">
                 <button
                   type="button"
                   onClick={handleSwitchToRegister}
@@ -1549,7 +1556,7 @@ function AuthContent() {
                           value={registerData.companyName}
                           onChange={handleRegisterChange}
                           placeholder="Ex: Carib Tech Solutions S.A."
-                          className="w-full h-10 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-sm font-medium text-[#263445] focus:bg-white focus:border-[#FF7900] outline-none transition-colors"
+                          className="w-full h-10 px-3.5 bg-[#F4F6F9] rounded-xl text-sm font-medium text-[#263445] focus:bg-white outline-none transition-colors"
                         />
                       </div>
 
@@ -1565,7 +1572,7 @@ function AuthContent() {
                           value={registerData.companyEmail}
                           onChange={handleRegisterChange}
                           placeholder="contact@entreprise.com"
-                          className="w-full h-10 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-sm font-medium text-[#263445] focus:bg-white focus:border-[#FF7900] outline-none transition-colors"
+                          className="w-full h-10 px-3.5 bg-[#F4F6F9] rounded-xl text-sm font-medium text-[#263445] focus:bg-white outline-none transition-colors"
                         />
                         <span className="text-[11px] text-slate-500 mt-1 block leading-tight italic">
                           Un email direct sera envoyé à cette adresse pour valider l'enregistrement.
@@ -1596,7 +1603,7 @@ function AuthContent() {
                           value={registerData.address}
                           onChange={handleRegisterChange}
                           placeholder="Ex: 14, Rue Panaméricaine, Pétion-Ville"
-                          className="w-full h-10 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-sm font-medium text-[#263445] focus:bg-white focus:border-[#FF7900] outline-none transition-colors"
+                          className="w-full h-10 px-3.5 bg-[#F4F6F9] rounded-xl text-sm font-medium text-[#263445] focus:bg-white outline-none transition-colors"
                         />
                       </div>
 
@@ -1610,7 +1617,7 @@ function AuthContent() {
                           required
                           value={registerData.employeeRange}
                           onChange={handleRegisterChange}
-                          className="w-full h-10 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-sm font-semibold text-[#263445] focus:bg-white focus:border-[#FF7900] outline-none transition-colors cursor-pointer"
+                          className="w-full h-10 px-3.5 bg-[#F4F6F9] rounded-xl text-sm font-semibold text-[#263445] focus:bg-white outline-none transition-colors cursor-pointer"
                         >
                           {EMPLOYEE_RANGES.map((range) => (
                             <option key={range} value={range}>
@@ -1623,7 +1630,7 @@ function AuthContent() {
                   </div>
 
                   {/* Section 2: Responsable de l'enregistrement */}
-                  <div className="pt-2.5 border-t border-[#DCE2EA]">
+                  <div className="pt-2.5 border-t border-slate-100">
                     <h3 className="text-sm font-bold text-[#FF7900] uppercase tracking-wider mb-2">
                       2. Responsable de l'enregistrement
                     </h3>
@@ -1641,7 +1648,7 @@ function AuthContent() {
                           value={registerData.applicantName}
                           onChange={handleRegisterChange}
                           placeholder="Ex: Piton Rodjensky Emmanuel"
-                          className="w-full h-10 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-sm font-medium text-[#263445] focus:bg-white focus:border-[#FF7900] outline-none transition-colors"
+                          className="w-full h-10 px-3.5 bg-[#F4F6F9] rounded-xl text-sm font-medium text-[#263445] focus:bg-white outline-none transition-colors"
                         />
                       </div>
 
@@ -1655,7 +1662,7 @@ function AuthContent() {
                           required
                           value={registerData.applicantRole}
                           onChange={handleRegisterChange}
-                          className="w-full h-10 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-sm font-semibold text-[#263445] focus:bg-white focus:border-[#FF7900] outline-none transition-colors cursor-pointer"
+                          className="w-full h-10 px-3.5 bg-[#F4F6F9] rounded-xl text-sm font-semibold text-[#263445] focus:bg-white outline-none transition-colors cursor-pointer"
                         >
                           {ROLES.map((role) => (
                             <option key={role} value={role}>
@@ -1668,7 +1675,7 @@ function AuthContent() {
                   </div>
 
                   {/* Action Bar */}
-                  <div className="pt-5 pb-1 border-t border-[#DCE2EA] flex items-center justify-between gap-4">
+                  <div className="pt-5 pb-1 border-t border-slate-100 flex items-center justify-between gap-4">
                     <button
                       type="button"
                       onClick={handleSwitchToLogin}
@@ -1693,6 +1700,17 @@ function AuthContent() {
               )}
             </div>
           )}
+
+          {/* Lien mobile "Nous contacter" */}
+          <div className="lg:hidden mt-8 text-center">
+            <a
+              href="mailto:rkonekte509@gmail.com?subject=Contact%20RKonekte"
+              className="inline-flex items-center gap-1.5 text-xs text-[#64748B] hover:text-[#062653] font-semibold transition-colors"
+            >
+              <Mail className="w-3.5 h-3.5 text-[#FF7900]" />
+              <span>Nous contacter : rkonekte509@gmail.com</span>
+            </a>
+          </div>
         </div>
       </div>
     </div>

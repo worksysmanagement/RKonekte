@@ -96,8 +96,8 @@ export default function AccountSecurityPage() {
 
       <div className={isEmployee ? "max-w-xl mx-auto" : "grid grid-cols-1 lg:grid-cols-2 gap-6 items-start"}>
         {/* PASSWORD CHANGE */}
-        <div className="bg-white rounded-xl border border-[#DCE2EA] p-6 shadow-xs space-y-4">
-          <div className="flex items-center justify-between pb-2 border-b border-[#DCE2EA]">
+        <div className="bg-white rounded-xl p-6 shadow-xs space-y-4">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-100">
             <div className="flex items-center gap-2">
               <KeyRound className="w-4 h-4 text-[#062653]" />
               <h3 className="text-xs font-bold uppercase tracking-wider text-[#062653]">
@@ -122,7 +122,7 @@ export default function AccountSecurityPage() {
                 value={currentPassword}
                 onChange={(e) => setCurrentPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full h-9 px-3 border border-[#DCE2EA] rounded-lg text-xs text-[#263445] focus:bg-white"
+                className="w-full h-9 px-3 bg-[#F4F6F9] rounded-lg text-xs text-[#263445] focus:bg-white transition-colors"
               />
             </div>
 
@@ -137,7 +137,7 @@ export default function AccountSecurityPage() {
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full h-9 px-3 border border-[#DCE2EA] rounded-lg text-xs text-[#263445] focus:bg-white"
+                className="w-full h-9 px-3 bg-[#F4F6F9] rounded-lg text-xs text-[#263445] focus:bg-white transition-colors"
               />
             </div>
 
@@ -152,7 +152,7 @@ export default function AccountSecurityPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="••••••••"
-                className="w-full h-9 px-3 border border-[#DCE2EA] rounded-lg text-xs text-[#263445] focus:bg-white"
+                className="w-full h-9 px-3 bg-[#F4F6F9] rounded-lg text-xs text-[#263445] focus:bg-white transition-colors"
               />
             </div>
 
@@ -171,8 +171,8 @@ export default function AccountSecurityPage() {
 
         {/* ACTIVE SESSIONS: Hidden for employees */}
         {!isEmployee && (
-          <div className="bg-white rounded-xl border border-[#DCE2EA] p-6 shadow-xs space-y-3">
-            <div className="flex items-center justify-between pb-2 border-b border-[#DCE2EA]">
+          <div className="bg-white rounded-xl p-6 shadow-xs space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
               <div className="flex items-center gap-2">
                 <Laptop className="w-4 h-4 text-[#062653]" />
                 <h3 className="text-xs font-bold uppercase tracking-wider text-[#062653]">
@@ -182,7 +182,7 @@ export default function AccountSecurityPage() {
               <span className="text-[10px] text-emerald-600 font-bold">1 en ligne</span>
             </div>
 
-            <div className="p-3 bg-[#F4F6F9] rounded-lg border border-[#DCE2EA] text-xs space-y-1">
+            <div className="p-3 bg-[#F4F6F9] rounded-lg text-xs space-y-1">
               <div className="flex items-center justify-between font-bold text-[#062653]">
                 <span>Navigateur Actuel — Chrome (Windows)</span>
                 <span className="text-[10px] text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">

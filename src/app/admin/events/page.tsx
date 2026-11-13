@@ -120,37 +120,37 @@ const TYPE_CONFIG: Record<
 > = {
   MEETING: {
     label: "Réunion",
-    bg: "bg-blue-50 text-blue-700 border-blue-200",
+    bg: "bg-blue-50 text-blue-700",
     text: "text-blue-700",
     dot: "bg-blue-600",
   },
   TRAINING: {
     label: "Formation",
-    bg: "bg-emerald-50 text-emerald-700 border-emerald-200",
+    bg: "bg-emerald-50 text-emerald-700",
     text: "text-emerald-700",
     dot: "bg-emerald-600",
   },
   HOLIDAY: {
     label: "Férié / Congé",
-    bg: "bg-amber-50 text-amber-800 border-amber-200",
+    bg: "bg-amber-50 text-amber-800",
     text: "text-amber-800",
     dot: "bg-amber-500",
   },
   ANNOUNCEMENT: {
     label: "Annonce générale",
-    bg: "bg-purple-50 text-purple-700 border-purple-200",
+    bg: "bg-purple-50 text-purple-700",
     text: "text-purple-700",
     dot: "bg-purple-600",
   },
   WORKSHOP: {
     label: "Atelier de travail",
-    bg: "bg-cyan-50 text-cyan-700 border-cyan-200",
+    bg: "bg-cyan-50 text-cyan-700",
     text: "text-cyan-700",
     dot: "bg-cyan-600",
   },
   PERSONAL: {
     label: "Personnel",
-    bg: "bg-indigo-50 text-indigo-700 border-indigo-200",
+    bg: "bg-indigo-50 text-indigo-700",
     text: "text-indigo-700",
     dot: "bg-indigo-600",
   },
@@ -731,13 +731,13 @@ export default function EventsCalendarPage() {
     <div className="space-y-6 max-w-7xl mx-auto">
       {/* Header Bar: Distinct for Non-Administrative vs Administrative Accounts */}
       {loadingUser ? (
-        <div className="p-6 bg-white rounded-2xl border border-slate-200 animate-pulse flex items-center justify-between">
+        <div className="p-6 bg-white rounded-2xl shadow-xs animate-pulse flex items-center justify-between">
           <div className="h-8 bg-slate-200 rounded w-1/3" />
           <div className="h-6 bg-slate-200 rounded w-1/4" />
         </div>
       ) : isEmployee ? (
         /* Profil Header Collaborateur (Harmonisé avec Congés / Salaires / Signatures) */
-        <div className="bg-white rounded-2xl p-5 border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="bg-white rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
               Mon Espace Événements
@@ -783,7 +783,7 @@ export default function EventsCalendarPage() {
         </div>
       ) : (
         /* Header Bar Administration */
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-200">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-slate-100">
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-2xl font-bold text-[#031B3A]">
@@ -816,9 +816,9 @@ export default function EventsCalendarPage() {
       {/* Main Grid: Calendar on Left, Upcoming / Details on Right */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Left: Interactive Calendar (8 cols) */}
-        <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col">
+        <div className="lg:col-span-8 bg-white rounded-2xl shadow-xs overflow-hidden flex flex-col">
           {/* Calendar Header */}
-          <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/50">
+          <div className="p-4 sm:p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-[#031B3A] text-white flex items-center justify-center shadow-xs">
                 <img
@@ -841,22 +841,22 @@ export default function EventsCalendarPage() {
             <div className="flex items-center gap-2">
               <button
                 onClick={goToToday}
-                className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 border border-slate-300 rounded-lg shadow-xs transition-colors"
+                className="px-3 py-1.5 text-xs font-semibold text-slate-700 bg-white hover:bg-slate-100 rounded-lg shadow-2xs transition-colors cursor-pointer"
               >
                 Aujourd'hui
               </button>
-              <div className="flex items-center border border-slate-300 rounded-lg bg-white overflow-hidden shadow-xs">
+              <div className="flex items-center rounded-lg bg-white overflow-hidden shadow-2xs">
                 <button
                   onClick={prevMonth}
-                  className="p-1.5 hover:bg-slate-100 text-slate-600 transition-colors"
+                  className="p-1.5 hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
                   title="Mois précédent"
                 >
                   <ChevronLeft className="w-4 h-4" />
                 </button>
-                <div className="w-px h-5 bg-slate-200" />
+                <div className="w-px h-5 bg-slate-100" />
                 <button
                   onClick={nextMonth}
-                  className="p-1.5 hover:bg-slate-100 text-slate-600 transition-colors"
+                  className="p-1.5 hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
                   title="Mois suivant"
                 >
                   <ChevronRight className="w-4 h-4" />
@@ -866,14 +866,14 @@ export default function EventsCalendarPage() {
           </div>
 
           {/* Days of week header */}
-          <div className="grid grid-cols-7 border-b border-slate-200 bg-slate-100/70 text-center text-xs font-bold text-slate-600 py-2.5">
+          <div className="grid grid-cols-7 border-b border-slate-100 bg-slate-100/70 text-center text-xs font-bold text-slate-600 py-2.5">
             {daysOfWeek.map((d) => (
               <div key={d}>{d}</div>
             ))}
           </div>
 
           {/* Month Days Grid */}
-          <div className="grid grid-cols-7 auto-rows-fr flex-1 bg-slate-200 gap-px">
+          <div className="grid grid-cols-7 auto-rows-fr flex-1 bg-slate-100 gap-px">
             {calendarCells.map((cell, idx) => {
               const isSelected = cell.dateStr === selectedDate;
               return (
@@ -939,7 +939,7 @@ export default function EventsCalendarPage() {
                               ? AUDIENCE_LABELS[ev.audienceType]
                               : "Général"
                           })`}
-                          className={`text-[10px] px-1.5 py-0.5 rounded truncate font-medium border ${cfg.bg}`}
+                          className={`text-[10px] px-1.5 py-0.5 rounded truncate font-medium ${cfg.bg}`}
                         >
                           <span className="font-semibold">{ev.startTime}</span> {ev.title}
                         </div>
@@ -957,7 +957,7 @@ export default function EventsCalendarPage() {
           </div>
 
           {/* Calendar Legend */}
-          <div className="p-3 bg-slate-50 border-t border-slate-200 flex flex-wrap items-center gap-4 text-xs text-slate-600">
+          <div className="p-3 bg-slate-50 border-t border-slate-100 flex flex-wrap items-center gap-4 text-xs text-slate-600">
             <span className="font-semibold text-slate-700">Légende :</span>
             {Object.entries(TYPE_CONFIG).map(([key, cfg]) => (
               <div key={key} className="flex items-center gap-1.5">
@@ -971,8 +971,8 @@ export default function EventsCalendarPage() {
         {/* Right Panel: Selected Date Details & Upcoming Events (4 cols) */}
         <div className="lg:col-span-4 space-y-6">
           {/* Selected Date Box */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm p-5">
-            <div className="pb-3 border-b border-slate-200">
+          <div className="bg-white rounded-2xl shadow-xs p-5">
+            <div className="pb-3 border-b border-slate-100">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 Journée sélectionnée
               </span>
@@ -1000,7 +1000,7 @@ export default function EventsCalendarPage() {
                     <button
                       type="button"
                       onClick={() => openModalForDate(selectedDate)}
-                      className="inline-flex items-center gap-1.5 mx-auto mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-[#031B3A] hover:bg-slate-100"
+                      className="inline-flex items-center gap-1.5 mx-auto mt-2 text-xs font-semibold px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-[#031B3A] bg-[#F4F6F9] hover:bg-slate-200/70"
                     >
                       <Plus className="w-3.5 h-3.5" />
                       Planification de l'administration
@@ -1009,7 +1009,7 @@ export default function EventsCalendarPage() {
                     <button
                       type="button"
                       onClick={() => openModalForDate(selectedDate)}
-                      className="inline-flex items-center gap-1.5 mx-auto mt-2 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-[#062653] hover:bg-slate-100 border border-[#DCE2EA]"
+                      className="inline-flex items-center gap-1.5 mx-auto mt-2 text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-[#062653] bg-[#F4F6F9] hover:bg-slate-200/70"
                     >
                       <Plus className="w-3.5 h-3.5 text-[#FF7900]" />
                       Planifier un événement perso
@@ -1023,11 +1023,11 @@ export default function EventsCalendarPage() {
                   return (
                     <div
                       key={ev.id}
-                      className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/70 hover:bg-white hover:shadow-xs transition-all space-y-2 relative group"
+                      className="p-3.5 rounded-xl bg-[#F4F6F9] hover:bg-slate-100/80 transition-all space-y-2 relative group"
                     >
                       <div className="flex items-start justify-between gap-2">
                         <span
-                          className={`px-2 py-0.5 text-[10px] font-bold rounded-md border ${cfg.bg}`}
+                          className={`px-2 py-0.5 text-[10px] font-bold rounded-md ${cfg.bg}`}
                         >
                           {cfg.label}
                         </span>
@@ -1063,7 +1063,7 @@ export default function EventsCalendarPage() {
                         </p>
                       )}
 
-                      <div className="pt-2 border-t border-slate-200/80 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
+                      <div className="pt-2 border-t border-slate-200/60 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                         <div className="flex items-center gap-1 font-medium text-slate-700">
                           {ev.isPersonal ? (
                             <>
@@ -1120,7 +1120,7 @@ export default function EventsCalendarPage() {
                     <button
                       type="button"
                       onClick={() => openModalForDate(selectedDate)}
-                      className="inline-flex items-center gap-1.5 mx-auto text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-[#062653] hover:bg-slate-100 border border-[#DCE2EA]"
+                      className="inline-flex items-center gap-1.5 mx-auto text-xs font-bold px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-[#062653] bg-[#F4F6F9] hover:bg-slate-200/70"
                     >
                       <Plus className="w-3.5 h-3.5 text-[#FF7900]" />
                       Planifier un événement perso
@@ -1178,9 +1178,7 @@ export default function EventsCalendarPage() {
                   }
                   value={title}
                   onChange={(e) => setTitle(e.target.value)}
-                  className={`w-full px-3.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 ${
-                    isAdmin ? "focus:ring-[#031B3A]" : "focus:ring-[#114C5A]"
-                  }`}
+                  className="w-full px-3.5 py-2 text-sm bg-[#F4F6F9] rounded-lg focus:bg-white focus:outline-hidden transition-colors"
                 />
               </div>
 
@@ -1194,7 +1192,7 @@ export default function EventsCalendarPage() {
                     <select
                       value={type}
                       onChange={(e) => setType(e.target.value as EventType)}
-                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#031B3A]"
+                      className="w-full px-3 py-2 text-sm bg-[#F4F6F9] rounded-lg focus:bg-white focus:outline-hidden transition-colors"
                     >
                       <option value="MEETING">Réunion d'équipe / Direction</option>
                       <option value="TRAINING">Formation interne / externe</option>
@@ -1208,7 +1206,7 @@ export default function EventsCalendarPage() {
                       onChange={(e) =>
                         setPersonalCategory(e.target.value as PersonalCategory)
                       }
-                      className="w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#114C5A]"
+                      className="w-full px-3 py-2 text-sm bg-[#F4F6F9] rounded-lg focus:bg-white focus:outline-hidden transition-colors"
                     >
                       <option value="RDV">Rendez-vous personnel</option>
                       <option value="REMINDER">Rappel / Mémo</option>
@@ -1231,9 +1229,7 @@ export default function EventsCalendarPage() {
                     required
                     value={eventDate}
                     onChange={(e) => setEventDate(e.target.value)}
-                    className={`w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 ${
-                      isAdmin ? "focus:ring-[#031B3A]" : "focus:ring-[#114C5A]"
-                    }`}
+                    className="w-full px-3 py-2 text-sm bg-[#F4F6F9] rounded-lg focus:bg-white focus:outline-hidden transition-colors"
                   />
                 </div>
               </div>
@@ -1248,9 +1244,7 @@ export default function EventsCalendarPage() {
                     type="time"
                     value={startTime}
                     onChange={(e) => setStartTime(e.target.value)}
-                    className={`w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 ${
-                      isAdmin ? "focus:ring-[#031B3A]" : "focus:ring-[#114C5A]"
-                    }`}
+                    className="w-full px-3 py-2 text-sm bg-[#F4F6F9] rounded-lg focus:bg-white focus:outline-hidden transition-colors"
                   />
                 </div>
                 <div>
@@ -1261,9 +1255,7 @@ export default function EventsCalendarPage() {
                     type="time"
                     value={endTime}
                     onChange={(e) => setEndTime(e.target.value)}
-                    className={`w-full px-3 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 ${
-                      isAdmin ? "focus:ring-[#031B3A]" : "focus:ring-[#114C5A]"
-                    }`}
+                    className="w-full px-3 py-2 text-sm bg-[#F4F6F9] rounded-lg focus:bg-white focus:outline-hidden transition-colors"
                   />
                 </div>
               </div>
@@ -1284,22 +1276,20 @@ export default function EventsCalendarPage() {
                   }
                   value={location}
                   onChange={(e) => setLocation(e.target.value)}
-                  className={`w-full px-3.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 ${
-                    isAdmin ? "focus:ring-[#031B3A]" : "focus:ring-[#114C5A]"
-                  }`}
+                  className="w-full px-3.5 py-2 text-sm bg-[#F4F6F9] rounded-lg focus:bg-white focus:outline-hidden transition-colors"
                 />
               </div>
 
               {/* ADMINISTRATION ONLY: AUDIENCE & BROADCAST ALERTS */}
               {isAdmin && (
                 <>
-                  <div className="pt-2 border-t border-slate-200">
+                  <div className="pt-2 border-t border-slate-100">
                     <label className="block text-xs font-bold text-[#031B3A] uppercase tracking-wider mb-2 flex items-center gap-1.5">
                       <Users className="w-4 h-4 text-[#114C5A]" />
                       Employés ciblés / Destinataires de l'alerte
                     </label>
 
-                    <div className="space-y-2.5 bg-slate-50 p-3.5 rounded-xl border border-slate-200">
+                    <div className="space-y-2.5 bg-[#F4F6F9] p-3.5 rounded-xl">
                       {/* 1. Tous les employés */}
                       <label className="flex items-start gap-2.5 text-sm cursor-pointer">
                         <input
@@ -1317,7 +1307,7 @@ export default function EventsCalendarPage() {
                             Notification et e-mail envoyés à tous les employés actifs enregistrés
                           </p>
                           {audienceType === "ALL_EMPLOYEES" && (
-                            <div className="mt-2 px-3 py-2 rounded-lg bg-white border border-slate-200 text-xs flex flex-wrap items-center gap-2">
+                            <div className="mt-2 px-3 py-2 rounded-lg bg-white shadow-2xs text-xs flex flex-wrap items-center gap-2">
                               <Mail className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                               <span className="font-semibold text-slate-700">
                                 {activeEmployees.length} employé(s) actif(s)
@@ -1361,7 +1351,7 @@ export default function EventsCalendarPage() {
                               const bObj = branches.find((b) => b.id === bId);
                               setAudienceTargetName(bObj?.name || "");
                             }}
-                            className="w-full px-3 py-2 text-sm bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#031B3A] cursor-pointer"
+                            className="w-full px-3 py-2 text-sm bg-white shadow-2xs rounded-lg focus:outline-hidden cursor-pointer"
                           >
                             <option value="">
                               {loadingDirectory
@@ -1382,10 +1372,10 @@ export default function EventsCalendarPage() {
 
                           {audienceBranchId && (
                             <div
-                              className={`px-3 py-2 rounded-lg border text-xs flex flex-wrap items-center gap-2 ${
+                              className={`px-3 py-2 rounded-lg text-xs flex flex-wrap items-center gap-2 ${
                                 selectedBranchEmployees.length > 0
-                                  ? "bg-white border-slate-200 text-slate-700"
-                                  : "bg-amber-50 border-amber-200 text-amber-800"
+                                  ? "bg-white shadow-2xs text-slate-700"
+                                  : "bg-amber-50 text-amber-800"
                               }`}
                             >
                               <Mail
@@ -1441,7 +1431,7 @@ export default function EventsCalendarPage() {
                               placeholder="Rechercher un employé (nom, matricule, e-mail, succursale)..."
                               value={employeeSearch}
                               onChange={(e) => setEmployeeSearch(e.target.value)}
-                              className="w-full pl-8 pr-3 py-2 text-xs bg-white border border-slate-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#031B3A]"
+                              className="w-full pl-8 pr-3 py-2 text-xs bg-white shadow-2xs rounded-lg focus:outline-hidden"
                             />
                           </div>
 
@@ -1473,7 +1463,7 @@ export default function EventsCalendarPage() {
                           </div>
 
                           {/* Complete List of System Employees */}
-                          <div className="max-h-56 overflow-y-auto bg-white border border-slate-200 rounded-xl divide-y divide-slate-100">
+                          <div className="max-h-56 overflow-y-auto bg-white shadow-2xs rounded-xl divide-y divide-slate-100">
                             {loadingDirectory ? (
                               <div className="p-4 text-center text-xs text-slate-500">
                                 Chargement de la liste des employés...
@@ -1611,18 +1601,16 @@ export default function EventsCalendarPage() {
                   }
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  className={`w-full px-3.5 py-2 text-sm border border-slate-300 rounded-lg focus:outline-none focus:ring-2 ${
-                    isAdmin ? "focus:ring-[#031B3A]" : "focus:ring-[#114C5A]"
-                  }`}
+                  className="w-full px-3.5 py-2 text-sm bg-[#F4F6F9] rounded-lg focus:bg-white focus:outline-hidden transition-colors"
                 />
               </div>
 
               {/* Actions */}
-              <div className="pt-4 border-t border-[#DCE2EA] flex items-center justify-end gap-3">
+              <div className="pt-4 border-t border-slate-100 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-sm font-semibold text-slate-600 hover:text-slate-800 hover:bg-slate-100 rounded-xl transition-colors cursor-pointer"
+                  className="px-4 py-2 text-sm font-semibold text-slate-600 bg-[#F4F6F9] hover:bg-slate-200/70 rounded-xl transition-colors cursor-pointer"
                 >
                   Annuler
                 </button>

@@ -23,7 +23,9 @@ import {
   Printer,
   RotateCcw,
   Edit3,
+  ArrowLeft,
 } from "lucide-react";
+import Link from "next/link";
 import { showSystemToast } from "@/components/ui/SystemToast";
 import { processTransparentImage } from "@/lib/utils/signature";
 import {
@@ -94,7 +96,7 @@ export default function SalaryRaiseRequestsPage() {
   });
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState<string>("");
-  const [showNewModal, setShowNewModal] = useState(false);
+  const [showNewForm, setShowNewForm] = useState(false);
   const [selectedAdjustment, setSelectedAdjustment] = useState<SalaryAdjustment | null>(null);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -410,7 +412,7 @@ export default function SalaryRaiseRequestsPage() {
 
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.employeeName || !formData.newSalary) {
+    if (!formData.employeeId || !formData.employeeName || !formData.newSalary.trim()) {
       showSystemToast("Veuillez sélectionner un employé et renseigner le nouveau salaire.", "error");
       return;
     }
@@ -442,7 +444,7 @@ export default function SalaryRaiseRequestsPage() {
       }
 
       showSystemToast(`Salaire réévalué pour ${formData.employeeName} avec signature officielle !`);
-      setShowNewModal(false);
+      setShowNewForm(false);
 
       const createdAdjustment = data.adjustment;
 
@@ -582,8 +584,8 @@ export default function SalaryRaiseRequestsPage() {
   // RESTRICTED VIEW FOR EMPLOYEES: Salary management is Top-Down / Administrative
   if (isEmployee) {
     return (
-      <div className="max-w-2xl mx-auto my-12 bg-white rounded-2xl border border-[#DCE2EA] shadow-sm p-8 text-center space-y-4">
-        <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center border border-amber-200">
+      <div className="max-w-2xl mx-auto my-12 bg-white rounded-2xl shadow-sm p-8 text-center space-y-4">
+        <div className="w-14 h-14 mx-auto rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center">
           <ShieldAlert className="w-7 h-7" />
         </div>
         <h2 className="text-lg font-bold text-[#062653]">Module Réservé à l'Administration</h2>
@@ -591,7 +593,7 @@ export default function SalaryRaiseRequestsPage() {
           Les révisions, augmentations et attributions salariales sont définies directement par la Direction et
           le service des Ressources Humaines.
         </p>
-        <div className="p-4 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] text-left space-y-2 border border-[#DCE2EA]">
+        <div className="p-4 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] text-left space-y-2">
           <div className="flex items-center gap-2 font-semibold text-[#062653]">
             <CheckCircle2 className="w-4 h-4 text-emerald-600" />
             <span>Processus automatique des rémunérations :</span>
@@ -628,53 +630,440 @@ export default function SalaryRaiseRequestsPage() {
       </div>
 
       {/* Page Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
-            Attribution de Salaire
-          </h1>
-          <p className="text-xs text-[#64748B] mt-1">
-            Attribution, revalorisation salariale, PDF professionnel signé et notifications WhatsApp / Email.
-          </p>
+      {showNewForm ? (
+        <div className="space-y-6 pb-8">
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              onClick={() => setShowNewForm(false)}
+              className="p-2 bg-white shadow-xs rounded-xl hover:bg-[#F4F6F9] text-[#64748B] transition-colors cursor-pointer"
+              title="Retour à l'historique"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div>
+              <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
+                Attribuer un nouveau salaire
+              </h1>
+              <p className="text-xs text-[#64748B] mt-0.5">
+                Sélectionnez un collaborateur, définissez sa nouvelle rémunération et apposez votre signature pour générer le PDF officiel et envoyer la notification.
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white rounded-2xl p-6 sm:p-8 lg:p-10 shadow-xs">
+            <form onSubmit={handleCreateSubmit} className="space-y-6 sm:space-y-8">
+              {/* 1. COLLABORATEUR CONCERNÉ */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-bold text-[#062653] uppercase tracking-wider">
+                    1. Collaborateur concerné
+                  </h3>
+                  <span className="text-[11px] text-red-600 font-semibold">
+                    * Champs requis
+                  </span>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#263445] mb-1.5">
+                      Sélectionner le collaborateur <span className="text-rose-500">*</span>
+                    </label>
+                    <select
+                      value={formData.employeeId}
+                      onChange={(e) => handleSelectEmployee(e.target.value)}
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white font-medium cursor-pointer"
+                      required
+                    >
+                      <option value="">-- Choisir un employé dans la liste --</option>
+                      {(filteredEmployeesForAttribution.length > 0 ? filteredEmployeesForAttribution : employees).map((emp) => (
+                        <option key={emp.id} value={emp.id}>
+                          {emp.firstName} {emp.lastName} ({emp.employeeNumber}) — {emp.department || "Général"}
+                        </option>
+                      ))}
+                    </select>
+                    {employees.length === 0 && (
+                      <p className="text-[11px] text-[#64748B] mt-1.5">
+                        Aucun employé enregistré pour l&apos;instant.{" "}
+                        <Link
+                          href="/admin/employees/new"
+                          className="text-[#FF7900] hover:underline font-semibold"
+                        >
+                          Ajouter un employé →
+                        </Link>
+                      </p>
+                    )}
+                  </div>
+
+                  {formData.employeeId && (
+                    <div className="p-4 bg-[#F4F6F9] rounded-xl grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
+                      <div>
+                        <span className="text-[#64748B] block text-[11px]">Matricule</span>
+                        <span className="font-bold text-[#062653] font-mono">
+                          {formData.employeeNumber || "—"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#64748B] block text-[11px]">Succursale / Dép.</span>
+                        <span className="font-bold text-[#062653]">
+                          {formData.branch || "Siège"} {formData.department ? `• ${formData.department}` : ""}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#64748B] block text-[11px]">WhatsApp</span>
+                        <span className="font-semibold text-emerald-700">
+                          {formData.phone || "Non renseigné"}
+                        </span>
+                      </div>
+                      <div>
+                        <span className="text-[#64748B] block text-[11px]">Email</span>
+                        <span className="font-semibold text-blue-700 truncate block">
+                          {formData.email || "Non renseigné"}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* 2. RÉMUNÉRATION & DÉTAILS */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-bold text-[#062653] uppercase tracking-wider">
+                    2. Rémunération &amp; Date d&apos;effet
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5">
+                  <div>
+                    <label className="block text-xs font-semibold text-[#263445] mb-1.5">
+                      Ancien Salaire
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.previousSalary}
+                      onChange={(e) => setFormData({ ...formData, previousSalary: e.target.value })}
+                      placeholder="Ex: 50 000"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-bold text-emerald-800 mb-1.5">
+                      Nouveau Salaire <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      value={formData.newSalary}
+                      onChange={(e) => setFormData({ ...formData, newSalary: e.target.value })}
+                      placeholder="Ex: 65 000"
+                      className="w-full h-11 px-3.5 bg-emerald-50 rounded-xl text-xs text-emerald-900 font-bold focus:bg-white font-mono"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#263445] mb-1.5">
+                      Devise
+                    </label>
+                    <select
+                      value={formData.currency}
+                      onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white font-bold cursor-pointer"
+                    >
+                      <option value="HTG">HTG (Gourde)</option>
+                      <option value="USD">USD ($)</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#263445] mb-1.5">
+                      Date d&apos;effet <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={formData.effectiveDate}
+                      onChange={(e) => setFormData({ ...formData, effectiveDate: e.target.value })}
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#263445] mb-1.5">
+                      Téléphone (WhatsApp)
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="+509 3700 0000"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold text-[#263445] mb-1.5">
+                      Motif de la revalorisation
+                    </label>
+                    <input
+                      type="text"
+                      value={formData.reason}
+                      onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
+                      placeholder="Ex: Promotion, Réévaluation annuelle des performances..."
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. SIGNATURE OFFICIELLE & CANAUX DE NOTIFICATION */}
+              <div>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-xs font-bold text-[#062653] uppercase tracking-wider">
+                    3. Signature officielle &amp; Notifications
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+                  {/* SIGNATURE SECTION */}
+                  <div className="p-4 sm:p-5 bg-[#F4F6F9] rounded-xl space-y-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="flex items-center gap-2">
+                        <FileSignature className="w-4 h-4 text-[#062653]" />
+                        <span className="text-xs font-bold text-[#062653]">
+                          Signature de la Direction (Pour le bas du PDF) *
+                        </span>
+                      </div>
+
+                      <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg shadow-2xs text-[10px]">
+                        <button
+                          type="button"
+                          onClick={() => setSignatureMode("upload")}
+                          className={`px-2.5 py-1 rounded font-bold transition-all cursor-pointer ${
+                            signatureMode === "upload"
+                              ? "bg-[#062653] text-white"
+                              : "text-[#64748B] hover:text-[#062653]"
+                          }`}
+                        >
+                          Uploader
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSignatureMode("draw")}
+                          className={`px-2.5 py-1 rounded font-bold transition-all cursor-pointer ${
+                            signatureMode === "draw"
+                              ? "bg-[#062653] text-white"
+                              : "text-[#64748B] hover:text-[#062653]"
+                          }`}
+                        >
+                          Tracer
+                        </button>
+                      </div>
+                    </div>
+
+                    {signatureMode === "upload" ? (
+                      <div>
+                        {signatureUrl ? (
+                          <div className="bg-white rounded-xl p-3 flex items-center justify-between gap-3 shadow-2xs">
+                            <div className="flex items-center gap-3">
+                              <div className="h-14 w-32 bg-[#F4F6F9] rounded-lg flex items-center justify-center p-1 overflow-hidden">
+                                <img
+                                  src={signatureUrl}
+                                  alt="Signature Direction"
+                                  className="max-h-full max-w-full object-contain"
+                                />
+                              </div>
+                              <div>
+                                <span className="text-xs font-bold text-emerald-800 flex items-center gap-1">
+                                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                  Signature prête pour le PDF
+                                </span>
+                                <p className="text-[11px] text-[#64748B]">
+                                  Sera apposée au bas de la page officielle.
+                                </p>
+                              </div>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => setSignatureUrl("")}
+                              className="text-xs text-red-600 hover:text-red-700 font-semibold px-3 py-1.5 bg-red-50 hover:bg-red-100 rounded-lg cursor-pointer shrink-0"
+                            >
+                              Remplacer
+                            </button>
+                          </div>
+                        ) : (
+                          <label className="bg-white hover:bg-emerald-50/50 rounded-xl p-4 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all shadow-2xs">
+                            <input
+                              type="file"
+                              accept="image/*"
+                              onChange={handleSignatureFileUpload}
+                              className="hidden"
+                            />
+                            <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
+                              <Upload className="w-4 h-4" />
+                            </div>
+                            <div className="text-center">
+                              <span className="text-xs font-bold text-[#062653]">
+                                Cliquez pour uploader votre signature (photo ou scan)
+                              </span>
+                              <p className="text-[10px] text-[#64748B]">
+                                PNG, JPG, WebP — Détourage automatique du fond blanc
+                              </p>
+                            </div>
+                          </label>
+                        )}
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5">
+                        <div className="rounded-xl overflow-hidden bg-white shadow-2xs">
+                          <canvas
+                            ref={canvasRef}
+                            width={520}
+                            height={110}
+                            onMouseDown={startDrawing}
+                            onMouseMove={draw}
+                            onMouseUp={stopDrawing}
+                            onMouseLeave={stopDrawing}
+                            onTouchStart={startDrawing}
+                            onTouchMove={draw}
+                            onTouchEnd={stopDrawing}
+                            className="w-full h-24 bg-white touch-none cursor-crosshair"
+                          />
+                        </div>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-[#64748B]">
+                            Signez ci-dessus avec la souris ou le doigt
+                          </span>
+                          <button
+                            type="button"
+                            onClick={clearDrawing}
+                            className="text-xs text-slate-600 hover:text-slate-900 font-medium px-2 py-0.5 bg-white hover:bg-slate-200 rounded cursor-pointer shadow-2xs"
+                          >
+                            Effacer le tracé
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* NOTIFICATION CHANNELS */}
+                  <div className="p-4 sm:p-5 bg-emerald-50/70 rounded-xl flex flex-col justify-between space-y-3">
+                    <div>
+                      <span className="text-xs font-bold text-emerald-900 block">
+                        Canaux de notification automatique à l&apos;employé
+                      </span>
+                      <p className="text-[11px] text-emerald-800/80 mt-0.5">
+                        Le collaborateur recevra automatiquement sa notification officielle de revalorisation dès l&apos;enregistrement.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-6 text-xs pt-2">
+                      <label className="flex items-center gap-2 cursor-pointer font-semibold text-emerald-950">
+                        <input
+                          type="checkbox"
+                          checked={formData.sendWhatsApp}
+                          onChange={(e) => setFormData({ ...formData, sendWhatsApp: e.target.checked })}
+                          className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
+                        />
+                        <MessageSquare className="w-4 h-4 text-emerald-600" />
+                        <span>WhatsApp</span>
+                      </label>
+
+                      <label className="flex items-center gap-2 cursor-pointer font-semibold text-emerald-950">
+                        <input
+                          type="checkbox"
+                          checked={formData.sendEmail}
+                          onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
+                          className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
+                        />
+                        <Mail className="w-4 h-4 text-blue-600" />
+                        <span>Email</span>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* SUBMIT BAR */}
+              <div className="pt-4 flex flex-col sm:flex-row items-center justify-end gap-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setShowNewForm(false)}
+                  className="w-full sm:w-auto px-5 py-3 bg-[#F4F6F9] text-[#64748B] rounded-xl text-xs font-semibold hover:bg-slate-200/70 transition-colors cursor-pointer"
+                >
+                  Annuler
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting || !formData.employeeId || !formData.newSalary.trim()}
+                  className="w-full sm:w-auto px-7 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {submitting ? (
+                    <>
+                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      <span>Enregistrement...</span>
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4" />
+                      <span>Confirmer et Générer le PDF</span>
+                    </>
+                  )}
+                </button>
+              </div>
+            </form>
+          </div>
         </div>
+      ) : (
+        <>
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
+                Attribution de Salaire
+              </h1>
+              <p className="text-xs text-[#64748B] mt-1">
+                Attribution, revalorisation salariale, PDF professionnel signé et notifications WhatsApp / Email.
+              </p>
+            </div>
 
-        {/* Bouton Attribuer un nouveau salaire */}
-        <button
-          type="button"
-          onClick={() => setShowNewModal(true)}
-          className="px-4 py-2.5 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-95"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>Attribuer un nouveau salaire</span>
-        </button>
-      </div>
+            {/* Bouton Attribuer un nouveau salaire */}
+            <button
+              type="button"
+              onClick={() => setShowNewForm(true)}
+              className="px-4 py-2.5 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer active:scale-95"
+            >
+              <PlusCircle className="w-4 h-4" />
+              <span>Attribuer un nouveau salaire</span>
+            </button>
+          </div>
 
-      {/* Filters & Search */}
-      <div className="bg-white p-4 rounded-xl border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-bold text-[#062653] flex items-center gap-1.5">
-            <Sparkles className="w-4 h-4 text-[#FF7900]" />
-            Historique des attributions salariales
-          </span>
-          <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-slate-100 text-[#64748B]">
-            {filtered.length} enregistrement(s)
-          </span>
-        </div>
+          {/* Filters & Search */}
+          <div className="bg-white p-4 rounded-xl shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-[#062653] flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-[#FF7900]" />
+                Historique des attributions salariales
+              </span>
+              <span className="text-xs font-semibold px-2.5 py-0.5 rounded-full bg-[#F4F6F9] text-[#64748B]">
+                {filtered.length} enregistrement(s)
+              </span>
+            </div>
 
-        <div className="w-full md:w-80 relative">
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Rechercher employé, matricule..."
-            className="w-full h-10 pl-9 pr-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs text-[#263445] placeholder:text-[#64748B] focus:bg-white transition-all"
-          />
-          <Search className="w-4 h-4 text-[#64748B] absolute left-3 top-3" />
-        </div>
-      </div>
+            <div className="w-full md:w-80 relative">
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Rechercher employé, matricule..."
+                className="w-full h-10 pl-9 pr-3.5 bg-[#F4F6F9] rounded-lg text-xs text-[#263445] placeholder:text-[#64748B] focus:bg-white transition-all"
+              />
+              <Search className="w-4 h-4 text-[#64748B] absolute left-3 top-3" />
+            </div>
+          </div>
 
-      {/* Table */}
-      <div className="bg-white rounded-xl border border-[#DCE2EA] shadow-xs overflow-hidden">
+          {/* Table */}
+          <div className="bg-white rounded-xl shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-xs text-[#64748B] flex flex-col items-center justify-center gap-2">
             <div className="w-6 h-6 border-2 border-slate-300 border-t-emerald-600 rounded-full animate-spin" />
@@ -687,7 +1076,7 @@ export default function SalaryRaiseRequestsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-[#DCE2EA]">
+              <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-slate-200/70">
                 <tr>
                   <th className="px-5 py-3.5">Réf.</th>
                   <th className="px-5 py-3.5">Employé</th>
@@ -699,7 +1088,7 @@ export default function SalaryRaiseRequestsPage() {
                   <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#DCE2EA]">
+              <tbody className="divide-y divide-slate-100">
                 {filtered.map((req, idx) => (
                   <tr key={`${req.id}-${idx}`} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-5 py-4 font-bold text-[#062653] font-mono">{req.id}</td>
@@ -722,7 +1111,7 @@ export default function SalaryRaiseRequestsPage() {
                       {req.previousSalary} {req.currency}
                     </td>
                     <td className="px-5 py-4">
-                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-extrabold text-xs border border-emerald-200">
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-800 font-extrabold text-xs">
                         {req.newSalary} {req.currency}
                       </span>
                     </td>
@@ -742,7 +1131,7 @@ export default function SalaryRaiseRequestsPage() {
                             <span>WhatsApp</span>
                           </a>
                         ) : req.phone ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600">
                             <MessageSquare className="w-3 h-3 text-emerald-600" />
                             <span>WhatsApp</span>
                           </span>
@@ -751,10 +1140,10 @@ export default function SalaryRaiseRequestsPage() {
                         {/* Email Status Badge */}
                         {req.email ? (
                           <span
-                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold ${
+                            className={`inline-flex items-center gap-1 text-[11px] font-bold ${
                               req.emailSent
-                                ? "bg-blue-100 text-blue-800"
-                                : "bg-slate-100 text-slate-700"
+                                ? "text-blue-600"
+                                : "text-slate-400"
                             }`}
                             title={req.emailSent ? "Email envoyé" : "Email non envoyé"}
                           >
@@ -818,12 +1207,14 @@ export default function SalaryRaiseRequestsPage() {
           </div>
         )}
       </div>
+        </>
+      )}
 
       {/* DETAIL MODAL */}
       {selectedAdjustment && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xl max-w-lg w-full p-6 space-y-4 animate-fadeIn max-h-[90vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#DCE2EA]">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 animate-fadeIn max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <span className="text-[11px] font-bold text-emerald-600 font-mono">
                   {selectedAdjustment.id}
@@ -858,7 +1249,7 @@ export default function SalaryRaiseRequestsPage() {
                 </div>
               </div>
 
-              <div className="p-3 bg-emerald-50 rounded-xl border border-emerald-300">
+              <div className="p-3 bg-emerald-50 rounded-xl">
                 <span className="text-emerald-800 font-semibold">Nouveau Salaire Attribué</span>
                 <div className="font-extrabold text-emerald-700 mt-1 text-sm">
                   {selectedAdjustment.newSalary} {selectedAdjustment.currency}
@@ -891,7 +1282,7 @@ export default function SalaryRaiseRequestsPage() {
 
             {/* Signature Preview if Available */}
             {(selectedAdjustment.signatureDataUrl || signatureUrl) && (
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs space-y-1.5">
+              <div className="p-3 bg-[#F4F6F9] rounded-xl text-xs space-y-1.5">
                 <div className="flex items-center justify-between">
                   <span className="text-[#062653] font-bold text-[11px] flex items-center gap-1.5">
                     <FileSignature className="w-3.5 h-3.5 text-[#062653]" />
@@ -899,7 +1290,7 @@ export default function SalaryRaiseRequestsPage() {
                   </span>
                   <span className="text-[10px] text-emerald-700 font-semibold">Apposée sur le PDF</span>
                 </div>
-                <div className="h-16 bg-white border border-slate-200 rounded-lg flex items-center justify-center p-1 overflow-hidden">
+                <div className="h-16 bg-white rounded-lg shadow-2xs flex items-center justify-center p-1 overflow-hidden">
                   <img
                     src={selectedAdjustment.signatureDataUrl || signatureUrl}
                     alt="Signature Direction"
@@ -919,7 +1310,7 @@ export default function SalaryRaiseRequestsPage() {
             </div>
 
             {/* Bottom Modal Actions */}
-            <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-[#DCE2EA]">
+            <div className="pt-2 flex flex-wrap items-center justify-between gap-2 border-t border-slate-100">
               <div className="flex items-center gap-1.5">
                 {/* Download PDF button */}
                 <button
@@ -937,7 +1328,7 @@ export default function SalaryRaiseRequestsPage() {
                   type="button"
                   onClick={() => handlePrintPdf(selectedAdjustment)}
                   disabled={isGeneratingPdf}
-                  className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 text-[#062653] text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer border border-slate-300"
+                  className="px-2.5 py-1.5 bg-[#F4F6F9] hover:bg-slate-200 text-[#062653] text-xs font-bold rounded-lg flex items-center gap-1 cursor-pointer"
                   title="Imprimer"
                 >
                   <Printer className="w-3.5 h-3.5" />
@@ -968,7 +1359,7 @@ export default function SalaryRaiseRequestsPage() {
               <button
                 type="button"
                 onClick={() => setSelectedAdjustment(null)}
-                className="px-4 py-1.5 bg-slate-200 hover:bg-slate-300 text-[#263445] text-xs font-bold rounded-lg cursor-pointer"
+                className="px-4 py-1.5 bg-[#F4F6F9] hover:bg-slate-200 text-[#263445] text-xs font-bold rounded-lg cursor-pointer"
               >
                 Fermer
               </button>
@@ -977,381 +1368,10 @@ export default function SalaryRaiseRequestsPage() {
         </div>
       )}
 
-      {/* NEW SALARY ATTRIBUTION MODAL */}
-      {showNewModal && (
-        <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xl max-w-lg w-full p-6 space-y-4 animate-fadeIn max-h-[92vh] overflow-y-auto">
-            <div className="flex items-center justify-between pb-3 border-b border-[#DCE2EA]">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center font-bold">
-                  $
-                </div>
-                <div>
-                  <h2 className="text-base font-bold text-[#062653]">
-                    Attribuer un nouveau salaire
-                  </h2>
-                  <p className="text-[11px] text-[#64748B]">
-                    Génère le PDF pro signé et notifie le collaborateur.
-                  </p>
-                </div>
-              </div>
-              <button
-                onClick={() => setShowNewModal(false)}
-                className="text-[#64748B] hover:text-[#263445] cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <form onSubmit={handleCreateSubmit} className="space-y-4">
-              {/* Employee Selection */}
-              <div>
-                <label className="block text-xs font-bold text-[#263445] mb-1">
-                  Sélectionner le collaborateur *
-                </label>
-                <select
-                  value={formData.employeeId}
-                  onChange={(e) => handleSelectEmployee(e.target.value)}
-                  className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white font-medium"
-                  required
-                >
-                  <option value="">-- Choisir un employé dans la liste --</option>
-                  {(filteredEmployeesForAttribution.length > 0 ? filteredEmployeesForAttribution : employees).map((emp) => (
-                    <option key={emp.id} value={emp.id}>
-                      {emp.firstName} {emp.lastName} ({emp.employeeNumber}) - {emp.department || "Général"}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Employee Quick Info Preview */}
-              {formData.employeeName && (
-                <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl grid grid-cols-2 gap-2 text-[11px]">
-                  <div>
-                    <span className="text-[#64748B]">Matricule :</span>
-                    <span className="font-bold text-[#062653] ml-1">{formData.employeeNumber}</span>
-                  </div>
-                  <div>
-                    <span className="text-[#64748B]">Succursale :</span>
-                    <span className="font-bold text-[#062653] ml-1">{formData.branch}</span>
-                  </div>
-                  <div>
-                    <span className="text-[#64748B]">WhatsApp :</span>
-                    <span className="font-semibold text-emerald-700 ml-1">
-                      {formData.phone || "Non renseigné"}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-[#64748B]">Email :</span>
-                    <span className="font-semibold text-blue-700 ml-1 truncate">
-                      {formData.email || "Non renseigné"}
-                    </span>
-                  </div>
-                </div>
-              )}
-
-              {/* Manual name override if not selected from list */}
-              {!formData.employeeId && (
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#263445] mb-1">
-                      Nom complet *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.employeeName}
-                      onChange={(e) => setFormData({ ...formData, employeeName: e.target.value })}
-                      placeholder="Ex: Jean Kouassi"
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-[#263445] mb-1">
-                      N° Matricule *
-                    </label>
-                    <input
-                      type="text"
-                      required
-                      value={formData.employeeNumber}
-                      onChange={(e) => setFormData({ ...formData, employeeNumber: e.target.value })}
-                      placeholder="Ex: TEC-001"
-                      className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
-                    />
-                  </div>
-                </div>
-              )}
-
-              {/* Salaries and Currency */}
-              <div className="grid grid-cols-3 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#263445] mb-1">
-                    Ancien Salaire
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.previousSalary}
-                    onChange={(e) => setFormData({ ...formData, previousSalary: e.target.value })}
-                    placeholder="Ex: 50 000"
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-emerald-800 mb-1">
-                    Nouveau Salaire *
-                  </label>
-                  <input
-                    type="text"
-                    required
-                    value={formData.newSalary}
-                    onChange={(e) => setFormData({ ...formData, newSalary: e.target.value })}
-                    placeholder="Ex: 65 000"
-                    className="w-full h-10 px-3 bg-emerald-50 border border-emerald-300 rounded-xl text-xs text-emerald-900 font-bold focus:bg-white font-mono"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#263445] mb-1">
-                    Devise
-                  </label>
-                  <select
-                    value={formData.currency}
-                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white font-bold"
-                  >
-                    <option value="HTG">HTG (Gourde)</option>
-                    <option value="USD">USD ($)</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Effective date & Reason */}
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#263445] mb-1">
-                    Date d'effet *
-                  </label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.effectiveDate}
-                    onChange={(e) => setFormData({ ...formData, effectiveDate: e.target.value })}
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#263445] mb-1">
-                    Téléphone (WhatsApp)
-                  </label>
-                  <input
-                    type="text"
-                    value={formData.phone}
-                    onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    placeholder="+509 3700 0000"
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#263445] mb-1">
-                  Motif de la revalorisation
-                </label>
-                <input
-                  type="text"
-                  value={formData.reason}
-                  onChange={(e) => setFormData({ ...formData, reason: e.target.value })}
-                  placeholder="Ex: Promotion, Réévaluation annuelle des performances..."
-                  className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
-                />
-              </div>
-
-              {/* SIGNATURE SECTION (OBLIGATOIRE POUR LE PDF OFFICIEL) */}
-              <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-2.5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5">
-                    <FileSignature className="w-4 h-4 text-[#062653]" />
-                    <span className="text-xs font-bold text-[#062653]">
-                      Signature de la Direction (Pour le bas du PDF) *
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-1 bg-white p-0.5 rounded-lg border border-slate-200 text-[10px]">
-                    <button
-                      type="button"
-                      onClick={() => setSignatureMode("upload")}
-                      className={`px-2.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
-                        signatureMode === "upload"
-                          ? "bg-[#062653] text-white"
-                          : "text-[#64748B] hover:text-[#062653]"
-                      }`}
-                    >
-                      Uploader
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setSignatureMode("draw")}
-                      className={`px-2.5 py-0.5 rounded font-bold transition-all cursor-pointer ${
-                        signatureMode === "draw"
-                          ? "bg-[#062653] text-white"
-                          : "text-[#64748B] hover:text-[#062653]"
-                      }`}
-                    >
-                      Tracer
-                    </button>
-                  </div>
-                </div>
-
-                {signatureMode === "upload" ? (
-                  <div>
-                    {signatureUrl ? (
-                      <div className="bg-white border border-emerald-300 rounded-xl p-2.5 flex items-center justify-between shadow-2xs">
-                        <div className="flex items-center gap-3">
-                          <div className="h-12 w-28 bg-slate-50 rounded-lg border border-slate-200 flex items-center justify-center p-1 overflow-hidden">
-                            <img
-                              src={signatureUrl}
-                              alt="Signature Direction"
-                              className="max-h-full max-w-full object-contain"
-                            />
-                          </div>
-                          <div>
-                            <span className="text-[11px] font-bold text-emerald-800 flex items-center gap-1">
-                              <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                              Signature prête pour le PDF
-                            </span>
-                            <p className="text-[10px] text-[#64748B]">
-                              Sera apposée au bas de la page officielle.
-                            </p>
-                          </div>
-                        </div>
-
-                        <button
-                          type="button"
-                          onClick={() => setSignatureUrl("")}
-                          className="text-xs text-red-600 hover:text-red-700 font-semibold px-2 py-1 bg-red-50 hover:bg-red-100 rounded-lg cursor-pointer"
-                        >
-                          Remplacer
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="border-2 border-dashed border-slate-300 hover:border-emerald-500 hover:bg-emerald-50/20 rounded-xl p-3.5 flex flex-col items-center justify-center gap-1.5 cursor-pointer transition-all">
-                        <input
-                          type="file"
-                          accept="image/*"
-                          onChange={handleSignatureFileUpload}
-                          className="hidden"
-                        />
-                        <div className="w-8 h-8 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                          <Upload className="w-4 h-4" />
-                        </div>
-                        <div className="text-center">
-                          <span className="text-xs font-bold text-[#062653]">
-                            Cliquez pour uploader votre signature (photo ou scan)
-                          </span>
-                          <p className="text-[10px] text-[#64748B]">
-                            PNG, JPG, WebP — Détourage automatique du fond blanc
-                          </p>
-                        </div>
-                      </label>
-                    )}
-                  </div>
-                ) : (
-                  <div className="space-y-1.5">
-                    <div className="border border-slate-300 rounded-xl overflow-hidden bg-white">
-                      <canvas
-                        ref={canvasRef}
-                        width={420}
-                        height={110}
-                        onMouseDown={startDrawing}
-                        onMouseMove={draw}
-                        onMouseUp={stopDrawing}
-                        onMouseLeave={stopDrawing}
-                        onTouchStart={startDrawing}
-                        onTouchMove={draw}
-                        onTouchEnd={stopDrawing}
-                        className="w-full h-24 bg-white touch-none cursor-crosshair"
-                      />
-                    </div>
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className="text-[#64748B]">
-                        Signez ci-dessus avec la souris ou le doigt
-                      </span>
-                      <button
-                        type="button"
-                        onClick={clearDrawing}
-                        className="text-xs text-slate-600 hover:text-slate-900 font-medium px-2 py-0.5 bg-slate-100 hover:bg-slate-200 rounded cursor-pointer"
-                      >
-                        Effacer le tracé
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Notification Checkboxes */}
-              <div className="p-3 bg-emerald-50/60 border border-emerald-200 rounded-xl space-y-2">
-                <span className="text-[11px] font-bold text-emerald-900 block">
-                  Canaux de notification automatique à l'employé :
-                </span>
-                <div className="flex items-center gap-4 text-xs">
-                  <label className="flex items-center gap-2 cursor-pointer font-medium text-emerald-950">
-                    <input
-                      type="checkbox"
-                      checked={formData.sendWhatsApp}
-                      onChange={(e) => setFormData({ ...formData, sendWhatsApp: e.target.checked })}
-                      className="rounded text-emerald-600 focus:ring-emerald-500 w-4 h-4"
-                    />
-                    <MessageSquare className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>WhatsApp</span>
-                  </label>
-
-                  <label className="flex items-center gap-2 cursor-pointer font-medium text-emerald-950">
-                    <input
-                      type="checkbox"
-                      checked={formData.sendEmail}
-                      onChange={(e) => setFormData({ ...formData, sendEmail: e.target.checked })}
-                      className="rounded text-blue-600 focus:ring-blue-500 w-4 h-4"
-                    />
-                    <Mail className="w-3.5 h-3.5 text-blue-600" />
-                    <span>Email</span>
-                  </label>
-                </div>
-              </div>
-
-              <div className="pt-2 flex items-center justify-end gap-2 border-t border-[#DCE2EA]">
-                <button
-                  type="button"
-                  onClick={() => setShowNewModal(false)}
-                  className="px-4 py-2 bg-white border border-[#DCE2EA] text-[#64748B] hover:bg-slate-50 text-xs font-semibold rounded-xl cursor-pointer"
-                >
-                  Annuler
-                </button>
-                <button
-                  type="submit"
-                  disabled={submitting || !formData.employeeName.trim() || !formData.newSalary.trim()}
-                  className="px-5 py-2 bg-emerald-600 hover:bg-emerald-700 disabled:bg-slate-300 disabled:text-slate-500 disabled:cursor-not-allowed text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-2 cursor-pointer"
-                >
-                  {submitting ? (
-                    <>
-                      <div className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Enregistrement...</span>
-                    </>
-                  ) : (
-                    <>
-                      <CheckCircle2 className="w-4 h-4" />
-                      <span>Confirmer et Générer le PDF</span>
-                    </>
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
       {/* SUCCESS & NOTIFICATION MODAL */}
       {notificationResult && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-2xl max-w-md w-full p-6 space-y-4 animate-fadeIn text-center">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 space-y-4 animate-fadeIn text-center">
             <div className="w-14 h-14 mx-auto rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center">
               <CheckCircle2 className="w-8 h-8" />
             </div>
@@ -1378,7 +1398,7 @@ export default function SalaryRaiseRequestsPage() {
               </button>
             )}
 
-            <div className="p-3 bg-[#F4F6F9] rounded-xl text-xs text-left space-y-2 border border-[#DCE2EA]">
+            <div className="p-3 bg-[#F4F6F9] rounded-xl text-xs text-left space-y-2">
               {notificationResult.email && (
                 <div className="flex items-center justify-between">
                   <span className="flex items-center gap-1.5 text-[#64748B]">

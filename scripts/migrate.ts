@@ -44,8 +44,13 @@ export async function runMigrations(dbInstance?: any) {
     )
   `);
 
-  // Ensure new subscription columns exist even when organizations table already existed on disk
+  // Ensure new subscription & configuration columns exist even when organizations table already existed on disk
   for (const alterSql of [
+    sql`ALTER TABLE organizations ADD COLUMN matricule_format TEXT DEFAULT 'FULLNAME_SEQ'`,
+    sql`ALTER TABLE organizations ADD COLUMN matricule_prefix TEXT`,
+    sql`ALTER TABLE organizations ADD COLUMN primary_currency TEXT DEFAULT 'HTG'`,
+    sql`ALTER TABLE organizations ADD COLUMN date_format TEXT DEFAULT 'DD/MM/YYYY'`,
+    sql`ALTER TABLE organizations ADD COLUMN language TEXT DEFAULT 'fr'`,
     sql`ALTER TABLE organizations ADD COLUMN activated_at INTEGER`,
     sql`ALTER TABLE organizations ADD COLUMN last_renewed_at INTEGER`,
     sql`ALTER TABLE organizations ADD COLUMN subscription_expires_at INTEGER`,

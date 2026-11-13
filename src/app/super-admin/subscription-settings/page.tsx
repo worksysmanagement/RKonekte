@@ -174,7 +174,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
   }
 
   return (
-    <form onSubmit={handleSave} className="space-y-6 max-w-5xl">
+    <form onSubmit={handleSave} className="space-y-6 w-full">
       {/* HEADER */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
@@ -204,7 +204,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
       </div>
 
       {/* SECTION 1: ESSAI & DEVISE & ALERTE SUPERADMIN */}
-      <div className="bg-white border border-[#DCE2EA] rounded-2xl p-5 shadow-xs space-y-4">
+      <div className="bg-white rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex items-center gap-2 text-sm font-bold text-[#062653]">
           <Sparkles className="w-4 h-4 text-[#FF7900]" />
           <span>Paramètres généraux & Notifications Super-Admin</span>
@@ -226,7 +226,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                   trialMonths: Math.max(1, Number(e.target.value) || 1),
                 }))
               }
-              className="w-full h-10 px-3 bg-[#F8FAFC] border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653]"
+              className="w-full h-10 px-3 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs font-bold text-[#062653] outline-hidden transition-colors"
             />
           </div>
 
@@ -241,7 +241,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                 setSettings((prev) => ({ ...prev, currency: e.target.value.toUpperCase() }))
               }
               placeholder="USD"
-              className="w-full h-10 px-3 bg-[#F8FAFC] border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653]"
+              className="w-full h-10 px-3 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs font-bold text-[#062653] outline-hidden transition-colors"
             />
           </div>
 
@@ -260,14 +260,14 @@ export default function SuperAdminSubscriptionSettingsPage() {
                 }))
               }
               placeholder="admin@rkonekte.com"
-              className="w-full h-10 px-3 bg-[#F8FAFC] border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653]"
+              className="w-full h-10 px-3 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs font-medium text-[#062653] outline-hidden transition-colors"
             />
           </div>
         </div>
       </div>
 
       {/* SECTION 2: TARIFS & REDUCTIONS */}
-      <div className="bg-white border border-[#DCE2EA] rounded-2xl p-5 shadow-xs space-y-4">
+      <div className="bg-white rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between flex-wrap gap-2">
           <div>
             <h2 className="text-sm font-bold text-[#062653]">
@@ -281,7 +281,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* 1 MOIS */}
-          <div className="p-4 rounded-xl border border-[#DCE2EA] bg-[#F8FAFC] space-y-2.5">
+          <div className="p-4 rounded-xl bg-[#F4F6F9] space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[#062653]">1 mois</span>
               <span className="text-[10px] font-bold text-slate-500">Tarif de base</span>
@@ -296,7 +296,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                 step="0.01"
                 value={settings.priceMonthly}
                 onChange={(e) => handleMonthlyPriceChange(Number(e.target.value))}
-                className="w-full h-10 px-3 bg-white border border-[#DCE2EA] rounded-lg text-sm font-extrabold text-[#062653]"
+                className="w-full h-10 px-3 bg-white shadow-2xs rounded-lg text-sm font-extrabold text-[#062653] outline-hidden"
               />
             </div>
             <div className="text-[11px] text-[#64748B]">
@@ -305,7 +305,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
           </div>
 
           {/* 3 MOIS */}
-          <div className="p-4 rounded-xl border border-[#DCE2EA] bg-[#F8FAFC] space-y-2.5">
+          <div className="p-4 rounded-xl bg-[#F4F6F9] space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[#062653]">3 mois</span>
               <span className="text-[11px] font-bold text-emerald-700">
@@ -331,7 +331,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                       Number(e.target.value)
                     )
                   }
-                  className="w-full h-10 px-2.5 bg-white border border-[#DCE2EA] rounded-lg text-xs font-bold text-[#062653]"
+                  className="w-full h-10 px-2.5 bg-white shadow-2xs rounded-lg text-xs font-bold text-[#062653] outline-hidden"
                 />
               </div>
               <div>
@@ -349,7 +349,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                       priceQuarterly: Number(e.target.value) || 0,
                     }))
                   }
-                  className="w-full h-10 px-2.5 bg-white border border-[#DCE2EA] rounded-lg text-sm font-extrabold text-[#062653]"
+                  className="w-full h-10 px-2.5 bg-white shadow-2xs rounded-lg text-sm font-extrabold text-[#062653] outline-hidden"
                 />
               </div>
             </div>
@@ -359,7 +359,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
           </div>
 
           {/* 6 MOIS */}
-          <div className="p-4 rounded-xl border border-[#DCE2EA] bg-[#F8FAFC] space-y-2.5">
+          <div className="p-4 rounded-xl bg-[#F4F6F9] space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[#062653]">6 mois</span>
               <span className="text-[11px] font-bold text-emerald-700">
@@ -385,7 +385,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                       Number(e.target.value)
                     )
                   }
-                  className="w-full h-10 px-2.5 bg-white border border-[#DCE2EA] rounded-lg text-xs font-bold text-[#062653]"
+                  className="w-full h-10 px-2.5 bg-white shadow-2xs rounded-lg text-xs font-bold text-[#062653] outline-hidden"
                 />
               </div>
               <div>
@@ -403,7 +403,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                       priceSemiannual: Number(e.target.value) || 0,
                     }))
                   }
-                  className="w-full h-10 px-2.5 bg-white border border-[#DCE2EA] rounded-lg text-sm font-extrabold text-[#062653]"
+                  className="w-full h-10 px-2.5 bg-white shadow-2xs rounded-lg text-sm font-extrabold text-[#062653] outline-hidden"
                 />
               </div>
             </div>
@@ -413,7 +413,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
           </div>
 
           {/* 12 MOIS */}
-          <div className="p-4 rounded-xl border border-[#DCE2EA] bg-[#F8FAFC] space-y-2.5">
+          <div className="p-4 rounded-xl bg-[#F4F6F9] space-y-2.5">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-[#062653]">12 mois (1 an)</span>
               <span className="text-[11px] font-bold text-emerald-700">
@@ -439,7 +439,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                       Number(e.target.value)
                     )
                   }
-                  className="w-full h-10 px-2.5 bg-white border border-[#DCE2EA] rounded-lg text-xs font-bold text-[#062653]"
+                  className="w-full h-10 px-2.5 bg-white shadow-2xs rounded-lg text-xs font-bold text-[#062653] outline-hidden"
                 />
               </div>
               <div>
@@ -457,7 +457,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                       priceAnnual: Number(e.target.value) || 0,
                     }))
                   }
-                  className="w-full h-10 px-2.5 bg-white border border-[#DCE2EA] rounded-lg text-sm font-extrabold text-[#062653]"
+                  className="w-full h-10 px-2.5 bg-white shadow-2xs rounded-lg text-sm font-extrabold text-[#062653] outline-hidden"
                 />
               </div>
             </div>
@@ -469,7 +469,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
       </div>
 
       {/* SECTION 3: COMPTES DISPONIBLES POUR LE PAIEMENT */}
-      <div className="bg-white border border-[#DCE2EA] rounded-2xl p-5 shadow-xs space-y-4">
+      <div className="bg-white rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex items-center justify-between gap-3">
           <div>
             <h2 className="text-sm font-bold text-[#062653] flex items-center gap-2">
@@ -495,10 +495,10 @@ export default function SuperAdminSubscriptionSettingsPage() {
           {settings.paymentAccounts.map((acc, index) => (
             <div
               key={acc.id}
-              className={`p-4 rounded-xl border space-y-3 ${
+              className={`p-4 rounded-xl space-y-3 ${
                 acc.enabled
-                  ? "border-[#DCE2EA] bg-white"
-                  : "border-slate-200 bg-slate-50 opacity-75"
+                  ? "bg-[#F4F6F9]/60"
+                  : "bg-slate-100/70 opacity-75"
               }`}
             >
               <div className="flex items-center justify-between gap-2">
@@ -537,7 +537,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                       handleAccountChange(index, { label: e.target.value })
                     }
                     placeholder="Ex : MonCash, Unibank, Sogebank..."
-                    className="w-full h-9 px-3 bg-[#F8FAFC] border border-[#DCE2EA] rounded-lg text-xs font-bold text-[#062653]"
+                    className="w-full h-9 px-3 bg-white shadow-2xs rounded-lg text-xs font-bold text-[#062653] outline-hidden"
                   />
                 </div>
                 <div>
@@ -551,7 +551,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                       handleAccountChange(index, { accountName: e.target.value })
                     }
                     placeholder="Ex : RKonekte S.A."
-                    className="w-full h-9 px-3 bg-[#F8FAFC] border border-[#DCE2EA] rounded-lg text-xs font-medium text-[#062653]"
+                    className="w-full h-9 px-3 bg-white shadow-2xs rounded-lg text-xs font-medium text-[#062653] outline-hidden"
                   />
                 </div>
                 <div>
@@ -566,7 +566,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                       handleAccountChange(index, { accountNumber: e.target.value })
                     }
                     placeholder="Ex : +509 3700-0000 ou N° compte bancaire"
-                    className="w-full h-9 px-3 bg-[#F8FAFC] border border-[#DCE2EA] rounded-lg text-xs font-mono font-bold text-[#062653]"
+                    className="w-full h-9 px-3 bg-white shadow-2xs rounded-lg text-xs font-mono font-bold text-[#062653] outline-hidden"
                   />
                 </div>
               </div>
@@ -578,7 +578,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                   </label>
                   <div className="flex items-center gap-2.5">
                     <PaymentAccountLogo account={acc} className="w-14 h-12" />
-                    <label className="px-3 h-9 rounded-lg border border-[#DCE2EA] bg-[#F8FAFC] hover:bg-slate-100 text-[11px] font-bold text-[#062653] inline-flex items-center gap-1.5 cursor-pointer shrink-0">
+                    <label className="px-3 h-9 rounded-lg bg-white shadow-2xs hover:bg-slate-100 text-[11px] font-bold text-[#062653] inline-flex items-center gap-1.5 cursor-pointer shrink-0 transition-colors">
                       <Upload className="w-3.5 h-3.5 text-[#FF7900]" />
                       <span>Importer logo</span>
                       <input
@@ -592,7 +592,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                       <button
                         type="button"
                         onClick={() => handleAccountChange(index, { logoUrl: null })}
-                        className="p-2 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 cursor-pointer"
+                        className="p-2 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 cursor-pointer transition-colors"
                         title="Retirer le logo"
                       >
                         <X className="w-3.5 h-3.5" />
@@ -612,7 +612,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                       handleAccountChange(index, { instructions: e.target.value })
                     }
                     placeholder="Ex : Effectuez le versement puis importez la preuve de paiement."
-                    className="w-full h-9 px-3 bg-[#F8FAFC] border border-[#DCE2EA] rounded-lg text-xs text-[#263445]"
+                    className="w-full h-9 px-3 bg-white shadow-2xs rounded-lg text-xs text-[#263445] outline-hidden"
                   />
                 </div>
               </div>
@@ -622,7 +622,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
       </div>
 
       {/* SECTION 4: MESSAGE AUTOMATIQUE */}
-      <div className="bg-white border border-[#DCE2EA] rounded-2xl p-5 shadow-xs space-y-4">
+      <div className="bg-white rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex items-center gap-2 text-sm font-bold text-[#062653]">
           <MessageSquare className="w-4 h-4 text-[#FF7900]" />
           <span>Message automatique (E-mails de rappel, Espace client & Écran de suspension)</span>
@@ -643,7 +643,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                   autoMessageTitle: e.target.value,
                 }))
               }
-              className="w-full h-10 px-3 bg-[#F8FAFC] border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653]"
+              className="w-full h-10 px-3 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs font-bold text-[#062653] outline-hidden transition-colors"
             />
           </div>
 
@@ -661,7 +661,7 @@ export default function SuperAdminSubscriptionSettingsPage() {
                   autoMessageBody: e.target.value,
                 }))
               }
-              className="w-full p-3 bg-[#F8FAFC] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] leading-relaxed"
+              className="w-full p-3 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs text-[#263445] leading-relaxed outline-hidden transition-colors"
             />
           </div>
         </div>

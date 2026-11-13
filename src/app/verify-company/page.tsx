@@ -13,7 +13,10 @@ import {
   EyeOff,
   Building2,
   ShieldCheck,
+  Check,
+  FileText,
 } from "lucide-react";
+import { Modal } from "@/components/ui/Modal";
 
 function VerifyCompanyContent() {
   const searchParams = useSearchParams();
@@ -28,6 +31,8 @@ function VerifyCompanyContent() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [showTermsModal, setShowTermsModal] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [activated, setActivated] = useState(false);
@@ -88,6 +93,11 @@ function VerifyCompanyContent() {
     e.preventDefault();
     setFormError(null);
 
+    if (!acceptedTerms) {
+      setFormError("Veuillez confirmer l'acceptation de l'utilisation du système pour continuer.");
+      return;
+    }
+
     if (!isConforme) {
       const missing: string[] = [];
       if (!hasMinLength) missing.push("au moins 8 caractères");
@@ -137,14 +147,14 @@ function VerifyCompanyContent() {
   };
 
   return (
-    <div className="min-h-screen bg-white flex flex-col justify-center items-center px-4 sm:px-6 py-12">
-      <div className="max-w-md w-full bg-white rounded-3xl border border-[#DCE2EA] shadow-xl p-8 sm:p-10 text-center">
+    <div className="min-h-screen bg-white flex flex-col items-center px-4 sm:px-6 py-8 sm:py-12 overflow-y-auto">
+      <div className="max-w-xl w-full bg-white rounded-3xl shadow-xl border border-slate-100 p-7 sm:p-10 text-center my-auto">
         {/* Brand Logo Header */}
         <div className="mb-6 flex flex-col items-center justify-center text-center">
           <img
             src="/logo-rkonekte.png"
             alt="RKonekte"
-            className="h-10 w-auto object-contain mb-2"
+            className="h-11 sm:h-12 w-auto object-contain mb-2"
           />
           <p className="text-[11px] font-bold tracking-[0.25em] text-[#64748B] uppercase">
             GESTION DIGITALISÉE
@@ -167,7 +177,7 @@ function VerifyCompanyContent() {
         {/* ERROR STATE */}
         {!loading && error && (
           <div className="space-y-4 animate-fadeIn">
-            <div className="w-14 h-14 rounded-full bg-rose-50 border-2 border-rose-500 text-rose-600 flex items-center justify-center mx-auto shadow-xs">
+            <div className="w-14 h-14 rounded-full bg-rose-50 text-rose-600 flex items-center justify-center mx-auto shadow-xs">
               <AlertCircle className="w-8 h-8" />
             </div>
 
@@ -175,7 +185,7 @@ function VerifyCompanyContent() {
               Lien invalide ou expiré
             </h1>
 
-            <p className="text-xs text-rose-700 leading-relaxed bg-rose-50 p-3 rounded-xl border border-rose-200">
+            <p className="text-xs text-rose-700 leading-relaxed bg-rose-50 p-3 rounded-xl">
               {error}
             </p>
 
@@ -248,7 +258,7 @@ function VerifyCompanyContent() {
             </div>
 
             {/* Company & Role Summary */}
-            <div className="bg-transparent border border-[#DCE2EA] rounded-2xl p-4 text-xs space-y-1.5">
+            <div className="bg-[#F4F6F9] rounded-2xl p-4 text-xs space-y-1.5">
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Entreprise :</span>
                 <span className="font-bold text-[#062653]">{tokenData.companyName}</span>
@@ -264,7 +274,7 @@ function VerifyCompanyContent() {
             </div>
 
             {formError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
+              <div className="p-3 bg-rose-50 rounded-xl text-xs text-rose-700 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{formError}</span>
               </div>
@@ -282,7 +292,7 @@ function VerifyCompanyContent() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Min. 8 car., Maj, Min, Chiffre, Caractère spécial"
-                    className="w-full h-11 pl-3.5 pr-10 text-xs border border-slate-300 rounded-xl bg-slate-50 text-slate-900 focus:bg-white focus:outline-none focus:border-[#062653] transition-colors"
+                    className="w-full h-11 pl-3.5 pr-10 text-xs rounded-xl bg-[#F4F6F9] text-slate-900 focus:bg-white focus:outline-none transition-colors"
                   />
                   <button
                     type="button"
@@ -378,26 +388,68 @@ function VerifyCompanyContent() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Répétez votre mot de passe"
-                  className="w-full h-11 px-3.5 text-xs border border-slate-300 rounded-xl bg-slate-50 text-slate-900 focus:bg-white focus:outline-none focus:border-[#062653] transition-colors"
+                  className="w-full h-11 px-3.5 text-xs rounded-xl bg-[#F4F6F9] text-slate-900 focus:bg-white focus:outline-none transition-colors"
                 />
                 {confirmPassword.length > 0 && password !== confirmPassword && (
                   <p className="text-[11px] text-rose-500 mt-1">Les mots de passe ne correspondent pas.</p>
                 )}
               </div>
 
+              {/* CONFIRMATION D'ACCEPTATION DU SYSTÈME (BOUTON RADIO OBLIGATOIRE) */}
+              <div
+                className={`p-3.5 rounded-2xl border transition-all ${
+                  acceptedTerms
+                    ? "border-emerald-300"
+                    : "border-slate-200"
+                }`}
+              >
+                <label className="flex items-start gap-3 cursor-pointer select-none">
+                  <input
+                    type="radio"
+                    name="acceptConditions"
+                    id="acceptConditions"
+                    checked={acceptedTerms}
+                    onChange={() => setAcceptedTerms(true)}
+                    className="mt-0.5 w-4 h-4 accent-[#FF7900] cursor-pointer shrink-0"
+                  />
+                  <div className="space-y-1">
+                    <span className="text-xs font-bold text-[#062653] leading-snug block">
+                      Confirmation d'acceptation du système (Obligatoire)
+                    </span>
+                    <span className="text-xs text-[#263445] leading-relaxed block">
+                      Je confirme avoir pris connaissance des objectifs, des tarifs et de la charte de fonctionnement de RKonekte, et j'accepte formellement l'utilisation de la plateforme pour mon organisation.
+                    </span>
+                  </div>
+                </label>
+                <div className="pl-7 pt-2 flex items-center justify-between">
+                  <button
+                    type="button"
+                    onClick={() => setShowTermsModal(true)}
+                    className="text-[11px] font-semibold text-[#FF7900] hover:text-[#E66D00] hover:underline cursor-pointer"
+                  >
+                    Consulter la charte d'utilisation &amp; les tarifs →
+                  </button>
+                  {acceptedTerms && (
+                    <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
+                      ✓ Conditions acceptées
+                    </span>
+                  )}
+                </div>
+              </div>
+
               <button
                 type="submit"
-                disabled={submitting}
-                className="w-full h-11 bg-[#062653] hover:bg-[#031B3A] text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-60"
+                disabled={submitting || !acceptedTerms || !isConforme || password !== confirmPassword}
+                className="w-full h-11 bg-[#062653] hover:bg-[#031B3A] text-white text-xs font-bold rounded-xl transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {submitting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin text-[#FF7900]" />
-                    <span>Activation en cours...</span>
+                    <span>Enregistrement du mot de passe...</span>
                   </>
                 ) : (
                   <>
-                    <span>Activer mon compte et accéder à l'espace</span>
+                    <span>Définir mon mot de passe et activer mon compte</span>
                     <ArrowRight className="w-4 h-4 text-[#FF7900]" />
                   </>
                 )}
@@ -406,6 +458,82 @@ function VerifyCompanyContent() {
           </div>
         )}
       </div>
+
+      {/* MODAL DE CONSULTATION DE LA CHARTE D'UTILISATION & TARIFS */}
+      <Modal
+        isOpen={showTermsModal}
+        onClose={() => setShowTermsModal(false)}
+        title="Charte d'Utilisation, Tarifs & Engagements RKonekte"
+        maxWidth="2xl"
+      >
+        <div className="space-y-4 text-xs text-[#263445] leading-relaxed max-h-[70vh] overflow-y-auto pr-1">
+          <div className="p-4 bg-[#F4F6F9] rounded-2xl space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7900] block">
+              1. Objectifs &amp; Fonctionnalités de la Plateforme
+            </span>
+            <p className="text-[#64748B]">
+              RKonekte est une solution de gestion digitalisée d'entreprise. Elle permet la dématérialisation intégrale des demandes de congé RH avec génération de fiches officielles A4 imprimables, les revalorisations salariales formelles avec notifications automatiques, les autorisations d'achats avec signatures numériques certifiées sans arrière-plan blanc, ainsi que la saisie de caisse et l'édition de rapports financiers consolidés en temps réel.
+            </p>
+          </div>
+
+          <div className="p-4 bg-[#F4F6F9] rounded-2xl space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 block">
+              2. Tarifs &amp; Période Gratuite
+            </span>
+            <p className="font-semibold text-emerald-800">
+              ✓ Premier mois offert (30 jours gratuits) dès l'activation de votre compte administrateur sans engagement initial.
+            </p>
+            <div className="grid grid-cols-2 gap-2 pt-1 font-mono text-[11px]">
+              <div className="p-2.5 bg-white rounded-xl shadow-2xs">
+                <strong>1 mois :</strong> 50 USD / mois
+              </div>
+              <div className="p-2.5 bg-white rounded-xl shadow-2xs">
+                <strong>3 mois :</strong> 135 USD (-10%)
+              </div>
+              <div className="p-2.5 bg-white rounded-xl shadow-2xs">
+                <strong>6 mois :</strong> 255 USD (-15%)
+              </div>
+              <div className="p-2.5 bg-white rounded-xl shadow-2xs">
+                <strong>12 mois :</strong> 510 USD (-15%)
+              </div>
+            </div>
+            <p className="text-[11px] text-[#64748B] pt-1">
+              Règlements acceptés : Sogebank, Unibank, MonCash. Tout réabonnement anticipé prolonge automatiquement l'échéance : aucun jour restant n'est perdu.
+            </p>
+          </div>
+
+          <div className="p-4 bg-[#F4F6F9] rounded-2xl space-y-2">
+            <span className="text-[10px] font-bold uppercase tracking-wider text-[#062653] block">
+              3. Ce qu'il faut savoir avant de se lancer
+            </span>
+            <ul className="list-disc pl-4 space-y-1.5 text-[#64748B]">
+              <li><strong>Rôle Administrateur :</strong> Vous disposez de l'autorité complète pour configurer le logo officiel transparent, définir les succursales et inviter vos collaborateurs.</li>
+              <li><strong>Cloisonnement &amp; Confidentialité :</strong> Chaque utilisateur accède strictement aux données et fonctionnalités autorisées par son profil d'accès.</li>
+              <li><strong>Authenticité &amp; Archivage :</strong> Tous les documents générés sont traçables, prêts pour l'impression A4 et scellés avec vos signatures numériques.</li>
+            </ul>
+          </div>
+
+          <div className="pt-2 flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={() => setShowTermsModal(false)}
+              className="px-4 py-2 text-xs font-semibold text-[#64748B] hover:bg-[#F4F6F9] rounded-xl transition-colors cursor-pointer"
+            >
+              Fermer
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setAcceptedTerms(true);
+                setShowTermsModal(false);
+              }}
+              className="px-5 py-2.5 text-xs font-bold text-white bg-[#062653] hover:bg-[#031B3A] rounded-xl shadow-xs transition-colors cursor-pointer"
+            >
+              J'ai compris et j'accepte
+            </button>
+          </div>
+        </div>
+      </Modal>
     </div>
   );
 }

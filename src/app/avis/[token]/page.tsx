@@ -18,8 +18,8 @@ export default async function PublicFeedbackPage({
   if (!resolved.found) {
     return (
       <main className="flex-1 min-h-screen w-full bg-white flex items-center justify-center p-4 sm:p-6">
-        <div className="w-full max-w-md bg-white rounded-2xl border border-[#DCE2EA] shadow-sm p-8 text-center space-y-4">
-          <div className="w-14 h-14 rounded-2xl bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center mx-auto">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg p-8 text-center space-y-4">
+          <div className="w-14 h-14 rounded-2xl bg-rose-50 text-rose-600 flex items-center justify-center mx-auto">
             <AlertTriangle className="w-7 h-7" />
           </div>
           <h1 className="text-xl font-bold text-slate-900">
@@ -41,7 +41,7 @@ export default async function PublicFeedbackPage({
   if (!resolved.active) {
     return (
       <main className="flex-1 min-h-screen w-full bg-white flex items-center justify-center p-4 sm:p-6">
-        <div className="w-full max-w-md bg-white rounded-2xl border border-[#DCE2EA] shadow-sm overflow-hidden">
+        <div className="w-full max-w-md bg-white rounded-2xl shadow-lg overflow-hidden">
           <div className="bg-white px-6 py-6 text-center space-y-2 border-b border-slate-100">
             <p className="text-lg font-bold tracking-tight text-slate-900">
               {companyName}
@@ -53,7 +53,7 @@ export default async function PublicFeedbackPage({
           </div>
 
           <div className="p-8 text-center space-y-3">
-            <div className="w-14 h-14 rounded-2xl bg-white border border-[#DCE2EA] text-slate-600 flex items-center justify-center mx-auto">
+            <div className="w-14 h-14 rounded-2xl bg-[#F4F6F9] text-slate-600 flex items-center justify-center mx-auto">
               <Lock className="w-6 h-6" />
             </div>
             <h1 className="text-lg font-bold text-slate-900">
@@ -74,7 +74,7 @@ export default async function PublicFeedbackPage({
     <main className="flex-1 min-h-screen w-full bg-white py-6 px-4 sm:py-12 sm:px-6 flex flex-col items-center justify-center">
       <div className="w-full max-w-lg space-y-4">
         {/* Carte unique unifiée (aucune séparation entre l'entreprise et le formulaire) */}
-        <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xs p-5 sm:p-7 space-y-6">
+        <div className="bg-white rounded-2xl shadow-lg p-5 sm:p-7 space-y-6">
           {/* En-tête épuré : uniquement nom de l'entreprise et succursale */}
           <div className="text-center space-y-1.5 pb-5 border-b border-slate-100">
             {resolved.organizationLogo && (
@@ -104,7 +104,7 @@ export default async function PublicFeedbackPage({
           {/* Titre du formulaire + N.B. en rouge */}
           <div className="space-y-5">
             <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-white border border-[#DCE2EA] text-slate-700 flex items-center justify-center shrink-0 mt-0.5">
+              <div className="w-9 h-9 rounded-xl bg-[#F4F6F9] text-slate-700 flex items-center justify-center shrink-0 mt-0.5">
                 <MessageSquarePlus className="w-4 h-4 text-slate-600" />
               </div>
               <div className="space-y-0.5">

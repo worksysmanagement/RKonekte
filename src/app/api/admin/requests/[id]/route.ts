@@ -33,11 +33,18 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { organizationId } = await requireTenantUser();
+    const { organizationId, user } = await requireTenantUser();
     const { id } = await params;
 
-    await deleteLeaveRequest(id, organizationId);
-    return NextResponse.json({ success: true, message: "Demande de congé supprimée avec succès." });
+    const result = await deleteLeaveRequest(id, organizationId, user.id, user.name);
+    return NextResponse.json({
+      success: true,
+      actionTaken: result.actionTaken,
+      message:
+        result.actionTaken === "ARCHIVED_FOR_ADMIN"
+          ? "Demande retirée de l'espace administration (restée approuvée pour le collaborateur)."
+          : "Demande supprimée et enregistrée comme refusée pour le collaborateur.",
+    });
   } catch (err) {
     return handleApiError(err);
   }

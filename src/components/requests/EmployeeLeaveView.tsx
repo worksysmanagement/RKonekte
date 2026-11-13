@@ -28,7 +28,7 @@ import {
   FileSignature,
   Trash2,
 } from "lucide-react";
-import { processTransparentImage } from "@/lib/utils/signature";
+import { processTransparentImage, isImageSignature, generateCursiveSignatureDataUrl } from "@/lib/utils/signature";
 import { showSystemToast } from "@/components/ui/SystemToast";
 import { generateLeaveRequestPdfBlob, downloadPdfBlob, printPdfDocument } from "@/lib/utils/pdf";
 
@@ -413,6 +413,14 @@ export function EmployeeLeaveView() {
     setSubmitting(true);
 
     try {
+      let finalSignature = uploadedSignature;
+      if (signatureMode === "type") {
+        const cursivePng = generateCursiveSignatureDataUrl(
+          typedSignatureText.trim() || `${firstName} ${lastName}`.trim()
+        );
+        finalSignature = cursivePng || typedSignatureText.trim();
+      }
+
       const payload = {
         firstName: firstName.trim() || profile?.firstName || "Collaborateur",
         lastName: lastName.trim() || profile?.lastName || "",
@@ -429,8 +437,8 @@ export function EmployeeLeaveView() {
         contactEmail: contactEmail.trim() || profile?.email || undefined,
         branch: profile?.branch || "Siège",
         signatureMode,
-        employeeSignature: uploadedSignature || (signatureMode === "type" ? typedSignatureText : undefined),
-        typedSignatureText: signatureMode === "type" ? typedSignatureText : undefined,
+        employeeSignature: finalSignature,
+        typedSignatureText: signatureMode === "type" ? typedSignatureText.trim() : undefined,
       };
 
       const res = await fetch("/api/admin/requests", {
@@ -457,6 +465,10 @@ export function EmployeeLeaveView() {
           };
           localStorage.setItem("rkonekte_employee_signatures", JSON.stringify(sigs));
         } catch (_) {}
+      }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("rkonekte_notification_update"));
       }
 
       showSystemToast(
@@ -487,22 +499,22 @@ export function EmployeeLeaveView() {
     switch (status) {
       case "APPROVED":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
             Approuvée
           </span>
         );
       case "REJECTED":
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-rose-100 text-rose-800 border border-rose-200">
-            <XCircle className="w-3.5 h-3.5 text-rose-600" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600">
+            <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
             Refusée
           </span>
         );
       default:
         return (
-          <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-800 border border-amber-200">
-            <Clock className="w-3.5 h-3.5 text-amber-600" />
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FF7900]">
+            <Clock className="w-3.5 h-3.5 text-[#FF7900] shrink-0" />
             En attente de validation
           </span>
         );
@@ -517,7 +529,7 @@ export function EmployeeLeaveView() {
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
       {/* Profil Header Collaborateur */}
-      <div className="bg-white rounded-2xl p-5 border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+      <div className="bg-white rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
         <div>
           <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
             Mon Espace Congés
@@ -561,13 +573,13 @@ export function EmployeeLeaveView() {
       </div>
 
       {/* Navigation Onglets Très Simple */}
-      <div className="flex items-center gap-2 border-b border-[#DCE2EA] pb-1 print:hidden">
+      <div className="flex items-center gap-2 pb-1 print:hidden">
         <button
           onClick={() => setActiveTab("form")}
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
             activeTab === "form"
               ? "bg-[#062653] text-white shadow-xs"
-              : "bg-white text-[#64748B] hover:text-[#062653] hover:bg-slate-50 border border-transparent"
+              : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653] hover:bg-slate-200/70"
           }`}
         >
           <Plus className="w-4 h-4" />
@@ -582,7 +594,7 @@ export function EmployeeLeaveView() {
           className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all relative ${
             activeTab === "history"
               ? "bg-[#062653] text-white shadow-xs"
-              : "bg-white text-[#64748B] hover:text-[#062653] hover:bg-slate-50 border border-transparent"
+              : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653] hover:bg-slate-200/70"
           }`}
         >
           <svg className="w-4 h-4 shrink-0" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -606,9 +618,9 @@ export function EmployeeLeaveView() {
 
       {/* TAB 1: FORMULAIRE OFFICIEL DE L'ENTREPRISE */}
       {activeTab === "form" && (
-        <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xs p-6 md:p-8 animate-in fade-in">
+        <div className="bg-white rounded-2xl shadow-xs p-6 md:p-8 animate-in fade-in">
           {/* Titre officiel du formulaire */}
-          <div className="mb-6 pb-4 border-b border-[#DCE2EA]">
+          <div className="mb-6 pb-4">
             <h2 className="text-xl font-bold text-[#062653] tracking-tight">
               Formulaire de Demande de Congé
             </h2>
@@ -620,7 +632,7 @@ export function EmployeeLeaveView() {
           <form onSubmit={handleSubmit} className="space-y-7">
             {/* 1. INFORMATIONS SUR L'EMPLOYÉ */}
             <div className="space-y-3">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#062653] uppercase tracking-wider border-b border-slate-100 pb-1.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#062653] uppercase tracking-wider pb-1.5">
                 <span className="w-5 h-5 rounded-full bg-[#062653] text-white flex items-center justify-center text-[10px] font-bold">1</span>
                 <span>Informations sur l'Employé :</span>
               </div>
@@ -635,7 +647,7 @@ export function EmployeeLeaveView() {
                     value={lastName}
                     onChange={(e) => setLastName(e.target.value)}
                     placeholder="Nom de famille"
-                    className="w-full px-3.5 py-2.5 bg-[#F8FAFC] border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-medium focus:bg-white focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                    className="w-full px-3.5 py-2.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] font-medium focus:bg-white outline-hidden"
                   />
                 </div>
                 <div>
@@ -648,7 +660,7 @@ export function EmployeeLeaveView() {
                     value={firstName}
                     onChange={(e) => setFirstName(e.target.value)}
                     placeholder="Prénom"
-                    className="w-full px-3.5 py-2.5 bg-[#F8FAFC] border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-medium focus:bg-white focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                    className="w-full px-3.5 py-2.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] font-medium focus:bg-white outline-hidden"
                   />
                 </div>
                 <div>
@@ -665,7 +677,7 @@ export function EmployeeLeaveView() {
                     tabIndex={-1}
                     value={employeeNumber}
                     title="Le numéro d'employé officiel (matricule) est attribué par l'administration et ne peut pas être modifié."
-                    className="w-full px-3.5 py-2.5 bg-slate-100/80 border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-mono font-bold cursor-not-allowed select-none focus:outline-none"
+                    className="w-full px-3.5 py-2.5 bg-slate-100 rounded-xl text-xs text-[#062653] font-mono font-bold cursor-not-allowed select-none focus:outline-none"
                   />
                 </div>
                 <div>
@@ -678,7 +690,7 @@ export function EmployeeLeaveView() {
                     value={department}
                     onChange={(e) => setDepartment(e.target.value)}
                     placeholder="Ex: Comptabilité, Logistique..."
-                    className="w-full px-3.5 py-2.5 bg-[#F8FAFC] border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-medium focus:bg-white focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                    className="w-full px-3.5 py-2.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] font-medium focus:bg-white outline-hidden"
                   />
                 </div>
                 <div className="sm:col-span-2 lg:col-span-2">
@@ -691,7 +703,7 @@ export function EmployeeLeaveView() {
                     value={position}
                     onChange={(e) => setPosition(e.target.value)}
                     placeholder="Ex: Responsable des Ventes"
-                    className="w-full px-3.5 py-2.5 bg-[#F8FAFC] border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-medium focus:bg-white focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                    className="w-full px-3.5 py-2.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] font-medium focus:bg-white outline-hidden"
                   />
                 </div>
               </div>
@@ -699,7 +711,7 @@ export function EmployeeLeaveView() {
 
             {/* 2. DÉTAILS DE LA DEMANDE DE CONGÉ */}
             <div className="space-y-4 pt-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#062653] uppercase tracking-wider border-b border-slate-100 pb-1.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#062653] uppercase tracking-wider pb-1.5">
                 <span className="w-5 h-5 rounded-full bg-[#062653] text-white flex items-center justify-center text-[10px] font-bold">2</span>
                 <span>Détails de la Demande de Congé :</span>
               </div>
@@ -713,10 +725,10 @@ export function EmployeeLeaveView() {
                   {LEAVE_TYPES.map((type) => (
                     <label
                       key={type.value}
-                      className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none ${
+                      className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all select-none ${
                         leaveType === type.value
-                          ? "border-[#062653] bg-[#062653]/5 font-bold text-[#062653] ring-2 ring-[#062653]/20"
-                          : "border-[#DCE2EA] bg-white hover:bg-[#F8FAFC] text-[#263445]"
+                          ? "bg-[#062653]/10 font-bold text-[#062653] ring-2 ring-[#062653]/25"
+                          : "bg-[#F4F6F9] hover:bg-slate-200/70 text-[#263445]"
                       }`}
                     >
                       <input
@@ -728,10 +740,10 @@ export function EmployeeLeaveView() {
                         className="sr-only"
                       />
                       <div
-                        className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                        className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
                           leaveType === type.value
-                            ? "border-[#062653] bg-white ring-2 ring-[#062653]/20"
-                            : "border-slate-300 bg-white"
+                            ? "bg-white ring-2 ring-[#062653]"
+                            : "bg-white ring-1 ring-slate-300"
                         }`}
                       >
                         {leaveType === type.value && (
@@ -754,7 +766,7 @@ export function EmployeeLeaveView() {
                       onChange={(e) => setLeaveTypeOther(e.target.value)}
                       placeholder="Préciser le motif de congé..."
                       required
-                      className="w-full px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                      className="w-full px-3.5 py-2.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] focus:bg-white outline-hidden"
                     />
                   </div>
                 )}
@@ -765,7 +777,7 @@ export function EmployeeLeaveView() {
                 <label className="block text-xs font-bold text-[#062653] mb-2">
                   Dates du Congé :
                 </label>
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-end bg-[#F8FAFC] p-4 rounded-xl border border-slate-200">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5 items-end bg-[#F4F6F9] p-4 rounded-xl">
                   <div>
                     <label className="block text-xs font-semibold text-[#263445] mb-1">
                       Date de Début : <span className="text-rose-500">*</span>
@@ -776,7 +788,7 @@ export function EmployeeLeaveView() {
                       required
                       value={startDate}
                       onChange={(e) => setStartDate(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-medium focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                      className="w-full px-3.5 py-2.5 bg-white rounded-xl text-xs text-[#062653] font-medium shadow-2xs outline-hidden"
                     />
                   </div>
 
@@ -791,7 +803,7 @@ export function EmployeeLeaveView() {
                       value={endDate}
                       min={startDate}
                       onChange={(e) => setEndDate(e.target.value)}
-                      className="w-full px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-medium focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                      className="w-full px-3.5 py-2.5 bg-white rounded-xl text-xs text-[#062653] font-medium shadow-2xs outline-hidden"
                     />
                   </div>
 
@@ -799,7 +811,7 @@ export function EmployeeLeaveView() {
                     <label className="block text-xs font-semibold text-[#263445] mb-1">
                       Nombre de Jours de Congé Demandés :
                     </label>
-                    <div className="px-3.5 py-2.5 bg-slate-100/80 border border-slate-200 rounded-xl text-xs font-bold text-[#062653] flex items-center justify-between cursor-not-allowed select-none">
+                    <div className="px-3.5 py-2.5 bg-slate-200/70 rounded-xl text-xs font-bold text-[#062653] flex items-center justify-between cursor-not-allowed select-none">
                       <span>{requestedDays > 0 ? `${requestedDays} jour(s)` : "—"}</span>
                       <Calendar className="w-4 h-4 text-slate-400" />
                     </div>
@@ -810,7 +822,7 @@ export function EmployeeLeaveView() {
 
             {/* 3. REMPLAÇANT PROPOSÉ (SI APPLICABLE) */}
             <div className="space-y-3 pt-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#062653] uppercase tracking-wider border-b border-slate-100 pb-1.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#062653] uppercase tracking-wider pb-1.5">
                 <span className="w-5 h-5 rounded-full bg-[#062653] text-white flex items-center justify-center text-[10px] font-bold">3</span>
                 <span>Remplaçant Proposé (si applicable) :</span>
               </div>
@@ -823,14 +835,14 @@ export function EmployeeLeaveView() {
                   value={replacementName}
                   onChange={(e) => setReplacementName(e.target.value)}
                   placeholder="Nom complet du collègue remplaçant si applicable"
-                  className="w-full px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-medium focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                  className="w-full px-3.5 py-2.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] font-medium focus:bg-white outline-hidden"
                 />
               </div>
             </div>
 
             {/* 4. COORDONNÉES PENDANT LE CONGÉ */}
             <div className="space-y-3 pt-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-[#062653] uppercase tracking-wider border-b border-slate-100 pb-1.5">
+              <div className="flex items-center gap-2 text-xs font-bold text-[#062653] uppercase tracking-wider pb-1.5">
                 <span className="w-5 h-5 rounded-full bg-[#062653] text-white flex items-center justify-center text-[10px] font-bold">4</span>
                 <span>Coordonnées Pendant le Congé :</span>
               </div>
@@ -845,7 +857,7 @@ export function EmployeeLeaveView() {
                     value={contactPhone}
                     onChange={(e) => setContactPhone(e.target.value)}
                     placeholder="+509 0000 0000"
-                    className="w-full px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-medium focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                    className="w-full px-3.5 py-2.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] font-medium focus:bg-white outline-hidden"
                   />
                 </div>
 
@@ -858,7 +870,7 @@ export function EmployeeLeaveView() {
                     value={contactEmail}
                     onChange={(e) => setContactEmail(e.target.value)}
                     placeholder="email@entreprise.com"
-                    className="w-full px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-medium focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                    className="w-full px-3.5 py-2.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] font-medium focus:bg-white outline-hidden"
                   />
                 </div>
               </div>
@@ -866,7 +878,7 @@ export function EmployeeLeaveView() {
 
             {/* 5. SIGNATURE DE L'EMPLOYÉ */}
             <div className="space-y-3 pt-2">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-100 pb-2">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2">
                 <div className="flex items-center gap-2 text-xs font-bold text-[#062653] uppercase tracking-wider">
                   <span className="w-5 h-5 rounded-full bg-[#062653] text-white flex items-center justify-center text-[10px] font-bold">5</span>
                   <span>Signature de l'Employé :</span>
@@ -906,12 +918,12 @@ export function EmployeeLeaveView() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-[#F8FAFC] p-4 rounded-xl border border-slate-200">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 bg-[#F4F6F9] p-4 rounded-xl">
                 <div>
                   <label className="block text-xs font-semibold text-[#263445] mb-1">
                     Date : <span className="text-[10px] text-[#64748B] font-normal">(JJ/MM/AAAA)</span>
                   </label>
-                  <div className="px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653]">
+                  <div className="px-3.5 py-2.5 bg-white rounded-xl text-xs font-bold text-[#062653] shadow-2xs">
                     {new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
                   </div>
                   <p className="text-[11px] text-[#64748B] mt-2">
@@ -951,7 +963,7 @@ export function EmployeeLeaveView() {
                               reader.readAsDataURL(file);
                             }
                           }}
-                          className="border-2 border-dashed border-[#062653]/30 hover:border-[#062653] bg-white hover:bg-[#062653]/5 rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all min-h-[105px] group"
+                          className="bg-white hover:bg-[#062653]/5 rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all min-h-[105px] group shadow-2xs"
                         >
                           <div className="w-9 h-9 rounded-full bg-[#062653]/10 text-[#062653] flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
                             <Upload className="w-4 h-4" />
@@ -964,7 +976,7 @@ export function EmployeeLeaveView() {
                           </p>
                         </div>
                       ) : (
-                        <div className="bg-white border border-[#DCE2EA] rounded-xl p-3 relative flex flex-col items-center justify-center min-h-[105px]">
+                        <div className="bg-white rounded-xl p-3 relative flex flex-col items-center justify-center min-h-[105px] shadow-2xs">
                           <div className="w-full flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-100">
                             <span className="text-[11px] font-medium text-slate-400">
                               Arrière-plan retiré (transparent)
@@ -1008,9 +1020,9 @@ export function EmployeeLeaveView() {
                         value={typedSignatureText}
                         onChange={(e) => setTypedSignatureText(e.target.value)}
                         placeholder="Tapez votre prénom et nom..."
-                        className="w-full px-3.5 py-2 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-semibold focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                        className="w-full px-3.5 py-2 bg-white rounded-xl text-xs text-[#062653] font-semibold shadow-2xs outline-hidden"
                       />
-                      <div className="bg-white border border-dashed border-slate-300 rounded-xl p-3 flex flex-col items-center justify-center min-h-[75px] overflow-hidden">
+                      <div className="bg-white rounded-xl p-3 flex flex-col items-center justify-center min-h-[75px] overflow-hidden shadow-2xs">
                         {typedSignatureText.trim() ? (
                           <div className="text-center py-1">
                             <div className="font-windsong text-3xl sm:text-4xl text-[#062653] select-none py-1 leading-normal tracking-wide">
@@ -1094,7 +1106,7 @@ export function EmployeeLeaveView() {
                     type="button"
                     onClick={handleDownloadPdf}
                     disabled={downloadingPdf}
-                    className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75 border border-red-600"
+                    className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75"
                     title="Télécharger la feuille officielle en fichier PDF"
                   >
                     {downloadingPdf ? (
@@ -1109,7 +1121,7 @@ export function EmployeeLeaveView() {
                     type="button"
                     onClick={handlePrintPdf}
                     disabled={printingPdf}
-                    className="px-4 py-2 bg-black hover:bg-zinc-800 border border-black text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75"
+                    className="px-4 py-2 bg-black hover:bg-zinc-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75"
                     title="Imprimer directement la feuille officielle"
                   >
                     {printingPdf ? (
@@ -1336,18 +1348,24 @@ export function EmployeeLeaveView() {
 
                       {/* Contenu Signature Employé */}
                       <div className="py-2 flex flex-col items-center justify-center min-h-[70px]">
-                        {selectedRequest.employeeSignature ? (
+                        {isImageSignature(selectedRequest.employeeSignature) ? (
                           <img
                             src={selectedRequest.employeeSignature}
                             alt={`Signature de ${selectedRequest.firstName} ${selectedRequest.lastName}`}
                             className="h-16 max-w-[200px] object-contain my-1 drop-shadow-xs"
                           />
                         ) : (
-                          <div className="text-center">
-                            <div className="font-windsong text-3xl sm:text-4xl text-[#062653] italic select-none py-1">
-                              {selectedRequest.typedSignatureText || `${selectedRequest.firstName} ${selectedRequest.lastName}`}
+                          <div className="text-center py-1 select-none">
+                            <div
+                              className="font-windsong text-3xl sm:text-4xl text-[#062653] py-1 leading-normal tracking-wide"
+                              style={{ fontFamily: "'WindSong', 'Caveat', 'Dancing Script', cursive, sans-serif" }}
+                            >
+                              {selectedRequest.typedSignatureText ||
+                                (!isImageSignature(selectedRequest.employeeSignature) ? selectedRequest.employeeSignature : "") ||
+                                `${selectedRequest.firstName} ${selectedRequest.lastName}`}
                             </div>
-                            <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider">
+                            <div className="w-44 h-0.5 bg-[#062653]/30 mx-auto mt-0.5" />
+                            <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider block mt-1">
                               Signature officielle certifiée
                             </span>
                           </div>
@@ -1377,19 +1395,30 @@ export function EmployeeLeaveView() {
                             Signature de l'Administration
                           </span>
                           <span
-                            className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                            className={`text-[11px] font-bold shrink-0 inline-flex items-center gap-1 ${
                               selectedRequest.status === "APPROVED"
-                                ? "bg-emerald-100 text-emerald-800"
+                                ? "text-emerald-600"
                                 : selectedRequest.status === "REJECTED"
-                                ? "bg-rose-100 text-rose-800"
-                                : "bg-amber-100 text-amber-800"
+                                ? "text-rose-600"
+                                : "text-[#FF7900]"
                             }`}
                           >
-                            {selectedRequest.status === "APPROVED"
-                              ? "Accordé & Signé"
-                              : selectedRequest.status === "REJECTED"
-                              ? "Refusé"
-                              : "En attente"}
+                            {selectedRequest.status === "APPROVED" ? (
+                              <>
+                                <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                                Accordé & Signé
+                              </>
+                            ) : selectedRequest.status === "REJECTED" ? (
+                              <>
+                                <XCircle className="w-3 h-3 text-rose-600" />
+                                Refusé
+                              </>
+                            ) : (
+                              <>
+                                <Clock className="w-3 h-3 text-[#FF7900]" />
+                                En attente
+                              </>
+                            )}
                           </span>
                         </div>
                         <div className="text-xs text-slate-700 leading-normal pt-1">
@@ -1467,7 +1496,7 @@ export function EmployeeLeaveView() {
               </div>
 
               {/* BOTTOM CTA BAR */}
-              <div className="max-w-4xl mx-auto print:hidden pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+              <div className="max-w-4xl mx-auto print:hidden pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-xl shadow-2xs">
                 <div className="flex items-center gap-2 text-xs text-slate-600">
                   <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
                   <span>Feuille certifiée conforme aux registres de l'entreprise</span>
@@ -1476,7 +1505,7 @@ export function EmployeeLeaveView() {
                   type="button"
                   onClick={handleDownloadPdf}
                   disabled={downloadingPdf}
-                  className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75 border border-red-600"
+                  className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75"
                 >
                   {downloadingPdf ? (
                     <RotateCw className="w-4 h-4 text-white animate-spin" />
@@ -1504,12 +1533,12 @@ export function EmployeeLeaveView() {
               </div>
 
               {loadingRequests ? (
-                <div className="bg-white rounded-2xl p-12 text-center border border-[#DCE2EA]">
+                <div className="bg-white rounded-2xl p-12 text-center shadow-xs">
                   <RefreshCw className="w-6 h-6 animate-spin text-[#062653] mx-auto mb-2" />
                   <p className="text-xs text-[#64748B]">Chargement de vos demandes...</p>
                 </div>
               ) : visibleRequests.length === 0 ? (
-                <div className="bg-white rounded-2xl p-12 text-center border border-[#DCE2EA] shadow-xs">
+                <div className="bg-white rounded-2xl p-12 text-center shadow-xs">
                   <div className="w-12 h-12 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-3 text-slate-400">
                     <FileText className="w-6 h-6" />
                   </div>
@@ -1529,7 +1558,7 @@ export function EmployeeLeaveView() {
                   {visibleRequests.map((req, idx) => (
                     <div
                       key={`${req.id}-${idx}`}
-                      className="bg-white p-5 rounded-2xl border border-[#DCE2EA] shadow-xs hover:border-slate-300 transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
+                      className="bg-white p-5 rounded-2xl shadow-xs transition-all flex flex-col md:flex-row md:items-center justify-between gap-4"
                     >
                       <div className="space-y-1.5">
                         <div className="flex items-center gap-2">
@@ -1561,7 +1590,7 @@ export function EmployeeLeaveView() {
                         </div>
 
                         {req.status === "REJECTED" && req.rejectionReason && (
-                          <div className="mt-2 text-xs text-rose-700 bg-rose-50 p-2.5 rounded-lg border border-rose-200">
+                          <div className="mt-2 text-xs text-rose-700 bg-rose-50 p-2.5 rounded-lg">
                             <strong>Motif du refus :</strong> {req.rejectionReason}
                           </div>
                         )}

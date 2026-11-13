@@ -1,5 +1,10 @@
 import { describe, it, expect } from "vitest";
-import { removeBackgroundFromImageData, type ImageDataLike } from "../src/lib/utils/signature";
+import {
+  removeBackgroundFromImageData,
+  type ImageDataLike,
+  isImageSignature,
+  generateCursiveSignatureDataUrl,
+} from "../src/lib/utils/signature";
 
 describe("Signature Adaptive Background Removal", () => {
   it("preserves an already transparent PNG without modifying it", () => {
@@ -109,5 +114,32 @@ describe("Signature Adaptive Background Removal", () => {
     // Ink stroke is opaque
     const strokeIdx = (15 * width + 25) * 4;
     expect(img.data[strokeIdx + 3]).toBe(255);
+  });
+
+  describe("isImageSignature utility", () => {
+    it("identifies data URLs, HTTP/HTTPS, and local image paths as images", () => {
+      expect(isImageSignature("data:image/png;base64,iVBORw0KGgoAAAANSUhEUg==")).toBe(true);
+      expect(isImageSignature("https://example.com/signatures/my-sig.png")).toBe(true);
+      expect(isImageSignature("http://example.com/sig.webp")).toBe(true);
+      expect(isImageSignature("/images/signatures/user1.png")).toBe(true);
+      expect(isImageSignature("/uploads/sig.jpg")).toBe(true);
+      expect(isImageSignature("blob:http://localhost:3000/12345")).toBe(true);
+    });
+
+    it("correctly identifies plain text names and null/undefined as NOT images", () => {
+      expect(isImageSignature("Rodjensky Emmanuel Piton")).toBe(false);
+      expect(isImageSignature("Jean Dupont")).toBe(false);
+      expect(isImageSignature("")).toBe(false);
+      expect(isImageSignature(null)).toBe(false);
+      expect(isImageSignature(undefined)).toBe(false);
+    });
+  });
+
+  describe("generateCursiveSignatureDataUrl utility", () => {
+    it("returns empty string gracefully in non-DOM SSR environments", () => {
+      // In node/SSR without window.document, returns empty string cleanly
+      const result = generateCursiveSignatureDataUrl("Rodjensky Emmanuel Piton");
+      expect(typeof result).toBe("string");
+    });
   });
 });

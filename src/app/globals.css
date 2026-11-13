@@ -16,7 +16,7 @@
 .font-windsong *,
 .font-signature,
 .font-signature * {
-  font-family: 'WindSong', cursive, sans-serif !important;
+  font-family: 'WindSong', 'Caveat', 'Dancing Script', 'Brush Script MT', cursive, sans-serif !important;
 }
 
 /* Ensure Poppins is applied for all numbers, codes, dates, and tables */
@@ -91,8 +91,7 @@ select option:checked {
 
 input:focus, select:focus, textarea:focus {
   outline: none;
-  border-color: #062653 !important;
-  box-shadow: 0 0 0 1px #062653 !important;
+  box-shadow: 0 0 0 2px rgba(6, 38, 83, 0.14) !important;
 }
 
 /* Accessible focus ring */
@@ -132,6 +131,19 @@ input:focus, select:focus, textarea:focus {
 
 .animate-slide-in-right {
   animation: slideInRight 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+@keyframes slideInLeft {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.animate-slide-in-left {
+  animation: slideInLeft 0.28s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 
 @keyframes fadeInOverlay {

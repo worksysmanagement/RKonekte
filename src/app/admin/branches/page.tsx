@@ -185,21 +185,21 @@ export default function AdminBranchesPage() {
       </div>
 
       {/* Filter / Search Bar */}
-      <div className="bg-white p-4 rounded-xl border border-[#DCE2EA] shadow-xs flex items-center justify-between gap-4">
+      <div className="bg-white p-4 rounded-xl shadow-xs flex items-center justify-between gap-4">
         <div className="w-full sm:w-80 relative">
           <input
             type="text"
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher par nom, ville, responsable..."
-            className="w-full h-10 pl-9 pr-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs text-[#263445] placeholder:text-[#64748B] focus:bg-white transition-all"
+            className="w-full h-10 pl-9 pr-3.5 bg-[#F4F6F9] rounded-lg text-xs text-[#263445] placeholder:text-[#64748B] focus:bg-white transition-all outline-hidden"
           />
           <Search className="w-4 h-4 text-[#64748B] absolute left-3 top-3" />
         </div>
       </div>
 
       {/* Branches Table */}
-      <div className="bg-white rounded-xl border border-[#DCE2EA] shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-xs text-[#64748B]">
             Chargement des succursales en cours...
@@ -283,8 +283,8 @@ export default function AdminBranchesPage() {
       {/* DETAIL DRAWER / MODAL */}
       {selectedBranch && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xl max-w-lg w-full p-6 space-y-5 animate-fadeIn">
-            <div className="flex items-center justify-between pb-3 border-b border-[#DCE2EA]">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-5 animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <span className="text-[11px] font-bold text-[#FF7900]">
                   {selectedBranch.city}
@@ -316,7 +316,7 @@ export default function AdminBranchesPage() {
                 <div className="text-[#64748B] font-mono mt-0.5">{selectedBranch.phone}</div>
               </div>
 
-              <div className="col-span-2 p-3 bg-[#FFF4EB] rounded-xl border border-[#FF7900]/20 flex items-center justify-between">
+              <div className="col-span-2 p-3 bg-[#FFF4EB] rounded-xl flex items-center justify-between">
                 <div>
                   <span className="text-[#FF7900] font-semibold">Effectif rattaché</span>
                   <div className="font-bold text-[#062653] text-sm mt-0.5">
@@ -335,7 +335,7 @@ export default function AdminBranchesPage() {
             <div className="pt-2 flex justify-end">
               <button
                 onClick={() => setSelectedBranch(null)}
-                className="px-4 py-2 bg-white border border-[#DCE2EA] text-[#64748B] hover:bg-slate-50 text-xs font-semibold rounded-xl"
+                className="px-4 py-2 bg-[#F4F6F9] text-[#64748B] hover:bg-slate-200/70 text-xs font-semibold rounded-xl cursor-pointer transition-colors"
               >
                 Fermer
               </button>
@@ -347,8 +347,8 @@ export default function AdminBranchesPage() {
       {/* EDIT MODAL */}
       {isEditModalOpen && (
         <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xl max-w-lg w-full p-6 space-y-4 animate-fadeIn">
-            <div className="flex items-center justify-between pb-3 border-b border-[#DCE2EA]">
+          <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 space-y-4 animate-fadeIn">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <h2 className="text-base font-bold text-[#062653]">Modifier la succursale</h2>
               <button onClick={() => setIsEditModalOpen(false)} className="text-[#64748B]">
                 <X className="w-5 h-5" />
@@ -363,7 +363,7 @@ export default function AdminBranchesPage() {
                   required
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                  className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white outline-hidden"
                 />
               </div>
 
@@ -375,7 +375,7 @@ export default function AdminBranchesPage() {
                     required
                     value={formData.city}
                     onChange={(e) => setFormData({ ...formData, city: e.target.value })}
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                    className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white outline-hidden"
                   />
                 </div>
                 <div>
@@ -385,7 +385,7 @@ export default function AdminBranchesPage() {
                     required
                     value={formData.phone}
                     onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white font-mono"
+                    className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white font-mono outline-hidden"
                   />
                 </div>
               </div>
@@ -397,7 +397,7 @@ export default function AdminBranchesPage() {
                   required
                   value={formData.address}
                   onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                  className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                  className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white outline-hidden"
                 />
               </div>
 
@@ -410,15 +410,15 @@ export default function AdminBranchesPage() {
                   value={formData.managerName}
                   onChange={(e) => setFormData({ ...formData, managerName: e.target.value })}
                   placeholder="Facultatif"
-                  className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                  className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white outline-hidden"
                 />
               </div>
 
-              <div className="pt-3 border-t border-[#DCE2EA] flex justify-end gap-2">
+              <div className="pt-3 border-t border-slate-100 flex justify-end gap-2">
                 <button
                   type="button"
                   onClick={() => setIsEditModalOpen(false)}
-                  className="px-4 py-2 bg-white border border-[#DCE2EA] text-[#64748B] hover:bg-slate-50 text-xs font-semibold rounded-xl"
+                  className="px-4 py-2 bg-[#F4F6F9] text-[#64748B] hover:bg-slate-200/70 text-xs font-semibold rounded-xl cursor-pointer transition-colors"
                 >
                   Annuler
                 </button>

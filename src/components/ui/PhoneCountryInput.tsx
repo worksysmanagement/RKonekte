@@ -277,13 +277,13 @@ export function PhoneCountryInput({
       <div
         className={`flex items-stretch ${
           isTopLabel ? "h-11" : "h-[54px]"
-        } w-full bg-[#F4F6F9] hover:bg-slate-50 focus-within:bg-white border border-[#DCE2EA] focus-within:border-[#FF7900] focus-within:ring-3 focus-within:ring-[#FF7900]/15 rounded-xl transition-all shadow-xs overflow-hidden`}
+        } w-full bg-[#F4F6F9] hover:bg-slate-200/60 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#062653]/15 rounded-xl transition-all overflow-hidden`}
       >
         {/* Left: Flag & Chevron Button */}
         <button
           type="button"
           onClick={() => setOpen((prev) => !prev)}
-          className="px-2.5 bg-[#EEF2F6] hover:bg-[#E2E8F0] border-r border-[#DCE2EA] rounded-l-xl flex items-center gap-1 cursor-pointer transition-colors shrink-0 select-none group"
+          className="px-2.5 bg-[#E8EDF3] hover:bg-[#DCE3EC] rounded-l-xl flex items-center gap-1 cursor-pointer transition-colors shrink-0 select-none group"
           title={`Pays : ${selectedCountry.name} (${selectedCountry.dial}) - Cliquez pour changer`}
         >
           <img
@@ -342,7 +342,7 @@ export function PhoneCountryInput({
 
       {/* Dropdown Menu */}
       {open && (
-        <div className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 bg-white rounded-2xl border border-slate-200 shadow-2xl p-2 animate-fadeIn max-h-72 flex flex-col">
+        <div className="absolute left-0 top-full mt-1.5 z-50 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl p-2 animate-fadeIn max-h-72 flex flex-col">
           {/* Search Box */}
           <div className="relative mb-2 shrink-0">
             <input
@@ -351,7 +351,7 @@ export function PhoneCountryInput({
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Rechercher un pays ou indicatif..."
-              className="w-full h-9 pl-8 pr-3 bg-slate-50 border border-slate-200 rounded-lg text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:bg-white focus:border-[#FF7900] transition-colors"
+              className="w-full h-9 pl-8 pr-3 bg-[#F4F6F9] rounded-lg text-xs font-medium text-slate-800 placeholder:text-slate-400 outline-none focus:bg-white transition-colors"
             />
             <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
           </div>

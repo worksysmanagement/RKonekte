@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import {
@@ -283,8 +284,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
   const isEventsActive = pathname.startsWith("/admin/events");
   const isCustomerSpaceActive = pathname.startsWith("/admin/espace-client");
   const isAccessActive = pathname.startsWith("/admin/users");
-  const isSubscriptionActive = pathname.startsWith("/admin/subscription");
-  const isConfigActive = pathname.startsWith("/admin/configuration") || isSubscriptionActive;
+  const isConfigActive = pathname.startsWith("/admin/configuration");
   const isGeneralPrefActive = pathname === "/admin/configuration";
   const isProfileActive = pathname.startsWith("/admin/configuration/profile");
   const isSecurityActive = pathname.startsWith("/admin/configuration/security");
@@ -321,6 +321,14 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
       active:
         pathname === "/super-admin/subscription-settings" ||
         pathname.startsWith("/super-admin/subscription-settings/"),
+    },
+    {
+      href: "/super-admin/broadcast",
+      label: "Diffuser un message",
+      icon: Mail,
+      active:
+        pathname === "/super-admin/broadcast" ||
+        pathname.startsWith("/super-admin/broadcast/"),
     },
   ];
 
@@ -363,6 +371,8 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
 
   // Support Modal state & mail connection
   const [isSupportOpen, setIsSupportOpen] = useState(false);
+  const [isSupportMounted, setIsSupportMounted] = useState(false);
+  useEffect(() => setIsSupportMounted(true), []);
   const [copiedEmail, setCopiedEmail] = useState(false);
 
   useEffect(() => {
@@ -405,21 +415,21 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
         {isCollapsed ? (
           !isSuperAdmin && logo ? (
             <div
-              className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center p-1 select-none shadow-xs"
+              className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center p-1 select-none shadow-xs"
               title={organizationName || "Entreprise"}
             >
               <img src={logo} alt="Logo" className="max-w-full max-h-full object-contain" />
             </div>
           ) : isSuperAdmin ? (
             <div
-              className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white font-extrabold text-sm select-none shadow-xs"
+              className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white font-extrabold text-sm select-none shadow-xs"
               title="Super Administration"
             >
               <Shield className="w-4 h-4 text-white" />
             </div>
           ) : (
             <div
-              className="w-9 h-9 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center text-white font-extrabold text-sm select-none shadow-xs"
+              className="w-9 h-9 rounded-xl bg-white/10 flex items-center justify-center text-white font-extrabold text-sm select-none shadow-xs"
               title={organizationName || "Entreprise"}
             >
               {(organizationName || "R").charAt(0).toUpperCase()}
@@ -462,7 +472,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                   }`}
                 >
                   <Icon className="w-5 h-5 text-white shrink-0" />
-                  <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+                  <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                     {item.label}
                   </div>
                 </Link>
@@ -514,7 +524,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                 aria-hidden="true"
                 className="w-5 h-5 object-contain shrink-0"
               />
-              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                 Tableau de Bord
               </div>
             </Link>
@@ -537,7 +547,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                 aria-hidden="true"
                 className="w-5 h-5 object-contain shrink-0"
               />
-              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                 Requete
               </div>
             </Link>
@@ -560,7 +570,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                 aria-hidden="true"
                 className="w-5 h-5 object-contain shrink-0"
               />
-              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                 Employés
               </div>
             </Link>
@@ -583,7 +593,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                 aria-hidden="true"
                 className="w-5 h-5 object-contain shrink-0"
               />
-              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                 Succursales
               </div>
             </Link>
@@ -606,7 +616,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                 aria-hidden="true"
                 className="w-5 h-5 object-contain shrink-0"
               />
-              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                 Opérations Financieres
               </div>
             </Link>
@@ -629,7 +639,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                 aria-hidden="true"
                 className="w-5 h-5 object-contain shrink-0"
               />
-              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                 {isCashier ? "Saisie de Caisse" : "Rapports Financiers"}
               </div>
             </Link>
@@ -652,7 +662,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                 aria-hidden="true"
                 className="w-5 h-5 object-contain shrink-0"
               />
-              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                 Événements
               </div>
             </Link>
@@ -670,7 +680,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
               }`}
             >
               <Users className="w-5 h-5 shrink-0 text-white" />
-              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                 Espace Client
               </div>
             </Link>
@@ -693,7 +703,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                 aria-hidden="true"
                 className="w-5 h-5 object-contain shrink-0"
               />
-              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                 Gestions des accès
               </div>
             </Link>
@@ -719,7 +729,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                 aria-hidden="true"
                 className="w-5 h-5 object-contain shrink-0"
               />
-              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                 Centre de notifications
               </div>
             </Link>
@@ -742,7 +752,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                 aria-hidden="true"
                 className="w-5 h-5 object-contain shrink-0"
               />
-              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                 Configurations
               </div>
             </Link>
@@ -759,7 +769,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
             }`}
           >
             <CircleHelp className="w-5 h-5 shrink-0" />
-            <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl border border-white/10 whitespace-nowrap z-50 pointer-events-none items-center">
+            <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
               Support & Manuel
             </div>
           </Link>
@@ -1286,18 +1296,6 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                       Sécurité du compte
                     </Link>
                   )}
-                  {role === "ORGANIZATION_ADMIN" && (
-                    <Link
-                      href="/admin/subscription"
-                      className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                        isSubscriptionActive
-                          ? "bg-white/15 text-white font-semibold"
-                          : "text-slate-300 hover:text-white hover:bg-white/5"
-                      }`}
-                    >
-                      Abonnement & Paiement
-                    </Link>
-                  )}
                 </div>
               )}
             </div>
@@ -1345,13 +1343,13 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
       )}
 
       {/* 4. SUPPORT MODAL (Connecté à l'adresse mail officielle rkonekte509@gmail.com) */}
-      {isSupportOpen && (
+      {isSupportMounted && isSupportOpen && createPortal(
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fadeIn"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/65 backdrop-blur-xs animate-in fade-in duration-150"
           onClick={() => setIsSupportOpen(false)}
         >
           <div
-            className="bg-white text-slate-900 w-full max-w-md rounded-2xl shadow-2xl border border-slate-200 overflow-hidden"
+            className="bg-white text-slate-900 w-full max-w-md rounded-2xl shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
@@ -1381,7 +1379,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
               </p>
 
               {/* Email Box with Copy */}
-              <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex items-center justify-between">
+              <div className="bg-[#F4F6F9] rounded-xl p-3.5 flex items-center justify-between">
                 <div className="flex items-center gap-2.5 min-w-0">
                   <Mail className="w-4 h-4 text-[#062653] shrink-0" />
                   <div className="min-w-0">
@@ -1399,7 +1397,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                   className={`px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 transition-all cursor-pointer ${
                     copiedEmail
                       ? "bg-emerald-600 text-white"
-                      : "bg-white border border-slate-300 text-slate-700 hover:bg-slate-100"
+                      : "bg-white text-slate-700 shadow-2xs hover:bg-slate-100"
                   }`}
                 >
                   {copiedEmail ? (
@@ -1442,7 +1440,8 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
               </p>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </aside>
   );

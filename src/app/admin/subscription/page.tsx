@@ -22,6 +22,7 @@ import {
   Trash2,
   Upload,
   X,
+  XCircle,
 } from "lucide-react";
 import {
   PaymentAccountLogo,
@@ -275,7 +276,7 @@ export default function AdminSubscriptionPage() {
 
   if (!data?.canManageSubscription) {
     return (
-      <div className="max-w-xl mx-auto mt-10 bg-white border border-[#DCE2EA] rounded-2xl p-8 text-center space-y-3 shadow-xs">
+      <div className="max-w-xl mx-auto mt-10 bg-white rounded-2xl p-8 text-center space-y-3 shadow-xs">
         <div className="w-12 h-12 rounded-full bg-slate-100 text-[#062653] flex items-center justify-center mx-auto">
           <ShieldAlert className="w-6 h-6" />
         </div>
@@ -316,7 +317,7 @@ export default function AdminSubscriptionPage() {
         <button
           type="button"
           onClick={loadOverview}
-          className="px-3.5 py-2 bg-white hover:bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs font-semibold text-[#062653] flex items-center gap-2 self-start cursor-pointer transition-colors"
+          className="px-3.5 py-2 bg-white hover:bg-[#F4F6F9] shadow-xs rounded-xl text-xs font-semibold text-[#062653] flex items-center gap-2 self-start cursor-pointer transition-colors"
         >
           <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
           Actualiser
@@ -325,26 +326,26 @@ export default function AdminSubscriptionPage() {
 
       {/* SUMMARY CARDS */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white border border-[#DCE2EA] rounded-2xl p-4 shadow-xs">
+        <div className="bg-white rounded-2xl p-4 shadow-xs">
           <div className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
             Statut du forfait
           </div>
           <div className="mt-2 flex items-center gap-2">
             <span
-              className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold ${
+              className={`inline-flex items-center gap-1.5 text-xs font-bold ${
                 isExpired
-                  ? "bg-rose-50 text-rose-700 border border-rose-200"
+                  ? "text-rose-600"
                   : isExpiringSoon
-                  ? "bg-amber-50 text-amber-800 border border-amber-200"
-                  : "bg-emerald-50 text-emerald-700 border border-emerald-200"
+                  ? "text-[#FF7900]"
+                  : "text-emerald-600"
               }`}
             >
               {isExpired ? (
-                <AlertTriangle className="w-3.5 h-3.5" />
+                <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
               ) : isExpiringSoon ? (
-                <Clock className="w-3.5 h-3.5" />
+                <Clock className="w-3.5 h-3.5 shrink-0" />
               ) : (
-                <CheckCircle2 className="w-3.5 h-3.5" />
+                <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
               )}
               {state.countdownLabel}
             </span>
@@ -356,7 +357,7 @@ export default function AdminSubscriptionPage() {
           </p>
         </div>
 
-        <div className="bg-white border border-[#DCE2EA] rounded-2xl p-4 shadow-xs">
+        <div className="bg-white rounded-2xl p-4 shadow-xs">
           <div className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
             Activation du compte
           </div>
@@ -368,7 +369,7 @@ export default function AdminSubscriptionPage() {
           </p>
         </div>
 
-        <div className="bg-white border border-[#DCE2EA] rounded-2xl p-4 shadow-xs">
+        <div className="bg-white rounded-2xl p-4 shadow-xs">
           <div className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
             Dernier renouvellement
           </div>
@@ -381,12 +382,12 @@ export default function AdminSubscriptionPage() {
         </div>
 
         <div
-          className={`border rounded-2xl p-4 shadow-xs ${
+          className={`rounded-2xl p-4 shadow-xs ${
             isExpired
-              ? "bg-rose-50/60 border-rose-200"
+              ? "bg-rose-50/60"
               : isExpiringSoon
-              ? "bg-amber-50/70 border-amber-200"
-              : "bg-white border-[#DCE2EA]"
+              ? "bg-amber-50/70"
+              : "bg-white"
           }`}
         >
           <div className="text-[11px] font-bold uppercase tracking-wider text-[#64748B]">
@@ -418,17 +419,17 @@ export default function AdminSubscriptionPage() {
             {settings.autoMessageBody}
           </p>
         </div>
-        <div className="bg-white/10 border border-white/15 rounded-xl p-3 text-[11px] text-slate-100 shrink-0 max-w-xs">
+        <div className="bg-white/10 rounded-xl p-3 text-[11px] text-slate-100 shrink-0 max-w-xs">
           <div className="font-bold text-[#FF7900] mb-1">Paiement en avance protégé</div>
           Tout renouvellement validé avant votre date d'expiration s'ajoute directement à partir de l'échéance actuelle : aucun jour restant n'est perdu.
         </div>
       </div>
 
       {/* WIZARD PAR ÉTAPES : DURÉE -> COMPTE DE PAIEMENT -> PREUVE */}
-      <div className="bg-white border border-[#DCE2EA] rounded-2xl p-5 sm:p-6 shadow-xs space-y-5">
+      <div className="bg-white rounded-2xl p-5 sm:p-6 shadow-xs space-y-5">
         {/* LAST REJECTED NOTICE */}
         {lastRejected && !pendingRenewal && (
-          <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-1">
+          <div className="p-3.5 rounded-xl bg-rose-50 text-xs text-rose-900 space-y-1">
             <div className="font-bold flex items-center gap-1.5 text-rose-800">
               <AlertTriangle className="w-4 h-4 shrink-0" />
               <span>
@@ -445,7 +446,7 @@ export default function AdminSubscriptionPage() {
 
         {pendingRenewal && !replaceMode ? (
           <div className="space-y-4">
-            <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 border border-amber-200 space-y-3 text-xs text-amber-950">
+            <div className="p-4 sm:p-5 rounded-2xl bg-amber-50 space-y-3 text-xs text-amber-950">
               <div className="flex items-center justify-between">
                 <span className="font-bold flex items-center gap-1.5 text-amber-900">
                   <Clock className="w-4 h-4 text-[#FF7900]" />
@@ -497,7 +498,7 @@ export default function AdminSubscriptionPage() {
                       });
                       setPreviewOpen(true);
                     }}
-                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white border border-amber-300 text-xs font-bold text-[#062653] hover:bg-amber-100/50 cursor-pointer"
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white shadow-2xs text-xs font-bold text-[#062653] hover:bg-amber-100/50 cursor-pointer"
                   >
                     <Eye className="w-3.5 h-3.5 text-[#FF7900]" />
                     <span>
@@ -529,7 +530,7 @@ export default function AdminSubscriptionPage() {
                 type="button"
                 disabled={cancelling}
                 onClick={handleCancelPending}
-                className="px-4 py-2.5 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
+                className="px-4 py-2.5 rounded-xl bg-rose-50 text-rose-700 hover:bg-rose-100 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors cursor-pointer disabled:opacity-50"
               >
                 <Trash2 className="w-3.5 h-3.5" />
                 <span>Annuler</span>
@@ -539,7 +540,7 @@ export default function AdminSubscriptionPage() {
         ) : (
           <div className="space-y-5">
             {/* STEP INDICATOR */}
-            <div className="flex items-center justify-between gap-2 pb-2 border-b border-[#DCE2EA]">
+            <div className="flex items-center justify-between gap-2 pb-2 border-b border-slate-100">
               {[
                 { num: 1, label: "1. Durée" },
                 { num: 2, label: "2. Compte" },
@@ -611,10 +612,10 @@ export default function AdminSubscriptionPage() {
                         key={plan.durationMonths}
                         type="button"
                         onClick={() => setSelectedDuration(plan.durationMonths)}
-                        className={`text-left p-4 rounded-xl border-2 transition-all cursor-pointer relative ${
+                        className={`text-left p-4 rounded-xl transition-all cursor-pointer relative ${
                           isSelected
-                            ? "border-[#FF7900] bg-[#FFF8F2] shadow-xs"
-                            : "border-[#DCE2EA] hover:border-slate-300 bg-white"
+                            ? "ring-2 ring-[#FF7900] bg-[#FFF8F2] shadow-xs"
+                            : "bg-[#F4F6F9] hover:bg-slate-200/60"
                         }`}
                       >
                         <div className="flex items-center justify-between gap-2">
@@ -648,7 +649,7 @@ export default function AdminSubscriptionPage() {
                 </div>
 
                 {selectedPlan && (
-                  <div className="p-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                  <div className="p-3.5 bg-[#F4F6F9] rounded-xl flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
                     <div className="flex items-center gap-2 text-[#263445]">
                       <Calendar className="w-4 h-4 text-[#FF7900] shrink-0" />
                       <span>
@@ -677,7 +678,7 @@ export default function AdminSubscriptionPage() {
                         setReplaceMode(false);
                         setFormError(null);
                       }}
-                      className="px-4 py-2.5 rounded-xl border border-[#DCE2EA] text-xs font-semibold text-[#64748B] hover:bg-slate-50 cursor-pointer"
+                      className="px-4 py-2.5 rounded-xl bg-[#F4F6F9] text-xs font-semibold text-[#64748B] hover:bg-slate-200/70 cursor-pointer"
                     >
                       Annuler
                     </button>
@@ -710,7 +711,7 @@ export default function AdminSubscriptionPage() {
                     </p>
                   </div>
                   {selectedPlan && (
-                    <div className="px-3 py-1.5 rounded-xl bg-[#F4F6F9] border border-[#DCE2EA] text-xs font-bold text-[#062653] shrink-0">
+                    <div className="px-3 py-1.5 rounded-xl bg-[#F4F6F9] text-xs font-bold text-[#062653] shrink-0">
                       {selectedPlan.label} •{" "}
                       <span className="text-[#FF7900]">
                         {formatMoney(selectedPlan.price, selectedPlan.currency)}
@@ -720,7 +721,7 @@ export default function AdminSubscriptionPage() {
                 </div>
 
                 {accounts.length === 0 ? (
-                  <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 text-xs text-[#64748B]">
+                  <div className="p-4 rounded-xl bg-[#F4F6F9] text-xs text-[#64748B]">
                     Aucun compte de paiement n'est encore configuré par l'administrateur plateforme.
                   </div>
                 ) : (
@@ -734,10 +735,10 @@ export default function AdminSubscriptionPage() {
                             setPaymentMethod(acc.label);
                             setFormError(null);
                           }}
-                          className={`p-4 rounded-xl border-2 transition-all cursor-pointer ${
+                          className={`p-4 rounded-xl transition-all cursor-pointer ${
                             isChosenMethod
-                              ? "border-[#FF7900] bg-[#FFF8F2]"
-                              : "border-[#DCE2EA] hover:border-slate-300 bg-white"
+                              ? "ring-2 ring-[#FF7900] bg-[#FFF8F2]"
+                              : "bg-[#F4F6F9] hover:bg-slate-200/60"
                           }`}
                         >
                           <div className="flex items-center justify-between gap-3">
@@ -775,7 +776,7 @@ export default function AdminSubscriptionPage() {
                                 e.stopPropagation();
                                 handleCopyAccount(acc);
                               }}
-                              className="px-2.5 py-1.5 rounded-lg border border-[#DCE2EA] bg-white hover:bg-slate-50 text-[11px] font-semibold text-[#062653] flex items-center gap-1 shrink-0 cursor-pointer"
+                              className="px-2.5 py-1.5 rounded-lg bg-white hover:bg-slate-50 shadow-2xs text-[11px] font-semibold text-[#062653] flex items-center gap-1 shrink-0 cursor-pointer"
                             >
                               {copiedId === acc.id ? (
                                 <>
@@ -797,7 +798,7 @@ export default function AdminSubscriptionPage() {
                 )}
 
                 {formError && (
-                  <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+                  <div className="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs font-medium">
                     {formError}
                   </div>
                 )}
@@ -809,7 +810,7 @@ export default function AdminSubscriptionPage() {
                       setFormError(null);
                       setWizardStep(1);
                     }}
-                    className="px-4 h-11 rounded-xl border border-[#DCE2EA] hover:bg-slate-50 text-xs font-semibold text-[#062653] flex items-center gap-1.5 cursor-pointer"
+                    className="px-4 h-11 rounded-xl bg-[#F4F6F9] hover:bg-slate-200/70 text-xs font-semibold text-[#062653] flex items-center gap-1.5 cursor-pointer"
                   >
                     <ArrowLeft className="w-4 h-4" />
                     <span>Précédent</span>
@@ -841,7 +842,7 @@ export default function AdminSubscriptionPage() {
                 accounts.find((a) => a.label === paymentMethod) || null;
               return (
                 <div className="space-y-4">
-                  <div className="p-3.5 rounded-xl bg-[#F4F6F9] border border-[#DCE2EA] flex items-center justify-between gap-3">
+                  <div className="p-3.5 rounded-xl bg-[#F4F6F9] flex items-center justify-between gap-3">
                     <div className="flex items-center gap-3 min-w-0">
                       {chosenAcc ? (
                         <PaymentAccountLogo account={chosenAcc} className="w-12 h-10" />
@@ -871,8 +872,8 @@ export default function AdminSubscriptionPage() {
                       <span className="text-rose-500">*</span>
                     </label>
                     {!proofDataUrl ? (
-                      <label className="flex flex-col items-center justify-center gap-2 p-6 rounded-2xl border-2 border-dashed border-slate-300 hover:border-[#FF7900] bg-[#F8FAFC] hover:bg-[#FFF8F2]/60 transition-all cursor-pointer text-center">
-                        <div className="w-11 h-11 rounded-full bg-white border border-slate-200 flex items-center justify-center text-[#FF7900] shadow-2xs">
+                      <label className="flex flex-col items-center justify-center gap-2 p-6 rounded-2xl bg-[#F4F6F9] hover:bg-[#FFF8F2]/80 transition-all cursor-pointer text-center">
+                        <div className="w-11 h-11 rounded-full bg-white flex items-center justify-center text-[#FF7900] shadow-2xs">
                           <Upload className="w-5 h-5" />
                         </div>
                         <div className="space-y-0.5">
@@ -891,16 +892,16 @@ export default function AdminSubscriptionPage() {
                         />
                       </label>
                     ) : (
-                      <div className="p-3.5 rounded-2xl border border-emerald-200 bg-emerald-50/50 flex items-center justify-between gap-3">
+                      <div className="p-3.5 rounded-2xl bg-emerald-50/70 flex items-center justify-between gap-3">
                         <div className="flex items-center gap-3 min-w-0">
                           {proofDataUrl.startsWith("data:image/") ? (
                             <img
                               src={proofDataUrl}
                               alt="Aperçu preuve"
-                              className="w-12 h-12 rounded-lg object-cover border border-slate-200 bg-white shrink-0"
+                              className="w-12 h-12 rounded-lg object-cover bg-white shrink-0"
                             />
                           ) : (
-                            <div className="w-12 h-12 rounded-lg bg-white border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                            <div className="w-12 h-12 rounded-lg bg-white text-rose-600 flex items-center justify-center shrink-0">
                               <FileText className="w-6 h-6" />
                             </div>
                           )}
@@ -924,7 +925,7 @@ export default function AdminSubscriptionPage() {
                               });
                               setPreviewOpen(true);
                             }}
-                            className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 text-[11px] font-semibold text-[#062653] hover:bg-slate-50 flex items-center gap-1 cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-lg bg-white shadow-2xs text-[11px] font-semibold text-[#062653] hover:bg-slate-50 flex items-center gap-1 cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5" />
                             <span>Voir</span>
@@ -935,7 +936,7 @@ export default function AdminSubscriptionPage() {
                               setProofDataUrl("");
                               setProofFileName("");
                             }}
-                            className="p-1.5 rounded-lg bg-white border border-rose-200 text-rose-600 hover:bg-rose-50 cursor-pointer"
+                            className="p-1.5 rounded-lg bg-white shadow-2xs text-rose-600 hover:bg-rose-50 cursor-pointer"
                             title="Retirer le fichier"
                           >
                             <X className="w-3.5 h-3.5" />
@@ -955,7 +956,7 @@ export default function AdminSubscriptionPage() {
                         value={payerCompanyName}
                         onChange={(e) => setPayerCompanyName(e.target.value)}
                         placeholder={`Ex : ${org.name} (optionnel)`}
-                        className="w-full h-10 px-3.5 bg-[#F8FAFC] focus:bg-white border border-[#DCE2EA] focus:border-[#FF7900] rounded-xl text-xs text-[#062653] outline-none"
+                        className="w-full h-10 px-3.5 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs text-[#062653] outline-hidden"
                       />
                     </div>
 
@@ -968,13 +969,13 @@ export default function AdminSubscriptionPage() {
                         value={paymentReference}
                         onChange={(e) => setPaymentReference(e.target.value)}
                         placeholder="Ex : N° de bordereau ou transaction"
-                        className="w-full h-10 px-3.5 bg-[#F8FAFC] focus:bg-white border border-[#DCE2EA] focus:border-[#FF7900] rounded-xl text-xs font-mono text-[#062653] outline-none"
+                        className="w-full h-10 px-3.5 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs font-mono text-[#062653] outline-hidden"
                       />
                     </div>
                   </div>
 
                   {formError && (
-                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+                    <div className="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs font-medium">
                       {formError}
                     </div>
                   )}
@@ -986,7 +987,7 @@ export default function AdminSubscriptionPage() {
                         setFormError(null);
                         setWizardStep(2);
                       }}
-                      className="px-4 h-11 rounded-xl border border-[#DCE2EA] hover:bg-slate-50 text-xs font-semibold text-[#062653] flex items-center gap-1.5 cursor-pointer"
+                      className="px-4 h-11 rounded-xl bg-[#F4F6F9] hover:bg-slate-200/70 text-xs font-semibold text-[#062653] flex items-center gap-1.5 cursor-pointer"
                     >
                       <ArrowLeft className="w-4 h-4" />
                       <span>Précédent</span>
@@ -1029,7 +1030,7 @@ export default function AdminSubscriptionPage() {
                     </p>
                   </div>
 
-                  <div className="rounded-2xl border border-[#DCE2EA] bg-[#F8FAFC] divide-y divide-[#DCE2EA] text-xs">
+                  <div className="rounded-2xl bg-[#F4F6F9] divide-y divide-slate-200/70 text-xs">
                     <div className="p-4 flex items-center justify-between gap-3">
                       <div>
                         <div className="text-[11px] text-[#64748B]">Forfait choisi</div>
@@ -1086,16 +1087,16 @@ export default function AdminSubscriptionPage() {
                         Preuve de paiement jointe
                       </div>
                       {proofDataUrl ? (
-                        <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white border border-[#DCE2EA]">
+                        <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-white shadow-2xs">
                           <div className="flex items-center gap-2.5 min-w-0">
                             {proofDataUrl.startsWith("data:image/") ? (
                               <img
                                 src={proofDataUrl}
                                 alt="Aperçu preuve"
-                                className="w-10 h-10 rounded-lg object-cover border border-slate-200 shrink-0"
+                                className="w-10 h-10 rounded-lg object-cover shrink-0"
                               />
                             ) : (
-                              <div className="w-10 h-10 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                              <div className="w-10 h-10 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
                                 <FileText className="w-5 h-5" />
                               </div>
                             )}
@@ -1112,7 +1113,7 @@ export default function AdminSubscriptionPage() {
                               });
                               setPreviewOpen(true);
                             }}
-                            className="px-2.5 py-1.5 rounded-lg bg-[#F8FAFC] border border-[#DCE2EA] text-[11px] font-semibold text-[#062653] hover:bg-slate-100 flex items-center gap-1 shrink-0 cursor-pointer"
+                            className="px-2.5 py-1.5 rounded-lg bg-[#F4F6F9] text-[11px] font-semibold text-[#062653] hover:bg-slate-200/70 flex items-center gap-1 shrink-0 cursor-pointer"
                           >
                             <Eye className="w-3.5 h-3.5 text-[#FF7900]" />
                             <span>Voir</span>
@@ -1152,7 +1153,7 @@ export default function AdminSubscriptionPage() {
                   </div>
 
                   {formError && (
-                    <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs font-medium">
+                    <div className="p-3 rounded-xl bg-rose-50 text-rose-700 text-xs font-medium">
                       {formError}
                     </div>
                   )}
@@ -1164,7 +1165,7 @@ export default function AdminSubscriptionPage() {
                         setFormError(null);
                         setWizardStep(3);
                       }}
-                      className="px-4 h-11 rounded-xl border border-[#DCE2EA] hover:bg-slate-50 text-xs font-semibold text-[#062653] flex items-center gap-1.5 cursor-pointer"
+                      className="px-4 h-11 rounded-xl bg-[#F4F6F9] hover:bg-slate-200/70 text-xs font-semibold text-[#062653] flex items-center gap-1.5 cursor-pointer"
                     >
                       <ArrowLeft className="w-4 h-4" />
                       <span>Précédent</span>
@@ -1186,7 +1187,7 @@ export default function AdminSubscriptionPage() {
                     </button>
                   </div>
 
-                  <div className="pt-3 border-t border-[#DCE2EA] flex items-start gap-2 text-[11px] text-[#64748B]">
+                  <div className="pt-3 border-t border-slate-100 flex items-start gap-2 text-[11px] text-[#64748B]">
                     <Info className="w-4 h-4 text-[#062653] shrink-0 mt-0.5" />
                     <span>
                       Après réception et vérification manuelle sur notre compte, votre nouvelle date d'expiration sera mise à jour automatiquement.
@@ -1200,8 +1201,8 @@ export default function AdminSubscriptionPage() {
       </div>
 
       {/* HISTORIQUE DES RENOUVELLEMENTS */}
-      <div className="bg-white border border-[#DCE2EA] rounded-2xl shadow-xs overflow-hidden">
-        <div className="px-5 py-4 border-b border-[#DCE2EA] flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-xs overflow-hidden">
+        <div className="px-5 py-4 border-b border-slate-100 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <History className="w-4 h-4 text-[#062653]" />
             <h2 className="text-sm font-bold text-[#062653]">
@@ -1217,7 +1218,7 @@ export default function AdminSubscriptionPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-[#DCE2EA]">
+              <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-slate-200/70">
                 <tr>
                   <th className="px-5 py-3">Date</th>
                   <th className="px-5 py-3">Durée & Montant</th>
@@ -1226,7 +1227,7 @@ export default function AdminSubscriptionPage() {
                   <th className="px-5 py-3">Statut</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#DCE2EA]">
+              <tbody className="divide-y divide-slate-100">
                 {history.map((item) => (
                   <tr key={item.id} className="hover:bg-slate-50/60">
                     <td className="px-5 py-3.5 text-[#263445] font-medium">
@@ -1279,12 +1280,14 @@ export default function AdminSubscriptionPage() {
                     </td>
                     <td className="px-5 py-3.5">
                       {item.status === "APPROVED" ? (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                          <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
                           Validé
                         </span>
                       ) : item.status === "REJECTED" ? (
                         <div>
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-rose-50 text-rose-700 border border-rose-200">
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600">
+                            <XCircle className="w-3.5 h-3.5 shrink-0" />
                             Refusé
                           </span>
                           {item.rejectionReason && (
@@ -1294,7 +1297,8 @@ export default function AdminSubscriptionPage() {
                           )}
                         </div>
                       ) : (
-                        <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-800 border border-amber-200">
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FF7900]">
+                          <Clock className="w-3.5 h-3.5 shrink-0" />
                           En attente
                         </span>
                       )}

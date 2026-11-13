@@ -60,7 +60,7 @@ export interface CreateBankTransactionInput {
   bankAccountId: string;
   amount: number;
   currency?: string;
-  referenceNumber: string;
+  referenceNumber?: string;
   date?: string;
   reason: string;
   delegateName?: string;
@@ -102,7 +102,7 @@ const DEFAULT_BANK_ACCOUNTS: BankAccount[] = [
     initialBalance: 150000,
     initialBalanceDate: "2026-01-01",
     currentBalance: 150000,
-    branchName: "Toutes les succursales",
+    branchName: "Compte de l'entreprise",
     isActive: true,
     createdAt: "2026-01-01",
     updatedAt: "2026-01-01",
@@ -117,7 +117,7 @@ const DEFAULT_BANK_ACCOUNTS: BankAccount[] = [
     initialBalance: 3500,
     initialBalanceDate: "2026-01-01",
     currentBalance: 3500,
-    branchName: "Toutes les succursales",
+    branchName: "Compte de l'entreprise",
     isActive: true,
     createdAt: "2026-01-01",
     updatedAt: "2026-01-01",
@@ -237,6 +237,49 @@ function persistStore(store: BankStore) {
   }
 }
 
+function roundCurrency(value: number): number {
+  return Math.round((Number(value) || 0) * 100) / 100;
+}
+
+function reconcileAccountsWithTxRows(
+  accounts: BankAccount[],
+  txRows: Array<{
+    bankAccountId: string;
+    type: string;
+    amount: number;
+  }>
+): { accounts: BankAccount[]; drifted: Array<{ id: string; balance: number }> } {
+  const deltaByAccount = new Map<string, number>();
+
+  for (const tx of txRows) {
+    if (!tx.bankAccountId) continue;
+    const amt = Math.abs(Number(tx.amount) || 0);
+    const prev = deltaByAccount.get(tx.bankAccountId) || 0;
+    if (tx.type === "DEPOSIT") {
+      deltaByAccount.set(tx.bankAccountId, prev + amt);
+    } else if (tx.type === "WITHDRAWAL") {
+      deltaByAccount.set(tx.bankAccountId, prev - amt);
+    }
+  }
+
+  const drifted: Array<{ id: string; balance: number }> = [];
+  const reconciled = accounts.map((acc) => {
+    const netDelta = deltaByAccount.get(acc.id) || 0;
+    const expectedBalance = roundCurrency((Number(acc.initialBalance) || 0) + netDelta);
+    const storedBalance = roundCurrency(acc.currentBalance);
+    if (Math.abs(expectedBalance - storedBalance) > 0.009) {
+      drifted.push({ id: acc.id, balance: expectedBalance });
+    }
+    return {
+      ...acc,
+      currency: (acc.currency || "HTG").trim().toUpperCase(),
+      currentBalance: expectedBalance,
+    };
+  });
+
+  return { accounts: reconciled, drifted };
+}
+
 // ----------------------------------------------------
 // BANK ACCOUNTS
 // ----------------------------------------------------
@@ -251,8 +294,49 @@ export async function listBankAccounts(organizationId?: string): Promise<BankAcc
         query = query.eq("organization_id", organizationId);
       }
       const { data, error } = await query.order("created_at", { ascending: false });
-      if (!error && data && data.length > 0) {
-        return data.map(mapBankAccount);
+      if (!error && Array.isArray(data)) {
+        const mappedAccounts = data.map(mapBankAccount);
+        if (mappedAccounts.length === 0) {
+          return [];
+        }
+
+        try {
+          let txQuery = supabase
+            .from("bank_transactions")
+            .select("bank_account_id, type, amount");
+          if (organizationId) {
+            txQuery = txQuery.eq("organization_id", organizationId);
+          }
+          const { data: txData, error: txError } = await txQuery;
+          if (!txError && Array.isArray(txData)) {
+            const { accounts: reconciled, drifted } = reconcileAccountsWithTxRows(
+              mappedAccounts,
+              txData.map((r: any) => ({
+                bankAccountId: r.bank_account_id,
+                type: r.type,
+                amount: Number(r.amount ?? 0),
+              }))
+            );
+
+            if (drifted.length > 0) {
+              const nowEpoch = Date.now();
+              await Promise.all(
+                drifted.map((d) =>
+                  supabase
+                    .from("bank_accounts")
+                    .update({ current_balance: d.balance, updated_at: nowEpoch })
+                    .eq("id", d.id)
+                )
+              );
+            }
+
+            return reconciled;
+          }
+        } catch (_) {
+          // If tx reconciliation fails, still return authoritative account rows
+        }
+
+        return mappedAccounts;
       }
     } catch (_) {
       // Fallback to local store
@@ -261,10 +345,23 @@ export async function listBankAccounts(organizationId?: string): Promise<BankAcc
 
   // 2. Fallback to Local Store
   const store = loadStore();
-  if (!organizationId) return store.accounts;
-  return store.accounts.filter(
-    (acc) => !acc.organizationId || acc.organizationId === "default" || acc.organizationId === organizationId
+  const orgAccounts = organizationId
+    ? store.accounts.filter((acc) => acc.organizationId === organizationId)
+    : store.accounts;
+  const orgTxs = organizationId
+    ? store.transactions.filter((tx) => tx.organizationId === organizationId)
+    : store.transactions;
+
+  const { accounts: reconciled } = reconcileAccountsWithTxRows(
+    orgAccounts,
+    orgTxs.map((t) => ({
+      bankAccountId: t.bankAccountId,
+      type: t.type,
+      amount: t.amount,
+    }))
   );
+
+  return reconciled;
 }
 
 export async function createBankAccount(
@@ -289,8 +386,8 @@ export async function createBankAccount(
     initialBalance: initialBal,
     initialBalanceDate: initialBalDate,
     currentBalance: initialBal,
-    branchId: input.branchId || null,
-    branchName: input.branchName || "Toutes les succursales",
+    branchId: null,
+    branchName: "Compte de l'entreprise",
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -363,8 +460,8 @@ export async function updateBankAccount(
     initialBalance: updates.initialBalance !== undefined ? Number(updates.initialBalance) : (current?.initialBalance || 0),
     initialBalanceDate: updates.initialBalanceDate !== undefined ? (updates.initialBalanceDate ? String(updates.initialBalanceDate).trim() : null) : (current?.initialBalanceDate || current?.createdAt || now),
     currentBalance: current?.currentBalance || 0,
-    branchId: updates.branchId !== undefined ? updates.branchId : current?.branchId || null,
-    branchName: updates.branchName !== undefined ? updates.branchName : current?.branchName || "Toutes les succursales",
+    branchId: null,
+    branchName: "Compte de l'entreprise",
     isActive: updates.isActive !== undefined ? updates.isActive : current?.isActive ?? true,
     createdAt: current?.createdAt || now,
     updatedAt: now,
@@ -419,19 +516,24 @@ export async function deleteBankAccount(organizationId: string, id: string): Pro
   if (isSupabaseConfigured()) {
     try {
       const supabase = getSupabaseAdminClient();
-      await supabase.from("bank_accounts").delete().eq("id", id);
+      let delQuery = supabase.from("bank_accounts").delete().eq("id", id);
+      if (organizationId) {
+        delQuery = delQuery.eq("organization_id", organizationId);
+      }
+      await delQuery;
     } catch (err) {
       console.warn("Supabase bank_account delete fallback to local:", err);
     }
   }
 
-  // 2. Delete from Local Store
+  // 2. Delete from Local Store (cascade transactions like Postgres ON DELETE CASCADE)
   const store = loadStore();
-  const initialLen = store.accounts.length;
+  const initialAccLen = store.accounts.length;
+  const initialTxLen = store.transactions.length;
   store.accounts = store.accounts.filter((acc) => acc.id !== id);
-  if (store.accounts.length !== initialLen) {
+  store.transactions = store.transactions.filter((tx) => tx.bankAccountId !== id);
+  if (store.accounts.length !== initialAccLen || store.transactions.length !== initialTxLen) {
     persistStore(store);
-    return true;
   }
   return true;
 }
@@ -476,7 +578,7 @@ export async function listBankTransactions(
       }
 
       const { data, error } = await query.order("created_at", { ascending: false });
-      if (!error && data && data.length > 0) {
+      if (!error && Array.isArray(data)) {
         const store = loadStore();
         const localById = new Map(store.transactions.map((t) => [t.id, t]));
         return data.map((row: any) => {
@@ -500,9 +602,7 @@ export async function listBankTransactions(
   let list = store.transactions;
 
   if (organizationId) {
-    list = list.filter(
-      (tx) => !tx.organizationId || tx.organizationId === "default" || tx.organizationId === organizationId
-    );
+    list = list.filter((tx) => tx.organizationId === organizationId);
   }
 
   if (filters?.type && filters.type !== "ALL") {
@@ -610,11 +710,11 @@ export async function createBankTransaction(
   const nowTime = new Date().toTimeString().split(" ")[0].substring(0, 5); // HH:mm
   const nowEpoch = Date.now();
 
-  // Update account balance
+  // Update account balance safely
   if (input.type === "DEPOSIT") {
-    account.currentBalance = (Number(account.currentBalance) || 0) + amount;
+    account.currentBalance = roundCurrency((Number(account.currentBalance) || 0) + amount);
   } else {
-    account.currentBalance = (Number(account.currentBalance) || 0) - amount;
+    account.currentBalance = roundCurrency((Number(account.currentBalance) || 0) - amount);
   }
   account.updatedAt = todayStr;
 
@@ -639,8 +739,8 @@ export async function createBankTransaction(
       typeof input.delegateName === "string"
         ? input.delegateName.trim() || undefined
         : undefined,
-    branchId: input.branchId || account.branchId || null,
-    branchName: input.branchName || account.branchName || "Toutes les succursales",
+    branchId: input.branchId || null,
+    branchName: input.branchName || null,
     reason: input.reason?.trim() || (input.type === "DEPOSIT" ? "Versement bancaire" : "Décaissement bancaire"),
     receiptDataUrl: input.receiptDataUrl,
     createdAt: new Date().toISOString(),
@@ -677,23 +777,37 @@ export async function createBankTransaction(
         supabasePayload.delegate_name = transaction.delegateName;
       }
 
+      let txInserted = false;
       const { error: insertError } = await supabase
         .from("bank_transactions")
         .insert(supabasePayload);
 
-      if (insertError && transaction.delegateName) {
+      if (!insertError) {
+        txInserted = true;
+      } else if (transaction.delegateName) {
         // Retry without delegate_name in case cloud DB migration hasn't added the column yet
         const { delegate_name: _ignored, ...fallbackPayload } = supabasePayload;
-        await supabase.from("bank_transactions").insert(fallbackPayload);
+        const { error: retryError } = await supabase
+          .from("bank_transactions")
+          .insert(fallbackPayload);
+        if (!retryError) {
+          txInserted = true;
+        } else {
+          console.warn("Supabase bank_transaction insert retry error:", retryError.message);
+        }
+      } else {
+        console.warn("Supabase bank_transaction insert error:", insertError.message);
       }
 
-      await supabase
-        .from("bank_accounts")
-        .update({
-          current_balance: account.currentBalance,
-          updated_at: nowEpoch,
-        })
-        .eq("id", account.id);
+      if (txInserted) {
+        await supabase
+          .from("bank_accounts")
+          .update({
+            current_balance: account.currentBalance,
+            updated_at: nowEpoch,
+          })
+          .eq("id", account.id);
+      }
     } catch (err) {
       console.warn("Supabase bank_transaction insert fallback to local:", err);
     }
@@ -718,20 +832,34 @@ export async function deleteBankTransaction(
   if (isSupabaseConfigured()) {
     try {
       const supabase = getSupabaseAdminClient();
-      if (!tx) {
-        const { data } = await supabase.from("bank_transactions").select("*").eq("id", id).single();
-        if (data) tx = mapBankTransaction(data);
+      let delQuery = supabase
+        .from("bank_transactions")
+        .delete()
+        .eq("id", id);
+      if (organizationId) {
+        delQuery = delQuery.eq("organization_id", organizationId);
       }
+      const { data: deletedRows, error: delError } = await delQuery.select("*");
 
-      if (tx) {
-        await supabase.from("bank_transactions").delete().eq("id", id);
+      if (!delError && Array.isArray(deletedRows) && deletedRows.length > 0) {
+        const deletedTx = mapBankTransaction(deletedRows[0]);
+        tx = deletedTx;
 
-        // Re-fetch account from Supabase to adjust balance
-        const { data: accData } = await supabase.from("bank_accounts").select("*").eq("id", tx.bankAccountId).single();
+        // Re-fetch account from Supabase to adjust balance only once when genuinely deleted
+        const { data: accData } = await supabase
+          .from("bank_accounts")
+          .select("*")
+          .eq("id", deletedTx.bankAccountId)
+          .single();
         if (accData) {
           const curBal = Number(accData.current_balance || 0);
-          const newBal = tx.type === "DEPOSIT" ? curBal - tx.amount : curBal + tx.amount;
-          await supabase.from("bank_accounts").update({ current_balance: newBal, updated_at: Date.now() }).eq("id", tx.bankAccountId);
+          const newBal = roundCurrency(
+            deletedTx.type === "DEPOSIT" ? curBal - deletedTx.amount : curBal + deletedTx.amount
+          );
+          await supabase
+            .from("bank_accounts")
+            .update({ current_balance: newBal, updated_at: Date.now() })
+            .eq("id", deletedTx.bankAccountId);
         }
       }
     } catch (err) {
@@ -745,9 +873,9 @@ export async function deleteBankTransaction(
     if (accountIdx !== -1) {
       const account = store.accounts[accountIdx];
       if (tx.type === "DEPOSIT") {
-        account.currentBalance = (Number(account.currentBalance) || 0) - tx.amount;
+        account.currentBalance = roundCurrency((Number(account.currentBalance) || 0) - tx.amount);
       } else {
-        account.currentBalance = (Number(account.currentBalance) || 0) + tx.amount;
+        account.currentBalance = roundCurrency((Number(account.currentBalance) || 0) + tx.amount);
       }
       account.updatedAt = new Date().toISOString().split("T")[0];
     }

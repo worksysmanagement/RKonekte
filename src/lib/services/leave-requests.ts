@@ -6,7 +6,7 @@ import {
   LeaveRequest,
   InsertLeaveRequest,
 } from "@/db/schema";
-import { eq, and, desc, sql, like, or } from "drizzle-orm";
+import { eq, and, desc, sql, like, or, isNull, notLike } from "drizzle-orm";
 import { generateSecureToken, hashToken, generateRequestNumber } from "@/lib/security/tokens";
 import { SubmitLeaveRequestInput } from "@/lib/validation/schemas";
 import { notifySecretaryNewRequest, notifyEmployeeDecision } from "@/lib/notifications/service";
@@ -306,6 +306,7 @@ export async function listLeaveRequests(
     search?: string;
     employeeNumber?: string;
     contactEmail?: string;
+    includeArchived?: boolean;
   } = {},
   dbInstance?: any
 ) {
@@ -331,6 +332,15 @@ export async function listLeaveRequests(
   const offset = (page - 1) * limit;
 
   const conditions = [eq(leaveRequests.organizationId, organizationId)];
+
+  if (!options.includeArchived) {
+    conditions.push(
+      or(
+        isNull(leaveRequests.decisionComment),
+        notLike(leaveRequests.decisionComment, "%[ADMIN_ARCHIVED]%")
+      )!
+    );
+  }
 
   if (options.status && options.status !== "ALL") {
     conditions.push(eq(leaveRequests.status, options.status));
@@ -546,12 +556,167 @@ export async function rejectLeaveRequest(
   return { success: true, leaveRequest: updated };
 }
 
-export async function deleteLeaveRequest(id: string, organizationId: string): Promise<void> {
-  const db = getDb();
+export async function deleteLeaveRequest(
+  id: string,
+  organizationId: string,
+  userId?: string,
+  userName?: string,
+  dbInstance?: any
+): Promise<{ success: boolean; leaveRequest?: LeaveRequest; actionTaken?: "REJECTED" | "ARCHIVED_FOR_ADMIN" }> {
+  const db = dbInstance || getDb();
+  const now = Date.now();
+
   try {
-    await db
-      .delete(leaveRequests)
-      .where(and(eq(leaveRequests.id, id), eq(leaveRequests.organizationId, organizationId)));
+    const [existing] = await db
+      .select()
+      .from(leaveRequests)
+      .where(and(eq(leaveRequests.id, id), eq(leaveRequests.organizationId, organizationId)))
+      .limit(1);
+
+    if (existing) {
+      // 1. SI LA DEMANDE ÉTAIT DÉJÀ APPROUVÉE :
+      // On NE change PAS son statut vers REJECTED ! Elle reste APPROVED pour l'employé.
+      // On la marque simplement comme archivée pour libérer l'espace côté administration.
+      if (existing.status === "APPROVED") {
+        const existingComment = existing.decisionComment || "";
+        const updatedComment = existingComment.includes("[ADMIN_ARCHIVED]")
+          ? existingComment
+          : existingComment
+          ? `${existingComment} [ADMIN_ARCHIVED]`
+          : "[ADMIN_ARCHIVED]";
+
+        const updateResult = await db
+          .update(leaveRequests)
+          .set({
+            decisionComment: updatedComment,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(leaveRequests.id, id),
+              eq(leaveRequests.organizationId, organizationId)
+            )
+          )
+          .returning();
+
+        try {
+          await db.insert(auditLogs).values({
+            id: `audit-${crypto.randomUUID()}`,
+            organizationId,
+            userId: userId || null,
+            leaveRequestId: id,
+            action: "APPROVED",
+            oldStatus: "APPROVED",
+            newStatus: "APPROVED",
+            metadata: JSON.stringify({ archivedByAdmin: true, source: "ADMIN_ARCHIVE" }),
+            createdAt: now,
+          });
+        } catch (_) {}
+
+        try {
+          await supabaseDb.leaveRequests.delete(id, organizationId, userId || "Administration");
+        } catch (_) {}
+
+        return {
+          success: true,
+          leaveRequest: updateResult[0] || existing,
+          actionTaken: "ARCHIVED_FOR_ADMIN",
+        };
+      }
+
+      // 2. SI LA DEMANDE ÉTAIT EN ATTENTE (PENDING) :
+      // Elle bascule vers REJECTED avec notification à l'employé et motif explicite
+      if (existing.status === "PENDING") {
+        const reason = "Demande rejetée et supprimée par l'Administration.";
+        const comment = userName
+          ? `Supprimée par ${userName} depuis l'Administration [ADMIN_ARCHIVED]`
+          : "Supprimée depuis l'Administration [ADMIN_ARCHIVED]";
+
+        const updateResult = await db
+          .update(leaveRequests)
+          .set({
+            status: "REJECTED",
+            rejectionReason: reason,
+            decidedAt: now,
+            decidedBy: userId || null,
+            decisionComment: comment,
+            updatedAt: now,
+          })
+          .where(
+            and(
+              eq(leaveRequests.id, id),
+              eq(leaveRequests.organizationId, organizationId)
+            )
+          )
+          .returning();
+
+        const updated = updateResult[0];
+        if (updated) {
+          try {
+            await db.insert(auditLogs).values({
+              id: `audit-${crypto.randomUUID()}`,
+              organizationId,
+              userId: userId || null,
+              leaveRequestId: id,
+              action: "REJECTED",
+              oldStatus: "PENDING",
+              newStatus: "REJECTED",
+              metadata: JSON.stringify({ rejectionReason: reason, source: "ADMIN_DELETE" }),
+              createdAt: now,
+            });
+          } catch (_) {}
+
+          try {
+            await notifyEmployeeDecision(id, updated.employeeAccessTokenHash, db);
+          } catch (_) {}
+
+          try {
+            await supabaseDb.leaveRequests.delete(id, organizationId, userId || "Administration");
+          } catch (_) {}
+
+          return { success: true, leaveRequest: updated, actionTaken: "REJECTED" };
+        }
+      }
+
+      // 3. SI LA DEMANDE ÉTAIT DÉJÀ REJETÉE OU ANNULÉE :
+      const existingComment = existing.decisionComment || "";
+      const updatedComment = existingComment.includes("[ADMIN_ARCHIVED]")
+        ? existingComment
+        : existingComment
+        ? `${existingComment} [ADMIN_ARCHIVED]`
+        : "[ADMIN_ARCHIVED]";
+
+      const updateResult = await db
+        .update(leaveRequests)
+        .set({
+          decisionComment: updatedComment,
+          updatedAt: now,
+        })
+        .where(
+          and(
+            eq(leaveRequests.id, id),
+            eq(leaveRequests.organizationId, organizationId)
+          )
+        )
+        .returning();
+
+      try {
+        await supabaseDb.leaveRequests.delete(id, organizationId, userId || "Administration");
+      } catch (_) {}
+
+      return {
+        success: true,
+        leaveRequest: updateResult[0] || existing,
+        actionTaken: "ARCHIVED_FOR_ADMIN",
+      };
+    }
+  } catch (err) {
+    console.error("deleteLeaveRequest error:", err);
+  }
+
+  try {
+    await supabaseDb.leaveRequests.delete(id, organizationId, userId || "Administration");
   } catch (_) {}
-  await supabaseDb.leaveRequests.delete(id, organizationId);
+
+  return { success: true };
 }

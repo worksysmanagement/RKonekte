@@ -42,7 +42,7 @@ import {
 import jsPDF from "jspdf";
 import html2canvas from "html2canvas";
 import { showSystemToast } from "@/components/ui/SystemToast";
-import { printPdfDocument } from "@/lib/utils/pdf";
+import { printPdfDocument, sanitizePdfFileName } from "@/lib/utils/pdf";
 
 export interface WordDocumentEditorRef {
   generatePdfDataUrl: () => Promise<{ dataUrl: string; fileName: string; fileSize: string }>;
@@ -469,9 +469,11 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
     const exportToWordDoc = () => {
       if (!editorRef.current) return;
       const contentHtml = editorRef.current.innerHTML;
-      const sanitizedFileName = (documentTitle || "Document_Autorisation")
-        .replace(/[^a-zA-Z0-9_\-]/g, "_")
-        .substring(0, 50);
+      const docFileName = sanitizePdfFileName(
+        documentTitle,
+        "doc",
+        "Document d'autorisation"
+      );
 
       const header = `
         <html xmlns:o='urn:schemas-microsoft-com:office:office'
@@ -529,12 +531,12 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${sanitizedFileName}.doc`;
+      a.download = docFileName;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      showSystemToast(`Document Word exporté avec succès ("${sanitizedFileName}.doc") !`);
+      showSystemToast(`Document Word exporté avec succès ("${docFileName}") !`);
     };
 
     // Generate high-resolution PDF Blob & DataUrl
@@ -544,10 +546,11 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
       }
 
       const paperEl = paperRef.current;
-      const sanitizedFileName = (documentTitle || "Document_Autorisation")
-        .replace(/[^a-zA-Z0-9_\-]/g, "_")
-        .substring(0, 50);
-      const finalFileName = `${sanitizedFileName}.pdf`;
+      const finalFileName = sanitizePdfFileName(
+        documentTitle,
+        "pdf",
+        "Document d'autorisation"
+      );
 
       // Render high-res canvas at 2x scale
       const canvas = await html2canvas(paperEl, {
@@ -682,13 +685,13 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
     ];
 
     return (
-      <div className="relative border border-slate-300 rounded-2xl bg-slate-100 shadow-md overflow-hidden flex flex-col">
+      <div className="relative rounded-2xl bg-slate-100 shadow-md overflow-hidden flex flex-col">
         {/* ========================================================================= */}
         {/* WORD RIBBON TOOLBAR (Gras, Italique, Polices, Alignement, Puces...)        */}
         {/* ========================================================================= */}
-        <div className="bg-white border-b border-slate-200 px-3 py-2 flex flex-wrap items-center gap-1.5 text-slate-700 text-xs shadow-2xs select-none">
+        <div className="bg-white border-b border-slate-100 px-3 py-2 flex flex-wrap items-center gap-1.5 text-slate-700 text-xs shadow-2xs select-none">
           {/* 0. BOUTON OPTIONS À GAUCHE AU COIN (Ouvre la sidebar) */}
-          <div className="flex items-center border-r border-slate-200 pr-2.5 mr-0.5">
+          <div className="flex items-center border-r border-slate-100 pr-2.5 mr-0.5">
             <button
               type="button"
               onClick={() => setShowOptionsSidebar(true)}
@@ -700,7 +703,7 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
           </div>
 
           {/* Historique : Undo / Redo */}
-          <div className="flex items-center gap-0.5 border-r border-slate-200 pr-2">
+          <div className="flex items-center gap-0.5 border-r border-slate-100 pr-2">
             <button
               type="button"
               onMouseDown={(e) => {
@@ -726,7 +729,7 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
           </div>
 
           {/* Menu Police de caractères personnalisée (garde la sélection de texte active) */}
-          <div className="relative border-r border-slate-200 pr-2" data-font-picker="true">
+          <div className="relative border-r border-slate-100 pr-2" data-font-picker="true">
             <button
               type="button"
               onMouseDown={(e) => {
@@ -736,7 +739,7 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
                 setShowColorPicker(false);
                 setShowHighlightPicker(false);
               }}
-              className="h-8 px-2.5 bg-slate-50 hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer transition-all shadow-2xs"
+              className="h-8 px-2.5 bg-[#F4F6F9] hover:bg-slate-200/70 rounded-lg text-xs font-semibold text-slate-700 flex items-center gap-1.5 cursor-pointer transition-all"
               title="Changer la police d'écriture"
             >
               <Type className="w-3.5 h-3.5 text-slate-500" />
@@ -747,7 +750,7 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
             </button>
 
             {showFontPicker && (
-              <div className="absolute left-0 top-full mt-1 w-52 bg-white border border-slate-200 rounded-xl shadow-xl p-1.5 z-50 animate-in fade-in space-y-0.5">
+              <div className="absolute left-0 top-full mt-1 w-52 bg-white rounded-xl shadow-xl p-1.5 z-50 animate-in fade-in space-y-0.5">
                 <div className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
                   Polices de caractères
                 </div>
@@ -861,7 +864,7 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
               </button>
 
               {showColorPicker && (
-                <div className="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 w-44 space-y-1">
+                <div className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-xl p-2 z-50 w-44 space-y-1">
                   <div className="text-[10px] font-bold text-slate-400 px-1 uppercase tracking-wider mb-1">
                     Couleur texte
                   </div>
@@ -902,7 +905,7 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
               </button>
 
               {showHighlightPicker && (
-                <div className="absolute left-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl p-2 z-50 w-40 space-y-1">
+                <div className="absolute left-0 top-full mt-1 bg-white rounded-xl shadow-xl p-2 z-50 w-40 space-y-1">
                   <div className="text-[10px] font-bold text-slate-400 px-1 uppercase tracking-wider mb-1">
                     Surlignage
                   </div>
@@ -1101,7 +1104,7 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
         {/* ========================================================================= */}
         {/* TITRE / OBJET DU DOCUMENT MODIFIABLE DIRECTEMENT                           */}
         {/* ========================================================================= */}
-        <div className="bg-slate-50 border-b border-slate-200 px-5 py-2.5 flex items-center gap-3">
+        <div className="bg-slate-50 px-5 py-2.5 flex items-center gap-3">
           <span className="text-[11px] font-bold uppercase tracking-wider text-[#062653] shrink-0">
             Objet du document :
           </span>
@@ -1113,7 +1116,7 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
               if (onTitleChange) onTitleChange(e.target.value);
             }}
             placeholder="Ex : Demande d'autorisation de dépense pour achat de matériel..."
-            className="flex-1 bg-white border border-slate-300 rounded-lg px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-hidden focus:border-[#062653] shadow-2xs"
+            className="flex-1 bg-white rounded-lg px-3 py-1.5 text-xs font-bold text-slate-800 focus:outline-hidden shadow-2xs"
           />
         </div>
 
@@ -1238,7 +1241,7 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
             )}
 
             {/* Zoom controls */}
-            <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-slate-200 shadow-2xs">
+            <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg shadow-2xs">
               <button
                 type="button"
                 onClick={() => setZoomLevel((z) => Math.max(70, z - 10))}
@@ -1274,9 +1277,9 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
             />
 
             {/* Tiroir latéral gauche confiné dans le composant */}
-            <div className="absolute inset-y-0 left-0 w-72 sm:w-80 bg-white shadow-2xl flex flex-col border-r border-slate-200 z-10 animate-in slide-in-from-left duration-200 select-none">
+            <div className="absolute inset-y-0 left-0 w-72 sm:w-80 bg-white shadow-2xl flex flex-col z-10 animate-in slide-in-from-left duration-200 select-none">
               {/* En-tête sobre style desktop */}
-              <div className="px-5 py-3.5 border-b border-slate-200 flex items-center justify-between bg-white">
+              <div className="px-5 py-3.5 border-b border-slate-100 flex items-center justify-between bg-white">
                 <div className="flex items-center gap-2">
                   <SlidersHorizontal className="w-4 h-4 text-slate-700" />
                   <span className="text-xs font-bold uppercase tracking-wider text-slate-900">
@@ -1425,14 +1428,14 @@ export const WordDocumentEditor = forwardRef<WordDocumentEditorRef, WordDocument
               </div>
 
               {/* Pied de page sobre */}
-              <div className="px-4 py-3 border-t border-slate-200 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
+              <div className="px-4 py-3 border-t border-slate-100 bg-slate-50 flex items-center justify-between text-xs text-slate-500">
                 <span className="text-[11px]">
                   {wordCount} mots • {charCount} car.
                 </span>
                 <button
                   type="button"
                   onClick={() => setShowOptionsSidebar(false)}
-                  className="px-3 py-1 bg-white hover:bg-slate-100 border border-slate-200 rounded-lg text-xs font-semibold text-slate-700 cursor-pointer shadow-2xs"
+                  className="px-3 py-1 bg-[#F4F6F9] hover:bg-slate-200/70 rounded-lg text-xs font-semibold text-slate-700 cursor-pointer"
                 >
                   Fermer
                 </button>

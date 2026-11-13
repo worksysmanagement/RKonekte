@@ -17,7 +17,7 @@ import {
   Type,
   Eraser,
 } from "lucide-react";
-import { processTransparentImage } from "@/lib/utils/signature";
+import { processTransparentImage, generateCursiveSignatureDataUrl } from "@/lib/utils/signature";
 
 interface OrganizationOption {
   id: string;
@@ -253,6 +253,14 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
     setSubmitting(true);
 
     try {
+      let finalSignature = uploadedSignature;
+      if (signatureMode === "type") {
+        const cursivePng = generateCursiveSignatureDataUrl(
+          typedSignatureText.trim() || `${firstName} ${lastName}`.trim()
+        );
+        finalSignature = cursivePng || typedSignatureText.trim();
+      }
+
       const res = await fetch("/api/public/submit-leave", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -272,8 +280,8 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
           contactPhone,
           contactEmail: contactEmail || undefined,
           signatureMode,
-          employeeSignature: uploadedSignature || (signatureMode === "type" ? typedSignatureText : undefined),
-          typedSignatureText: signatureMode === "type" ? typedSignatureText : undefined,
+          employeeSignature: finalSignature,
+          typedSignatureText: signatureMode === "type" ? typedSignatureText.trim() : undefined,
         }),
       });
 
@@ -295,6 +303,10 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
           };
           localStorage.setItem("rkonekte_employee_signatures", JSON.stringify(sigs));
         } catch (_) {}
+      }
+
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("rkonekte_notification_update"));
       }
 
       setSubmittedData({
@@ -320,7 +332,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
   // SUCCESS CONFIRMATION SCREEN
   if (submittedData) {
     return (
-      <div className="max-w-2xl mx-auto bg-white border border-[#DCE2EA] rounded-2xl p-6 sm:p-10 shadow-lg text-center animate-in fade-in">
+      <div className="max-w-2xl mx-auto bg-white rounded-2xl p-6 sm:p-10 shadow-lg text-center animate-in fade-in">
         <div className="flex items-center justify-center mx-auto mb-4 text-[#062653]">
           <CheckCircle2 className="w-14 h-14 text-[#062653]" />
         </div>
@@ -333,7 +345,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
           Votre demande de congé a été enregistrée et transmise au secrétariat RH pour validation.
         </p>
 
-        <div className="bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl p-6 mb-6">
+        <div className="bg-[#F4F6F9] rounded-xl p-6 mb-6">
           <div className="text-xs uppercase tracking-wider font-bold text-[#64748B] mb-1">
             Numéro de demande
           </div>
@@ -342,7 +354,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
           </div>
         </div>
 
-        <div className="bg-[#FFF4EB] border border-[#FF7900]/30 rounded-xl p-5 mb-8 text-left">
+        <div className="bg-[#FFF4EB] rounded-xl p-5 mb-8 text-left">
           <div className="flex items-start gap-3">
             <Info className="w-5 h-5 text-[#FF7900] shrink-0 mt-0.5" />
             <div>
@@ -359,7 +371,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
         <div className="flex flex-col sm:flex-row gap-3 justify-center">
           <button
             onClick={copyShareLink}
-            className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-[#062653] hover:bg-[#031B3A] text-white font-bold shadow-xs transition-colors cursor-pointer border-b-2 border-[#FF7900]"
+            className="inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-xl bg-[#062653] hover:bg-[#031B3A] text-white font-bold shadow-xs transition-colors cursor-pointer"
           >
             <Copy className="w-4 h-4 text-[#FF7900]" />
             {copied ? "Lien copié dans le presse-papier !" : "Copier le lien d'accès"}
@@ -370,8 +382,8 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
   }
 
   return (
-    <div className="max-w-3xl mx-auto bg-white rounded-2xl border border-slate-200 shadow-sm p-5 sm:p-8">
-      <div className="border-b border-slate-100 pb-6 mb-6">
+    <div className="max-w-3xl mx-auto bg-white rounded-2xl shadow-sm p-5 sm:p-8">
+      <div className="pb-6 mb-6">
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-900 tracking-tight">
           Formulaire de Demande de Congé
         </h1>
@@ -381,7 +393,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
       </div>
 
       {errorMsg && (
-        <div className="mb-6 p-4 rounded-xl bg-rose-50 border border-rose-200 text-rose-800 flex items-start gap-3">
+        <div className="mb-6 p-4 rounded-xl bg-rose-50 text-rose-800 flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
           <div className="text-sm font-medium">{errorMsg}</div>
         </div>
@@ -396,7 +408,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
           {loadingOrgs ? (
             <div className="h-11 bg-slate-100 animate-pulse rounded-lg" />
           ) : organizations.length === 0 ? (
-            <div className="p-3.5 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div className="p-3.5 bg-amber-50 rounded-lg text-xs text-amber-900 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
               <span>Aucune entreprise enregistrée pour le moment.</span>
               <a href="/register-company" className="font-bold text-[#FF7900] underline hover:text-[#E66D00]">
                 Créer une entreprise &rarr;
@@ -407,7 +419,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
               value={organizationId}
               onChange={(e) => setOrganizationId(e.target.value)}
               required
-              className="w-full h-11 px-3.5 bg-slate-50 border border-slate-300 rounded-lg text-slate-900 font-medium focus:bg-white transition-colors"
+              className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-lg text-slate-900 font-medium focus:bg-white transition-colors outline-hidden"
             >
               <option value="" disabled>
                 Sélectionnez votre entreprise
@@ -423,20 +435,20 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
 
         {/* 1. INFORMATIONS SUR L'EMPLOYÉ */}
         <div className="space-y-4 pt-2">
-          <div className="flex items-center gap-2 text-[#062653] font-bold text-sm border-b border-[#DCE2EA] pb-2">
+          <div className="flex items-center gap-2 text-[#062653] font-bold text-sm pb-2">
             <span className="w-5 h-5 rounded-full bg-[#062653] text-white flex items-center justify-center text-[10px] font-bold">1</span>
             <span className="uppercase tracking-wider">Informations sur l'Employé :</span>
           </div>
 
           {employees.length > 0 && (
-            <div className="p-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl">
+            <div className="p-3.5 bg-[#F4F6F9] rounded-xl">
               <label className="block text-xs font-bold text-[#062653] mb-1.5">
                 Sélection rapide d'un employé pré-enregistré (Optionnel)
               </label>
               <select
                 value={selectedEmployeeId}
                 onChange={(e) => handleSelectEmployee(e.target.value)}
-                className="w-full h-10 px-3 bg-white border border-[#DCE2EA] rounded-lg text-xs font-semibold text-[#263445]"
+                className="w-full h-10 px-3 bg-white rounded-lg text-xs font-semibold text-[#263445] shadow-2xs outline-hidden"
               >
                 <option value="">-- Saisie manuelle ou choisir dans la liste --</option>
                 {employees.map((emp) => (
@@ -459,7 +471,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                 value={lastName}
                 onChange={(e) => setLastName(e.target.value)}
                 placeholder="Nom de famille"
-                className="w-full h-11 px-3.5 border border-[#DCE2EA] rounded-lg text-slate-900 placeholder:text-slate-400 focus:bg-white text-xs font-medium"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-lg text-slate-900 placeholder:text-slate-400 focus:bg-white text-xs font-medium outline-hidden"
               />
             </div>
 
@@ -473,7 +485,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                 value={firstName}
                 onChange={(e) => setFirstName(e.target.value)}
                 placeholder="Prénom"
-                className="w-full h-11 px-3.5 border border-[#DCE2EA] rounded-lg text-slate-900 placeholder:text-slate-400 focus:bg-white text-xs font-medium"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-lg text-slate-900 placeholder:text-slate-400 focus:bg-white text-xs font-medium outline-hidden"
               />
             </div>
           </div>
@@ -489,7 +501,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                 value={employeeNumber}
                 onChange={(e) => setEmployeeNumber(e.target.value)}
                 placeholder="ex. EMP-042"
-                className="w-full h-11 px-3.5 border border-[#DCE2EA] rounded-lg text-[#062653] placeholder:text-slate-400 focus:bg-white font-mono text-xs font-bold"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-lg text-[#062653] placeholder:text-slate-400 focus:bg-white font-mono text-xs font-bold outline-hidden"
               />
             </div>
 
@@ -503,7 +515,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                 value={department}
                 onChange={(e) => setDepartment(e.target.value)}
                 placeholder="ex. Comptabilité, Technique..."
-                className="w-full h-11 px-3.5 border border-[#DCE2EA] rounded-lg text-slate-900 placeholder:text-slate-400 focus:bg-white text-xs font-medium"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-lg text-slate-900 placeholder:text-slate-400 focus:bg-white text-xs font-medium outline-hidden"
               />
             </div>
 
@@ -517,7 +529,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                 value={position}
                 onChange={(e) => setPosition(e.target.value)}
                 placeholder="ex. Responsable..."
-                className="w-full h-11 px-3.5 border border-[#DCE2EA] rounded-lg text-slate-900 placeholder:text-slate-400 focus:bg-white text-xs font-medium"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-lg text-slate-900 placeholder:text-slate-400 focus:bg-white text-xs font-medium outline-hidden"
               />
             </div>
           </div>
@@ -525,7 +537,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
 
         {/* 2. DÉTAILS DE LA DEMANDE DE CONGÉ */}
         <div className="space-y-4 pt-2">
-          <div className="flex items-center gap-2 text-[#062653] font-bold text-sm border-b border-[#DCE2EA] pb-2">
+          <div className="flex items-center gap-2 text-[#062653] font-bold text-sm pb-2">
             <span className="w-5 h-5 rounded-full bg-[#062653] text-white flex items-center justify-center text-[10px] font-bold">2</span>
             <span className="uppercase tracking-wider">Détails de la Demande de Congé :</span>
           </div>
@@ -544,10 +556,10 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
               ].map((t) => (
                 <label
                   key={t.id}
-                  className={`flex items-center gap-3 p-3 rounded-xl border cursor-pointer transition-all select-none ${
+                  className={`flex items-center gap-3 p-3 rounded-xl cursor-pointer transition-all select-none ${
                     leaveType === t.id
-                      ? "border-[#062653] bg-[#062653]/5 font-bold text-[#062653] ring-2 ring-[#062653]/20"
-                      : "border-[#DCE2EA] bg-white hover:bg-[#F8FAFC] text-[#263445]"
+                      ? "bg-[#062653]/10 font-bold text-[#062653] ring-2 ring-[#062653]/25"
+                      : "bg-[#F4F6F9] hover:bg-slate-200/70 text-[#263445]"
                   }`}
                 >
                   <input
@@ -559,10 +571,10 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                     className="sr-only"
                   />
                   <div
-                    className={`w-4 h-4 rounded-full border flex items-center justify-center shrink-0 transition-all ${
+                    className={`w-4 h-4 rounded-full flex items-center justify-center shrink-0 transition-all ${
                       leaveType === t.id
-                        ? "border-[#062653] bg-white ring-2 ring-[#062653]/20"
-                        : "border-slate-300 bg-white"
+                        ? "bg-white ring-2 ring-[#062653]"
+                        : "bg-white ring-1 ring-slate-300"
                     }`}
                   >
                     {leaveType === t.id && (
@@ -586,7 +598,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                 value={leaveTypeOther}
                 onChange={(e) => setLeaveTypeOther(e.target.value)}
                 placeholder="Préciser le motif de congé..."
-                className="w-full h-11 px-3.5 border border-[#DCE2EA] bg-white rounded-xl text-[#062653] placeholder:text-slate-400 focus:bg-white text-xs font-semibold focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-[#062653] placeholder:text-slate-400 focus:bg-white text-xs font-semibold outline-hidden"
               />
             </div>
           )}
@@ -595,7 +607,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
             <label className="block text-xs font-bold text-[#062653] mb-2">
               Dates du Congé :
             </label>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end bg-[#F8FAFC] p-4 rounded-xl border border-slate-200">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 items-end bg-[#F4F6F9] p-4 rounded-xl">
               <div>
                 <label className="block text-xs font-semibold text-[#263445] mb-1">
                   Date de Début : <span className="text-rose-500">*</span>
@@ -612,7 +624,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                       setEndDate(e.target.value);
                     }
                   }}
-                  className="w-full h-11 px-3.5 border border-[#DCE2EA] bg-white rounded-xl text-[#062653] focus:bg-white text-xs font-medium focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                  className="w-full h-11 px-3.5 bg-white rounded-xl text-[#062653] shadow-2xs text-xs font-medium outline-hidden"
                 />
               </div>
 
@@ -627,7 +639,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                   value={endDate}
                   min={startDate || new Date().toLocaleDateString("en-CA")}
                   onChange={(e) => setEndDate(e.target.value)}
-                  className="w-full h-11 px-3.5 border border-[#DCE2EA] bg-white rounded-xl text-[#062653] focus:bg-white text-xs font-medium focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                  className="w-full h-11 px-3.5 bg-white rounded-xl text-[#062653] shadow-2xs text-xs font-medium outline-hidden"
                 />
               </div>
 
@@ -635,7 +647,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                 <label className="block text-xs font-semibold text-[#263445] mb-1">
                   Nombre de Jours de Congé Demandés :
                 </label>
-                <div className="h-11 px-3.5 bg-slate-100/80 border border-slate-200 rounded-xl flex items-center justify-between font-bold text-[#062653] text-xs cursor-not-allowed select-none">
+                <div className="h-11 px-3.5 bg-slate-200/70 rounded-xl flex items-center justify-between font-bold text-[#062653] text-xs cursor-not-allowed select-none">
                   <span>{requestedDays > 0 ? `${requestedDays} jour(s)` : "—"}</span>
                   <Calendar className="w-4 h-4 text-slate-400" />
                 </div>
@@ -646,7 +658,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
 
         {/* 3. REMPLAÇANT PROPOSÉ (SI APPLICABLE) */}
         <div className="space-y-3 pt-2">
-          <div className="flex items-center gap-2 text-[#062653] font-bold text-sm border-b border-[#DCE2EA] pb-2">
+          <div className="flex items-center gap-2 text-[#062653] font-bold text-sm pb-2">
             <span className="w-5 h-5 rounded-full bg-[#062653] text-white flex items-center justify-center text-[10px] font-bold">3</span>
             <span className="uppercase tracking-wider">Remplaçant Proposé (si applicable) :</span>
           </div>
@@ -660,14 +672,14 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
               value={replacementName}
               onChange={(e) => setReplacementName(e.target.value)}
               placeholder="Nom complet du collègue remplaçant si applicable"
-              className="w-full h-11 px-3.5 border border-[#DCE2EA] bg-white rounded-xl text-[#062653] placeholder:text-slate-400 focus:bg-white text-xs font-medium focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+              className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-[#062653] placeholder:text-slate-400 focus:bg-white text-xs font-medium outline-hidden"
             />
           </div>
         </div>
 
         {/* 4. COORDONNÉES PENDANT LE CONGÉ */}
         <div className="space-y-3 pt-2">
-          <div className="flex items-center gap-2 text-[#062653] font-bold text-sm border-b border-[#DCE2EA] pb-2">
+          <div className="flex items-center gap-2 text-[#062653] font-bold text-sm pb-2">
             <span className="w-5 h-5 rounded-full bg-[#062653] text-white flex items-center justify-center text-[10px] font-bold">4</span>
             <span className="uppercase tracking-wider">Coordonnées Pendant le Congé :</span>
           </div>
@@ -685,7 +697,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                   value={contactPhone}
                   onChange={(e) => setContactPhone(e.target.value)}
                   placeholder="ex. +509 0000 0000"
-                  className="w-full h-11 pl-10 pr-3.5 border border-[#DCE2EA] bg-white rounded-xl text-[#062653] placeholder:text-slate-400 focus:bg-white text-xs font-medium focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                  className="w-full h-11 pl-10 pr-3.5 bg-[#F4F6F9] rounded-xl text-[#062653] placeholder:text-slate-400 focus:bg-white text-xs font-medium outline-hidden"
                 />
                 <Phone className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               </div>
@@ -704,7 +716,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                   value={contactEmail}
                   onChange={(e) => setContactEmail(e.target.value)}
                   placeholder="ex. jean.dupont@email.com"
-                  className="w-full h-11 pl-10 pr-3.5 border border-[#DCE2EA] bg-white rounded-xl text-[#062653] placeholder:text-slate-400 focus:bg-white text-xs font-medium focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                  className="w-full h-11 pl-10 pr-3.5 bg-[#F4F6F9] rounded-xl text-[#062653] placeholder:text-slate-400 focus:bg-white text-xs font-medium outline-hidden"
                 />
                 <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
               </div>
@@ -713,15 +725,15 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
         </div>
 
         {/* 5. SIGNATURE DE L'EMPLOYÉ */}
-        <div className="bg-[#F8FAFC] rounded-xl p-5 border border-slate-200 space-y-4">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-slate-200 pb-2">
+        <div className="bg-[#F4F6F9] rounded-xl p-5 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 pb-2">
             <div className="flex items-center gap-2 text-[#062653] font-bold text-sm">
               <span className="w-5 h-5 rounded-full bg-[#062653] text-white flex items-center justify-center text-[10px] font-bold">5</span>
               <span className="uppercase tracking-wider">Signature de l'Employé :</span>
             </div>
 
             {/* Sélecteur de Mode */}
-            <div className="flex items-center gap-1 p-1 bg-white border border-[#DCE2EA] rounded-xl w-fit">
+            <div className="flex items-center gap-1 p-1 bg-white rounded-xl w-fit shadow-2xs">
               <button
                 type="button"
                 onClick={() => setSignatureMode("upload")}
@@ -759,7 +771,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
               <label className="block text-xs font-semibold text-[#263445] mb-1">
                 Date de soumission : <span className="text-[10px] text-[#64748B] font-normal">(JJ/MM/AAAA)</span>
               </label>
-              <div className="px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653]">
+              <div className="px-3.5 py-2.5 bg-white rounded-xl text-xs font-bold text-[#062653] shadow-2xs">
                 {new Date().toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit", year: "numeric" })}
               </div>
               <p className="text-[11px] text-[#64748B] mt-2">
@@ -799,7 +811,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                           reader.readAsDataURL(file);
                         }
                       }}
-                      className="border-2 border-dashed border-[#062653]/30 hover:border-[#062653] bg-white hover:bg-[#062653]/5 rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all min-h-[105px] group"
+                      className="bg-white hover:bg-[#062653]/5 rounded-xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition-all min-h-[105px] group shadow-2xs"
                     >
                       <div className="w-9 h-9 rounded-full bg-[#062653]/10 text-[#062653] flex items-center justify-center mb-1.5 group-hover:scale-105 transition-transform">
                         <Upload className="w-4 h-4" />
@@ -812,7 +824,7 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                       </p>
                     </div>
                   ) : (
-                    <div className="bg-white border border-[#DCE2EA] rounded-xl p-3 relative flex flex-col items-center justify-center min-h-[105px]">
+                    <div className="bg-white rounded-xl p-3 relative flex flex-col items-center justify-center min-h-[105px] shadow-2xs">
                       <div className="w-full flex items-center justify-between pb-1.5 mb-1.5 border-b border-slate-100">
                         <span className="text-[11px] font-medium text-slate-400">
                           Arrière-plan retiré (transparent)
@@ -856,9 +868,9 @@ export function LeaveRequestForm({ preselectedOrgId }: { preselectedOrgId?: stri
                     value={typedSignatureText}
                     onChange={(e) => setTypedSignatureText(e.target.value)}
                     placeholder="Tapez votre prénom et nom..."
-                    className="w-full px-3.5 py-2.5 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-semibold focus:ring-2 focus:ring-[#062653]/20 focus:border-[#062653] outline-hidden"
+                    className="w-full px-3.5 py-2.5 bg-white rounded-xl text-xs text-[#062653] font-semibold shadow-2xs outline-hidden"
                   />
-                  <div className="bg-white border border-dashed border-slate-300 rounded-xl p-3 flex flex-col items-center justify-center min-h-[75px] overflow-hidden">
+                  <div className="bg-white rounded-xl p-3 flex flex-col items-center justify-center min-h-[75px] overflow-hidden shadow-2xs">
                     {typedSignatureText.trim() ? (
                       <div className="text-center py-1">
                         <div className="font-windsong text-3xl sm:text-4xl text-[#062653] select-none py-1 leading-normal tracking-wide">

@@ -38,7 +38,7 @@ export default function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col justify-center items-center px-4 sm:px-6 py-12">
-      <div className="max-w-md w-full bg-white rounded-3xl border border-[#DCE2EA] shadow-xl p-8 sm:p-10 text-center">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 sm:p-10 text-center">
         {/* Brand Header */}
         <div className="mb-6 flex flex-col items-center justify-center text-center">
           <img
@@ -70,7 +70,7 @@ export default function ForgotPasswordPage() {
               </p>
             </div>
 
-            <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 text-left text-xs text-slate-600 space-y-1.5">
+            <div className="bg-[#F4F6F9] rounded-2xl p-4 text-left text-xs text-slate-600 space-y-1.5">
               <div className="font-bold text-[#062653]">Instructions :</div>
               <ul className="list-disc pl-4 space-y-1 text-slate-500">
                 <li>Le lien est sécurisé et valable pendant 1 heure.</li>
@@ -104,7 +104,7 @@ export default function ForgotPasswordPage() {
             </div>
 
             {error && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
+              <div className="p-3 bg-rose-50 rounded-xl text-xs text-rose-700 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{error}</span>
               </div>
@@ -122,7 +122,7 @@ export default function ForgotPasswordPage() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="directeur@mon-entreprise.com"
-                    className="w-full h-11 pl-10 pr-3.5 text-xs border border-slate-300 rounded-xl bg-slate-50 text-slate-900 focus:bg-white focus:outline-none focus:border-[#FF7900] transition-colors"
+                    className="w-full h-11 pl-10 pr-3.5 text-xs rounded-xl bg-[#F4F6F9] text-slate-900 focus:bg-white focus:outline-none transition-colors"
                   />
                   <Mail className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
                 </div>

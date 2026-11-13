@@ -198,3 +198,62 @@ export function processTransparentImage(dataUrl: string): Promise<string> {
     img.src = dataUrl;
   });
 }
+
+/**
+ * Determines whether a string is a valid image URL (dataUrl, HTTP URL, or local path).
+ * Returns false if it is a plain text name (e.g., "Rodjensky Emmanuel Piton").
+ */
+export function isImageSignature(sig?: string | null): boolean {
+  if (!sig || typeof sig !== "string") return false;
+  const s = sig.trim();
+  return (
+    s.startsWith("data:image/") ||
+    s.startsWith("http://") ||
+    s.startsWith("https://") ||
+    s.startsWith("blob:") ||
+    s.startsWith("/images/") ||
+    s.startsWith("/uploads/")
+  );
+}
+
+/**
+ * Generates a high-resolution, transparent PNG data URL of a name rendered
+ * in calligraphic cursive font with a decorative underline flourish.
+ */
+export function generateCursiveSignatureDataUrl(name: string): string {
+  if (typeof document === "undefined") return "";
+  const cleanName = (name || "").trim();
+  if (!cleanName) return "";
+
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 600;
+    canvas.height = 180;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = "#062653";
+    ctx.textAlign = "center";
+    ctx.textBaseline = "middle";
+    ctx.font = "normal 50px WindSong, Caveat, 'Dancing Script', 'Brush Script MT', cursive, sans-serif";
+    ctx.fillText(cleanName, canvas.width / 2, 75);
+
+    // Decorative underline flourish matching text width
+    const textMetrics = ctx.measureText(cleanName);
+    const textWidth = Math.min(textMetrics.width * 0.95, canvas.width - 60);
+    const startX = (canvas.width - textWidth) / 2;
+
+    ctx.strokeStyle = "rgba(6, 38, 83, 0.4)";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.moveTo(startX, 125);
+    ctx.quadraticCurveTo(canvas.width / 2, 134, startX + textWidth, 125);
+    ctx.stroke();
+
+    return canvas.toDataURL("image/png");
+  } catch (err) {
+    console.error("Cursive signature generation error:", err);
+    return "";
+  }
+}

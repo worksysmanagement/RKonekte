@@ -51,7 +51,7 @@ export function LogoutConfirmModal({
       aria-labelledby="logout-confirm-title"
     >
       <div
-        className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-[#DCE2EA] overflow-hidden p-6 space-y-5"
+        className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl overflow-hidden p-6 space-y-5"
         onClick={(e) => e.stopPropagation()}
       >
         <button
@@ -65,7 +65,7 @@ export function LogoutConfirmModal({
         </button>
 
         <div className="flex flex-col items-center text-center space-y-3 pt-1">
-          <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-100 flex items-center justify-center text-rose-600 shadow-2xs">
+          <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center text-rose-600 shadow-2xs">
             <LogOut className="w-5 h-5" />
           </div>
 
@@ -80,7 +80,7 @@ export function LogoutConfirmModal({
               Voulez-vous vraiment vous déconnecter de votre session RKonekte ?
             </p>
             {(userName || userEmail) && (
-              <div className="mt-2 px-3 py-1.5 bg-slate-50 border border-slate-100 rounded-xl text-[11px] text-[#263445]">
+              <div className="mt-2 px-3 py-1.5 bg-[#F4F6F9] rounded-xl text-[11px] text-[#263445]">
                 <span className="font-bold block truncate">{userName || "Compte actif"}</span>
                 {userEmail && <span className="text-[#64748B] block truncate">{userEmail}</span>}
               </div>
@@ -93,7 +93,7 @@ export function LogoutConfirmModal({
             type="button"
             onClick={onClose}
             disabled={isLoggingOut}
-            className="flex-1 h-10 px-4 rounded-xl border border-[#DCE2EA] bg-white hover:bg-slate-50 text-xs font-semibold text-[#263445] transition-colors cursor-pointer disabled:opacity-50"
+            className="flex-1 h-10 px-4 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-[#263445] transition-colors cursor-pointer disabled:opacity-50"
           >
             Annuler
           </button>

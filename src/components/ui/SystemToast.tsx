@@ -132,7 +132,7 @@ export function SystemToastItem({
           />
 
           {/* Carte blanche principale avec verre flouté et ombre douce */}
-          <div className="relative bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-2xl px-5 py-3.5 flex items-center gap-3 pr-8 min-w-[320px] sm:min-w-[380px] rounded-sm hover:scale-[1.01] transition-transform">
+          <div className="relative bg-white/95 backdrop-blur-md shadow-2xl px-5 py-3.5 flex items-center gap-3 pr-8 min-w-[320px] sm:min-w-[380px] rounded-sm hover:scale-[1.01] transition-transform">
             {/* Cercle avec check vert ou croix */}
             <div
               className={`w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0 ${

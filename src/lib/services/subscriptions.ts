@@ -815,7 +815,7 @@ export async function rejectSubscriptionRenewal(
         paymentReference: updated.paymentReference,
         rejectionReason: reason,
         paymentAccounts: settings.paymentAccounts,
-        actionUrl: isSubscriptionAccessBlocked(org) ? `${origin}/login` : `${origin}/admin/subscription`,
+        actionUrl: `${origin}/login`,
       });
       await sendEmail({ to: recipient, subject, html, text });
     } catch (err) {
@@ -954,7 +954,7 @@ export async function maybeSendSubscriptionReminders(
       autoMessageBody: settings.autoMessageBody,
       plans: buildSubscriptionPlans(settings),
       paymentAccounts: settings.paymentAccounts,
-      subscriptionUrl: `${appOrigin}/admin/subscription`,
+      subscriptionUrl: `${appOrigin}/login`,
     });
 
     await sendEmail({ to: recipient, subject, html, text });
@@ -986,7 +986,7 @@ export async function sendSubscriptionActivationWelcomeEmail(params: {
       plans: buildSubscriptionPlans(settings),
       paymentAccounts: settings.paymentAccounts,
       autoMessageBody: settings.autoMessageBody,
-      subscriptionUrl: `${appOrigin}/admin/subscription`,
+      subscriptionUrl: `${appOrigin}/login`,
     });
 
     await sendEmail({

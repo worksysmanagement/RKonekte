@@ -108,22 +108,22 @@ export const HIERARCHY_LABELS: Record<HierarchyLevel, { label: string; badge: st
   DIRECTION: {
     label: "Direction & Propriétaire (Niveau 1)",
     badge: "Direction",
-    color: "bg-indigo-100 text-indigo-800 border-indigo-200",
+    color: "bg-indigo-100 text-indigo-800",
   },
   MANAGEMENT: {
     label: "Management & Cadres (Niveau 2)",
     badge: "Management",
-    color: "bg-emerald-100 text-emerald-800 border-emerald-200",
+    color: "bg-emerald-100 text-emerald-800",
   },
   SUPERVISOR: {
     label: "Superviseurs & Chefs d'équipe (Niveau 3)",
     badge: "Superviseur",
-    color: "bg-amber-100 text-amber-800 border-amber-200",
+    color: "bg-amber-100 text-amber-800",
   },
   OPERATIONAL: {
     label: "Opérationnels & Collaborateurs (Niveau 4)",
     badge: "Opérationnel",
-    color: "bg-slate-100 text-slate-700 border-slate-200",
+    color: "bg-slate-100 text-slate-700",
   },
 };
 

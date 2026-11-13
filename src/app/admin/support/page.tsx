@@ -13,7 +13,6 @@ import {
   AlertTriangle,
   Lightbulb,
   CheckCircle2,
-  Lock,
   ArrowRight,
   Sparkles,
   Send,
@@ -885,7 +884,7 @@ export default function AdminSupportPage() {
               <button
                 type="button"
                 onClick={handleCopyEmail}
-                className="px-2.5 py-1 bg-white hover:bg-[#F4F6F9] text-[#062653] border border-[#DCE2EA] text-xs font-bold rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
+                className="px-2.5 py-1 bg-white hover:bg-[#F4F6F9] text-[#062653] text-xs font-bold rounded-lg shadow-2xs transition-all flex items-center gap-1 cursor-pointer"
                 title="Copier l'email de support"
               >
                 {copiedEmail ? (
@@ -913,7 +912,7 @@ export default function AdminSupportPage() {
               placeholder="Rechercher une procédure (ex: congé, rapport, rôle, employé, dépense...)"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full h-11 pl-10 pr-4 bg-white text-slate-900 placeholder-slate-400 text-xs sm:text-sm rounded-xl border border-[#DCE2EA] focus:outline-none focus:ring-2 focus:ring-[#FF7900] shadow-2xs transition-all font-medium"
+              className="w-full h-11 pl-10 pr-4 bg-white text-slate-900 placeholder-slate-400 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-[#FF7900] shadow-xs transition-all font-medium"
             />
             {searchQuery && (
               <button
@@ -939,7 +938,7 @@ export default function AdminSupportPage() {
             className={`px-3 py-1.5 rounded-lg font-semibold shrink-0 transition-all cursor-pointer ${
               selectedCategory === cat
                 ? "bg-[#031B3A] text-white shadow-xs"
-                : "bg-white text-slate-600 hover:bg-slate-100 border border-slate-200"
+                : "bg-white text-slate-600 hover:bg-slate-100 shadow-2xs"
             }`}
           >
             {cat === "TOUS" ? `Tous les onglets (${activeModulesList.length})` : cat}
@@ -950,7 +949,7 @@ export default function AdminSupportPage() {
       {/* 3. MAIN INTERFACE: SIDEBAR OF TABS + DETAILS PANEL */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {/* Left column: List of Tabs (4 cols) */}
-        <div className="lg:col-span-4 bg-white rounded-2xl border border-slate-200 shadow-sm p-3 space-y-1.5">
+        <div className="lg:col-span-4 bg-white rounded-2xl shadow-sm p-3 space-y-1.5">
           <div className="px-3 py-2 text-[11px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 flex items-center justify-between">
             <span>Sommaire des modules</span>
             <span className="bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full text-[10px]">
@@ -1013,9 +1012,9 @@ export default function AdminSupportPage() {
         </div>
 
         {/* Right column: Active Tab Detailed Manual (8 cols) */}
-        <div className="lg:col-span-8 bg-white rounded-2xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
+        <div className="lg:col-span-8 bg-white rounded-2xl shadow-sm p-6 sm:p-8 space-y-6">
           {/* Header of Active Module */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-200">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-slate-100">
             <div className="flex items-center gap-3.5">
               <div className="w-12 h-12 rounded-2xl bg-[#031B3A] text-white flex items-center justify-center shadow-md shrink-0">
                 <ModuleSidebarIcon iconSrc={activeModule.iconSrc} className="w-6 h-6" />
@@ -1049,24 +1048,6 @@ export default function AdminSupportPage() {
             </Link>
           </div>
 
-          {/* Habilitations & Rôles concernés */}
-          <div className="bg-slate-50 rounded-xl p-4 border border-slate-200/80 space-y-2">
-            <div className="flex items-center gap-2 text-xs font-bold text-[#031B3A]">
-              <Lock className="w-4 h-4 text-[#FF7900]" />
-              <span>Profils et Rôles autorisés pour cet onglet :</span>
-            </div>
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              {activeModule.targetRoles.map((role, idx) => (
-                <span
-                  key={idx}
-                  className="px-2.5 py-1 text-[11px] font-semibold bg-white border border-slate-200 text-slate-700 rounded-lg shadow-2xs"
-                >
-                  {role}
-                </span>
-              ))}
-            </div>
-          </div>
-
           {/* Fonctionnalités & Procédures pas-à-pas */}
           <div className="space-y-4">
             <h3 className="text-sm font-bold text-[#031B3A] uppercase tracking-wider flex items-center gap-2">
@@ -1078,7 +1059,7 @@ export default function AdminSupportPage() {
               {activeModule.features.map((feat, idx) => (
                 <div
                   key={idx}
-                  className="p-4 rounded-xl border border-slate-200/90 hover:border-[#114C5A]/30 bg-white hover:shadow-xs transition-all space-y-2.5"
+                  className="p-4 rounded-xl bg-[#F4F6F9]/60 hover:bg-[#F4F6F9] transition-all space-y-2.5"
                 >
                   <div className="flex items-center gap-2">
                     <span className="w-5 h-5 rounded-full bg-[#031B3A] text-white text-[10px] font-bold flex items-center justify-center shrink-0">
@@ -1093,7 +1074,7 @@ export default function AdminSupportPage() {
                   </p>
 
                   {feat.steps && feat.steps.length > 0 && (
-                    <div className="mt-2 pl-7 pt-2 border-t border-slate-100 space-y-1.5">
+                    <div className="mt-2 pl-7 pt-2 border-t border-slate-200/60 space-y-1.5">
                       <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
                         Étapes à suivre :
                       </span>
@@ -1115,7 +1096,7 @@ export default function AdminSupportPage() {
           {/* Conseils & Règles d'or */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             {/* Conseils */}
-            <div className="p-4 rounded-xl bg-amber-50/60 border border-amber-200/80 space-y-2">
+            <div className="p-4 rounded-xl bg-amber-50/70 space-y-2">
               <div className="flex items-center gap-2 text-xs font-bold text-amber-900">
                 <Lightbulb className="w-4 h-4 text-amber-600 shrink-0" />
                 <span>Conseils & Astuces :</span>
@@ -1131,7 +1112,7 @@ export default function AdminSupportPage() {
             </div>
 
             {/* Règles de sécurité */}
-            <div className="p-4 rounded-xl bg-blue-50/60 border border-blue-200/80 space-y-2">
+            <div className="p-4 rounded-xl bg-blue-50/70 space-y-2">
               <div className="flex items-center gap-2 text-xs font-bold text-blue-900">
                 <AlertTriangle className="w-4 h-4 text-blue-600 shrink-0" />
                 <span>Règles de conformité & Sécurité :</span>
@@ -1150,8 +1131,8 @@ export default function AdminSupportPage() {
       </div>
 
       {/* 4. FOIRE AUX QUESTIONS (FAQ) */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
-        <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
+      <div className="bg-white rounded-3xl shadow-sm p-6 sm:p-8 space-y-6">
+        <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
           <div className="w-10 h-10 rounded-xl bg-[#FF7900]/15 text-[#FF7900] flex items-center justify-center">
             <HelpCircle className="w-5 h-5" />
           </div>
@@ -1169,7 +1150,7 @@ export default function AdminSupportPage() {
           {(isEmployee ? EMPLOYEE_FAQS : FAQS).map((faq, idx) => (
             <div
               key={idx}
-              className="p-4 rounded-2xl border border-slate-200 bg-slate-50/50 space-y-2"
+              className="p-4 rounded-2xl bg-[#F4F6F9]/70 space-y-2"
             >
               <h4 className="text-xs sm:text-sm font-bold text-slate-800 flex items-start gap-2">
                 <span className="text-[#FF7900] font-black shrink-0">Q.</span>
@@ -1184,8 +1165,8 @@ export default function AdminSupportPage() {
       </div>
 
       {/* 5. FORMULAIRE DE CONTACT DIRECT AU SUPPORT */}
-      <div className="bg-white rounded-3xl border border-slate-200 shadow-sm p-6 sm:p-8 space-y-6">
-        <div className="flex items-center gap-3 pb-4 border-b border-slate-200">
+      <div className="bg-white rounded-3xl shadow-sm p-6 sm:p-8 space-y-6">
+        <div className="flex items-center gap-3 pb-4 border-b border-slate-100">
           <div className="w-10 h-10 rounded-xl bg-[#031B3A] text-white flex items-center justify-center shadow-xs">
             <Mail className="w-5 h-5 text-[#FF7900]" />
           </div>
@@ -1209,7 +1190,7 @@ export default function AdminSupportPage() {
               <select
                 value={contactCategory}
                 onChange={(e) => setContactCategory(e.target.value)}
-                className="w-full h-10 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#031B3A] cursor-pointer"
+                className="w-full h-10 px-3.5 bg-[#F4F6F9] rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#031B3A] cursor-pointer transition-colors"
               >
                 <option value="Assistance Technique">🛠️ Assistance Technique / Incident</option>
                 <option value="Question d'utilisation">❓ Question d'utilisation sur un onglet</option>
@@ -1227,7 +1208,7 @@ export default function AdminSupportPage() {
               <select
                 value={contactModule}
                 onChange={(e) => setContactModule(e.target.value)}
-                className="w-full h-10 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#031B3A] cursor-pointer"
+                className="w-full h-10 px-3.5 bg-[#F4F6F9] rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#031B3A] cursor-pointer transition-colors"
               >
                 <option value="Général">Général / Multi-onglets</option>
                 {activeModulesList.map((mod) => (
@@ -1254,7 +1235,7 @@ export default function AdminSupportPage() {
               }
               value={contactSubject}
               onChange={(e) => setContactSubject(e.target.value)}
-              className="w-full h-10 px-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#031B3A]"
+              className="w-full h-10 px-3.5 bg-[#F4F6F9] rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#031B3A] transition-colors"
             />
           </div>
 
@@ -1269,7 +1250,7 @@ export default function AdminSupportPage() {
               placeholder="Expliquez en détail votre demande, la situation rencontrée ou la question que vous vous posez..."
               value={contactMessage}
               onChange={(e) => setContactMessage(e.target.value)}
-              className="w-full p-3.5 bg-slate-50 border border-slate-300 rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#031B3A]"
+              className="w-full p-3.5 bg-[#F4F6F9] rounded-xl text-xs sm:text-sm font-medium text-slate-800 focus:bg-white focus:outline-none focus:ring-2 focus:ring-[#031B3A] transition-colors"
             />
           </div>
 
@@ -1301,7 +1282,7 @@ export default function AdminSupportPage() {
       </div>
 
       {/* 6. DIRECT HUMAN SUPPORT ASSISTANCE CARD */}
-      <div className="bg-[#031B3A] text-white rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6 border border-white/10">
+      <div className="bg-[#031B3A] text-white rounded-3xl p-6 sm:p-8 shadow-xl flex flex-col md:flex-row items-center justify-between gap-6">
         <div className="space-y-1.5 max-w-xl text-center md:text-left">
           <h3 className="text-lg font-bold">
             Vous avez une question particulière ou un cas spécifique ?
@@ -1315,7 +1296,7 @@ export default function AdminSupportPage() {
           <button
             type="button"
             onClick={handleCopyEmail}
-            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-xl border border-white/20 transition-all flex items-center gap-2 cursor-pointer"
+            className="px-4 py-2.5 bg-white/10 hover:bg-white/20 text-white text-xs font-semibold rounded-xl transition-all flex items-center gap-2 cursor-pointer"
           >
             {copiedEmail ? <Check className="w-4 h-4 text-emerald-400" /> : <Copy className="w-4 h-4" />}
             <span>{copiedEmail ? "E-mail copié !" : "Copier l'adresse de support"}</span>

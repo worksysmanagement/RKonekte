@@ -13,8 +13,6 @@ import {
   Search,
   Filter,
   Calendar,
-  Download,
-  Printer,
   FileText,
   AlertCircle,
   CheckCircle2,
@@ -35,10 +33,55 @@ import {
   Copy,
   Lock,
 } from "lucide-react";
-import * as XLSX from "xlsx";
 import { showSystemToast } from "@/components/ui/SystemToast";
 import { SlideOver } from "@/components/ui/SlideOver";
 import { BankAccount, BankTransaction } from "@/lib/services/bank-operations";
+
+// Supported currencies for corporate bank accounts
+const SUPPORTED_CURRENCIES: Array<{ code: string; label: string }> = [
+  { code: "HTG", label: "HTG (Gourdes haïtiennes)" },
+  { code: "USD", label: "USD (Dollars américains)" },
+  { code: "EUR", label: "EUR (Euros)" },
+  { code: "CAD", label: "CAD (Dollars canadiens)" },
+  { code: "DOP", label: "DOP (Pesos dominicains)" },
+  { code: "GBP", label: "GBP (Livres sterling)" },
+  { code: "CHF", label: "CHF (Francs suisses)" },
+  { code: "XOF", label: "XOF (Francs CFA BCEAO)" },
+  { code: "XAF", label: "XAF (Francs CFA BEAC)" },
+  { code: "BRL", label: "BRL (Réals brésiliens)" },
+  { code: "MXN", label: "MXN (Pesos mexicains)" },
+  { code: "CLP", label: "CLP (Pesos chiliens)" },
+  { code: "JPY", label: "JPY (Yens japonais)" },
+];
+
+const CURRENCY_ORDER = SUPPORTED_CURRENCIES.map((c) => c.code);
+
+function getCurrencyName(code: string): string {
+  const norm = (code || "HTG").trim().toUpperCase();
+  const match = SUPPORTED_CURRENCIES.find((c) => c.code === norm);
+  if (!match) return norm;
+  const openIdx = match.label.indexOf("(");
+  const closeIdx = match.label.lastIndexOf(")");
+  if (openIdx !== -1 && closeIdx > openIdx) {
+    return match.label.slice(openIdx + 1, closeIdx);
+  }
+  return norm;
+}
+
+function sortCurrencyEntries(
+  map: Map<string, number>
+): Array<{ currency: string; amount: number }> {
+  return Array.from(map.entries())
+    .sort(([a], [b]) => {
+      const idxA = CURRENCY_ORDER.indexOf(a);
+      const idxB = CURRENCY_ORDER.indexOf(b);
+      if (idxA !== -1 && idxB !== -1) return idxA - idxB;
+      if (idxA !== -1) return -1;
+      if (idxB !== -1) return 1;
+      return a.localeCompare(b);
+    })
+    .map(([currency, amount]) => ({ currency, amount }));
+}
 
 // Helper to format currency numbers cleanly (e.g. 150 000,00 HTG)
 function formatCurrency(amount: number, currency = "HTG"): string {
@@ -68,24 +111,24 @@ function getBankMonogram(name: string): string {
 }
 
 // Generate solid brand styling for bank monogram badges
-function getBankBadgeStyle(bankName: string): { bg: string; text: string; border: string } {
+function getBankBadgeStyle(bankName: string): { bg: string; text: string } {
   const name = (bankName || "").toLowerCase().trim();
   if (name.includes("soge") || name.startsWith("sog")) {
-    return { bg: "bg-[#DC2626]", text: "text-white", border: "border-red-700/40" };
+    return { bg: "bg-[#DC2626]", text: "text-white" };
   }
   if (name.includes("uni")) {
-    return { bg: "bg-[#062653]", text: "text-white", border: "border-slate-900/50" };
+    return { bg: "bg-[#062653]", text: "text-white" };
   }
   if (name.includes("bnc") || name.includes("nationale") || name.includes("crédit") || name.includes("credit") || name.startsWith("bn")) {
-    return { bg: "bg-[#EA580C]", text: "text-white", border: "border-orange-700/40" };
+    return { bg: "bg-[#EA580C]", text: "text-white" };
   }
   if (name.includes("capital")) {
-    return { bg: "bg-[#059669]", text: "text-white", border: "border-emerald-700/40" };
+    return { bg: "bg-[#059669]", text: "text-white" };
   }
   if (name.includes("buh") || name.includes("union")) {
-    return { bg: "bg-[#7C3AED]", text: "text-white", border: "border-purple-700/40" };
+    return { bg: "bg-[#7C3AED]", text: "text-white" };
   }
-  return { bg: "bg-[#062653]", text: "text-white", border: "border-slate-900/50" };
+  return { bg: "bg-[#062653]", text: "text-white" };
 }
 
 // Mask account number for confidentiality (e.g. •••• 4920)
@@ -109,7 +152,7 @@ function formatCardNumber(accNum: string): string {
 function getBankCardTheme(bankName: string) {
   return {
     gradient: "bg-gradient-to-br from-[#FFFFFF] via-[#F1F5F9] to-[#CBD5E1]",
-    border: "border-slate-300 hover:border-slate-400",
+    border: "",
   };
 }
 
@@ -150,6 +193,7 @@ export default function FinancialOperationsPage() {
   // Data states
   const [accounts, setAccounts] = useState<BankAccount[]>([]);
   const [transactions, setTransactions] = useState<BankTransaction[]>([]);
+  const [employeesList, setEmployeesList] = useState<any[]>([]);
   const [stats, setStats] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
@@ -190,21 +234,91 @@ export default function FinancialOperationsPage() {
   const [accFormBankName, setAccFormBankName] = useState("");
   const [accFormAccountName, setAccFormAccountName] = useState("");
   const [accFormAccountNumber, setAccFormAccountNumber] = useState("");
-  const [accFormCurrency, setAccFormCurrency] = useState<"HTG" | "USD">("HTG");
+  const [accFormCurrency, setAccFormCurrency] = useState<string>("HTG");
   const [accFormInitialBalance, setAccFormInitialBalance] = useState<number | string>(0);
   const [accFormInitialBalanceDate, setAccFormInitialBalanceDate] = useState(new Date().toISOString().split("T")[0]);
-  const [accFormBranchId, setAccFormBranchId] = useState("");
   const [accFormIsActive, setAccFormIsActive] = useState(true);
+
+  // KPI currency expand states (max 3 currencies shown by default + "Voir plus")
+  const [showAllDepositsCurrencies, setShowAllDepositsCurrencies] = useState(false);
+  const [showAllWithdrawalsCurrencies, setShowAllWithdrawalsCurrencies] = useState(false);
+  const [showAllNetCurrencies, setShowAllNetCurrencies] = useState(false);
+  const [showAllBalanceCurrencies, setShowAllBalanceCurrencies] = useState(false);
+
+  // Helper to automatically resolve actor's matricule / identifier
+  const resolveActorMatricule = (
+    userObj: any,
+    emps: any[],
+    authorNameOverride?: string
+  ): string => {
+    const cleanOverride = (authorNameOverride || "").trim().toLowerCase();
+    const userFullName = (userObj?.name || "").trim().toLowerCase();
+    const userEmail = (userObj?.email || "").trim().toLowerCase();
+
+    if (Array.isArray(emps) && emps.length > 0) {
+      if (cleanOverride) {
+        const byTypedName = emps.find(
+          (emp: any) =>
+            `${emp.firstName || ""} ${emp.lastName || ""}`.trim().toLowerCase() ===
+              cleanOverride && Boolean(emp.employeeNumber)
+        );
+        if (byTypedName?.employeeNumber) {
+          return byTypedName.employeeNumber;
+        }
+      }
+
+      if (!cleanOverride || cleanOverride === userFullName) {
+        if (userObj?.employeeNumber) return userObj.employeeNumber;
+        if (userEmail) {
+          const byEmail = emps.find(
+            (emp: any) =>
+              emp.email &&
+              emp.email.toLowerCase().trim() === userEmail &&
+              Boolean(emp.employeeNumber)
+          );
+          if (byEmail?.employeeNumber) return byEmail.employeeNumber;
+        }
+        if (userFullName) {
+          const byUserName = emps.find(
+            (emp: any) =>
+              `${emp.firstName || ""} ${emp.lastName || ""}`.trim().toLowerCase() ===
+                userFullName && Boolean(emp.employeeNumber)
+          );
+          if (byUserName?.employeeNumber) return byUserName.employeeNumber;
+        }
+      }
+    }
+
+    if ((!cleanOverride || cleanOverride === userFullName) && userObj?.employeeNumber) {
+      return userObj.employeeNumber;
+    }
+
+    // Fallback identifier by role for admins/managers without an employee record
+    if ((!cleanOverride || cleanOverride === userFullName) && userObj) {
+      const role = String(userObj.role || "").toUpperCase();
+      if (role === "ORGANIZATION_ADMIN" || role === "SUPER_ADMIN") return "ADM-001";
+      if (role === "FINANCIAL_MANAGER") return "FIN-001";
+      if (role === "BRANCH_MANAGER") return "MGR-001";
+      if (role === "SECRETARY") return "SEC-001";
+      return "USR-001";
+    }
+
+    return "";
+  };
 
   // 1. Initial Load & Listeners
   useEffect(() => {
     async function initUserAndBranches() {
       try {
-        const [meRes, orgRes, brRes] = await Promise.all([
+        const [meRes, orgRes, brRes, empRes] = await Promise.all([
           fetch("/api/auth/me").then((r) => (r.ok ? r.json() : null)),
           fetch("/api/admin/organization").then((r) => (r.ok ? r.json() : null)),
           fetch("/api/admin/branches").then((r) => (r.ok ? r.json() : null)),
+          fetch("/api/admin/employees").then((r) => (r.ok ? r.json() : null)),
         ]);
+
+        const fetchedEmps = Array.isArray(empRes?.employees) ? empRes.employees : [];
+        setEmployeesList(fetchedEmps);
 
         if (meRes?.user) {
           setCurrentUser(meRes.user);
@@ -225,7 +339,9 @@ export default function FinancialOperationsPage() {
           }
 
           setTxFormAuthorName(meRes.user.name || "");
-          setTxFormAuthorMatricule(meRes.user.employeeNumber || "");
+          setTxFormAuthorMatricule(
+            resolveActorMatricule(meRes.user, fetchedEmps, meRes.user.name)
+          );
         }
 
         if (orgRes?.organization) {
@@ -254,6 +370,16 @@ export default function FinancialOperationsPage() {
     return () => window.removeEventListener("branchChange", handleBranchChange);
   }, []);
 
+  // Keep actor matricule auto-synced if user/employees load while a modal is open
+  useEffect(() => {
+    if ((isDepositModalOpen || isWithdrawalModalOpen) && currentUser && !txFormAuthorMatricule.trim()) {
+      const resolved = resolveActorMatricule(currentUser, employeesList, txFormAuthorName || currentUser.name);
+      if (resolved) {
+        setTxFormAuthorMatricule(resolved);
+      }
+    }
+  }, [isDepositModalOpen, isWithdrawalModalOpen, currentUser, employeesList]);
+
   // 2. Fetch Accounts, Transactions & Stats
   const fetchData = async () => {
     if (isRestricted) return;
@@ -262,9 +388,9 @@ export default function FinancialOperationsPage() {
       const branchQuery = selectedBranchId && selectedBranchId !== "ALL" ? `?branchId=${selectedBranchId}` : "";
 
       const [accRes, txRes, statsRes] = await Promise.all([
-        fetch("/api/admin/financial-operations/accounts"),
-        fetch(`/api/admin/financial-operations/transactions${branchQuery}`),
-        fetch(`/api/admin/financial-operations/stats${branchQuery}`),
+        fetch("/api/admin/financial-operations/accounts", { cache: "no-store" }),
+        fetch(`/api/admin/financial-operations/transactions${branchQuery}`, { cache: "no-store" }),
+        fetch(`/api/admin/financial-operations/stats${branchQuery}`, { cache: "no-store" }),
       ]);
 
       if (accRes.status === 403 || txRes.status === 403) {
@@ -298,7 +424,7 @@ export default function FinancialOperationsPage() {
     fetchData();
   }, [selectedBranchId, isRestricted]);
 
-  // Active accounts only for dropdowns
+  // Active company accounts for dropdowns & availability
   const activeAccounts = useMemo(() => {
     return accounts.filter((acc) => acc.isActive);
   }, [accounts]);
@@ -357,46 +483,75 @@ export default function FinancialOperationsPage() {
     return list;
   }, [transactions, searchTerm, filterAccountId, filterType, filterPeriod, customStartDate, customEndDate]);
 
-  // Dynamic ledger stats from currently filtered list
+  // Dynamic ledger stats from currently filtered list (multi-currency)
   const filteredLedgerStats = useMemo(() => {
-    let depHtg = 0;
-    let depUsd = 0;
-    let retHtg = 0;
-    let retUsd = 0;
+    const depMap = new Map<string, number>();
+    const retMap = new Map<string, number>();
+    const allCurrencies = new Set<string>();
 
     for (const t of filteredTransactions) {
+      const currency = (t.currency || "HTG").trim().toUpperCase();
+      const amt = Number(t.amount) || 0;
+      allCurrencies.add(currency);
       if (t.type === "DEPOSIT") {
-        if (t.currency === "USD") depUsd += t.amount;
-        else depHtg += t.amount;
+        depMap.set(currency, (depMap.get(currency) || 0) + amt);
       } else {
-        if (t.currency === "USD") retUsd += t.amount;
-        else retHtg += t.amount;
+        retMap.set(currency, (retMap.get(currency) || 0) + amt);
       }
     }
 
+    const netMap = new Map<string, number>();
+    for (const currency of allCurrencies) {
+      netMap.set(currency, (depMap.get(currency) || 0) - (retMap.get(currency) || 0));
+    }
+
+    const deposits = sortCurrencyEntries(depMap);
+    const withdrawals = sortCurrencyEntries(retMap);
+    const net = sortCurrencyEntries(netMap);
+
     return {
-      depHtg,
-      depUsd,
-      retHtg,
-      retUsd,
-      netHtg: depHtg - retHtg,
-      netUsd: depUsd - retUsd,
+      deposits: deposits.length > 0 ? deposits : [{ currency: "HTG", amount: 0 }],
+      withdrawals: withdrawals.length > 0 ? withdrawals : [{ currency: "HTG", amount: 0 }],
+      net: net.length > 0 ? net : [{ currency: "HTG", amount: 0 }],
       count: filteredTransactions.length,
     };
   }, [filteredTransactions]);
 
-  // Cumulative bank accounts total balances
+  // Cumulative company bank accounts total balances across all currencies
   const totalAccountBalances = useMemo(() => {
-    let htg = 0;
-    let usd = 0;
+    const byCurrencyMap = new Map<string, number>();
+    let activeCount = 0;
+    let inactiveCount = 0;
+
     for (const acc of accounts) {
+      if (filterAccountId !== "ALL" && acc.id !== filterAccountId) continue;
+
       if (acc.isActive) {
-        if (acc.currency === "USD") usd += acc.currentBalance || 0;
-        else htg += acc.currentBalance || 0;
+        activeCount += 1;
+        const balance = Number(acc.currentBalance) || 0;
+        const currency = (acc.currency || "HTG").trim().toUpperCase();
+        byCurrencyMap.set(currency, (byCurrencyMap.get(currency) || 0) + balance);
+      } else {
+        inactiveCount += 1;
       }
     }
-    return { htg, usd };
-  }, [accounts]);
+
+    const byCurrency = sortCurrencyEntries(byCurrencyMap);
+
+    return {
+      byCurrency: byCurrency.length > 0 ? byCurrency : [{ currency: "HTG", amount: 0 }],
+      activeCount,
+      inactiveCount,
+    };
+  }, [accounts, filterAccountId]);
+
+  const handleAuthorNameChange = (newName: string) => {
+    setTxFormAuthorName(newName);
+    const resolved = resolveActorMatricule(currentUser, employeesList, newName);
+    if (resolved) {
+      setTxFormAuthorMatricule(resolved);
+    }
+  };
 
   // Reset Transaction Modal
   const openTransactionModal = (type: "DEPOSIT" | "WITHDRAWAL", preselectedAccountId?: string) => {
@@ -411,8 +566,11 @@ export default function FinancialOperationsPage() {
     setTxFormDelegateName("");
     setTxFormReceiptDataUrl(undefined);
     if (currentUser) {
-      setTxFormAuthorName(currentUser.name || "Administrateur");
-      setTxFormAuthorMatricule(currentUser.employeeNumber || "");
+      const defaultAuthor = currentUser.name || "Administrateur";
+      setTxFormAuthorName(defaultAuthor);
+      setTxFormAuthorMatricule(
+        resolveActorMatricule(currentUser, employeesList, defaultAuthor)
+      );
     }
 
     if (type === "DEPOSIT") {
@@ -429,13 +587,12 @@ export default function FinancialOperationsPage() {
       setAccFormBankName(accToEdit.bankName);
       setAccFormAccountName(accToEdit.accountName);
       setAccFormAccountNumber(accToEdit.accountNumber);
-      setAccFormCurrency(accToEdit.currency === "USD" ? "USD" : "HTG");
+      setAccFormCurrency((accToEdit.currency || "HTG").trim().toUpperCase());
       setAccFormInitialBalance(accToEdit.initialBalance);
       setAccFormInitialBalanceDate(
         accToEdit.initialBalanceDate ||
         (accToEdit.createdAt ? accToEdit.createdAt.split("T")[0] : new Date().toISOString().split("T")[0])
       );
-      setAccFormBranchId(accToEdit.branchId || "");
       setAccFormIsActive(accToEdit.isActive);
     } else {
       setEditingAccount(null);
@@ -445,7 +602,6 @@ export default function FinancialOperationsPage() {
       setAccFormCurrency("HTG");
       setAccFormInitialBalance(0);
       setAccFormInitialBalanceDate(new Date().toISOString().split("T")[0]);
-      setAccFormBranchId(selectedBranchId !== "ALL" ? selectedBranchId : "");
       setAccFormIsActive(true);
     }
     setIsAccountModalOpen(true);
@@ -482,13 +638,8 @@ export default function FinancialOperationsPage() {
       return;
     }
 
-    if (!txFormRef.trim()) {
-      showSystemToast(
-        type === "DEPOSIT"
-          ? "Veuillez renseigner le N° de bordereau de dépôt."
-          : "Veuillez renseigner le N° de référence / chèque.",
-        "info"
-      );
+    if (type === "WITHDRAWAL" && !txFormRef.trim()) {
+      showSystemToast("Veuillez renseigner le N° de référence / chèque.", "info");
       return;
     }
 
@@ -497,7 +648,11 @@ export default function FinancialOperationsPage() {
       return;
     }
 
-    if (!txFormAuthorMatricule.trim()) {
+    const effectiveMatricule =
+      txFormAuthorMatricule.trim() ||
+      resolveActorMatricule(currentUser, employeesList, txFormAuthorName);
+
+    if (!effectiveMatricule) {
       showSystemToast(
         "Le matricule / identifiant de l'auteur est obligatoire.",
         "info"
@@ -521,10 +676,10 @@ export default function FinancialOperationsPage() {
           referenceNumber: txFormRef.trim(),
           date: txFormDate,
           reason: txFormReason.trim(),
-          branchId: txFormBranchId || selectedAcc?.branchId || null,
-          branchName: branchObj?.name || selectedAcc?.branchName || "Toutes les succursales",
+          branchId: txFormBranchId || null,
+          branchName: branchObj?.name || null,
           authorName: txFormAuthorName.trim() || currentUser?.name || "Administrateur",
-          authorMatricule: txFormAuthorMatricule.trim() || currentUser?.employeeNumber || undefined,
+          authorMatricule: effectiveMatricule,
           authorRole: currentUser?.role || "ADMIN",
           delegateName:
             type === "DEPOSIT" ? txFormDelegateName.trim() || undefined : undefined,
@@ -547,6 +702,9 @@ export default function FinancialOperationsPage() {
       setIsDepositModalOpen(false);
       setIsWithdrawalModalOpen(false);
       fetchData();
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("rkonekte_notification_update"));
+      }
     } catch (err: any) {
       showSystemToast(err.message || "Erreur lors de l'enregistrement", "error");
     } finally {
@@ -567,8 +725,6 @@ export default function FinancialOperationsPage() {
 
     setSavingAction(true);
     try {
-      const branchObj = branches.find((b) => b.id === accFormBranchId);
-
       if (editingAccount) {
         const res = await fetch(`/api/admin/financial-operations/accounts/${editingAccount.id}`, {
           method: "PUT",
@@ -579,8 +735,8 @@ export default function FinancialOperationsPage() {
             accountNumber: accFormAccountNumber.trim(),
             currency: accFormCurrency,
             initialBalanceDate: accFormInitialBalanceDate || undefined,
-            branchId: accFormBranchId || null,
-            branchName: branchObj?.name || "Toutes les succursales",
+            branchId: null,
+            branchName: companyName || "Compte de l'entreprise",
             isActive: accFormIsActive,
           }),
         });
@@ -598,8 +754,8 @@ export default function FinancialOperationsPage() {
             currency: accFormCurrency,
             initialBalance: Number(accFormInitialBalance) || 0,
             initialBalanceDate: accFormInitialBalanceDate || new Date().toISOString().split("T")[0],
-            branchId: accFormBranchId || null,
-            branchName: branchObj?.name || "Toutes les succursales",
+            branchId: null,
+            branchName: companyName || "Compte de l'entreprise",
           }),
         });
         const data = await res.json();
@@ -665,84 +821,13 @@ export default function FinancialOperationsPage() {
     }
   };
 
-  // Export to Excel (.xlsx)
-  const handleExportExcel = () => {
-    if (filteredTransactions.length === 0) {
-      showSystemToast("Aucune transaction à exporter pour les filtres actuels.", "info");
-      return;
-    }
-
-    try {
-      const wb = XLSX.utils.book_new();
-
-      const rows: any[][] = [
-        [
-          "RÉFÉRENCE",
-          "TYPE",
-          "DATE",
-          "HEURE",
-          "BANQUE",
-          "INTITULÉ DU COMPTE",
-          "N° DE COMPTE",
-          "MONTANT",
-          "DEVISE",
-          "N° BORDEREAU / CHÈQUE",
-          "AUTEUR",
-          "MATRICULE",
-          "DÉLÉGUÉ DE DÉPÔT",
-          "SUCCURSALE",
-          "MOTIF",
-          "JUSTIFICATIF",
-        ],
-      ];
-
-      for (const t of filteredTransactions) {
-        rows.push([
-          t.id,
-          t.type === "DEPOSIT" ? "Dépôt (Versement)" : "Retrait (Décaissement)",
-          t.date,
-          t.time || "N/A",
-          t.bankName,
-          t.accountName,
-          t.accountNumber,
-          t.amount,
-          t.currency,
-          t.referenceNumber,
-          t.authorName,
-          t.authorMatricule || "N/A",
-          t.delegateName || "N/A",
-          t.branchName || "Toutes les succursales",
-          t.reason,
-          t.receiptDataUrl ? "Bordereau joint" : "Aucun",
-        ]);
-      }
-
-      const ws = XLSX.utils.aoa_to_sheet(rows);
-      XLSX.utils.book_append_sheet(wb, ws, "Opérations Bancaires");
-
-      const todayStr = new Date().toISOString().split("T")[0];
-      const filename = `Operations_Bancaires_${companyName.replace(/\s+/g, "_")}_${todayStr}.xlsx`;
-      XLSX.writeFile(wb, filename);
-
-      showSystemToast(`Export Excel généré : ${filename}`, "success");
-    } catch (err) {
-      console.error("Export error:", err);
-      showSystemToast("Erreur lors de la génération du fichier Excel.", "error");
-    }
-  };
-
-  // Print Report Handler
-  const handlePrintReport = () => {
-    window.print();
-  };
-
   // ----------------------------------------------------
   // RESTRICTED VIEW FOR CAISSIER / EMPLOYEE
   // ----------------------------------------------------
   if (isRestricted) {
     return (
-      <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xs p-12 text-center max-w-lg mx-auto my-12">
-        <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center mx-auto mb-4 text-amber-600">
+      <div className="bg-white rounded-2xl shadow-xs p-12 text-center max-w-lg mx-auto my-12">
+        <div className="w-16 h-16 rounded-2xl bg-amber-50 flex items-center justify-center mx-auto mb-4 text-amber-600">
           <ShieldAlert className="w-8 h-8" />
         </div>
         <h3 className="text-lg font-bold text-[#062653] mb-2">Accès Restreint</h3>
@@ -756,33 +841,17 @@ export default function FinancialOperationsPage() {
 
   return (
     <div className="space-y-6">
-      {/* ----------------------------------------------------
-          PRINT STYLES SETUP
-      ---------------------------------------------------- */}
-      <style jsx global>{`
-        @media print {
-          body * {
-            visibility: hidden;
-          }
-          #printable-financial-report,
-          #printable-financial-report * {
-            visibility: visible;
-          }
-          #printable-financial-report {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            margin: 0;
-            padding: 16px;
-            background: white !important;
-          }
-          .no-print {
-            display: none !important;
-          }
-        }
-      `}</style>
-
+      <datalist id="financial-op-employees">
+        {employeesList.map((emp) => {
+          const fullName = `${emp.firstName || ""} ${emp.lastName || ""}`.trim();
+          if (!fullName) return null;
+          return (
+            <option key={emp.id} value={fullName}>
+              {emp.employeeNumber ? `${emp.employeeNumber} — ${fullName}` : fullName}
+            </option>
+          );
+        })}
+      </datalist>
 
       {/* ----------------------------------------------------
           1. VUE LARGE : AJOUTER / MODIFIER COMPTE BANCAIRE (STYLE NOUVEL EMPLOYÉ)
@@ -797,7 +866,7 @@ export default function FinancialOperationsPage() {
                 setIsAccountModalOpen(false);
                 setEditingAccount(null);
               }}
-              className="p-2 bg-white border border-[#DCE2EA] rounded-xl hover:bg-slate-50 text-[#64748B] transition-colors cursor-pointer"
+              className="p-2 bg-[#F4F6F9] rounded-xl hover:bg-slate-200 text-[#64748B] transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -814,7 +883,7 @@ export default function FinancialOperationsPage() {
           </div>
 
           {/* MAIN CARD */}
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] p-6 sm:p-8 lg:p-10 shadow-xs">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 lg:p-10 shadow-xs">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -823,7 +892,7 @@ export default function FinancialOperationsPage() {
               className="space-y-8"
             >
               {/* STATUS TOGGLE */}
-              <div className="p-4 sm:p-5 bg-slate-50 border border-[#DCE2EA] rounded-xl flex items-center justify-between">
+              <div className="p-4 sm:p-5 bg-[#F4F6F9] rounded-xl flex items-center justify-between">
                 <div>
                   <span className="text-xs font-bold text-[#062653] block">
                     Compte bancaire actif
@@ -863,7 +932,7 @@ export default function FinancialOperationsPage() {
                       value={accFormBankName}
                       onChange={(e) => setAccFormBankName(e.target.value)}
                       placeholder="Ex: Sogebank, Unibank, BNP Paribas, Chase..."
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden"
                     />
                   </div>
 
@@ -877,7 +946,7 @@ export default function FinancialOperationsPage() {
                       value={accFormAccountName}
                       onChange={(e) => setAccFormAccountName(e.target.value)}
                       placeholder="Ex: Compte Opérations Courantes, Trésorerie USD..."
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden"
                     />
                   </div>
 
@@ -891,17 +960,17 @@ export default function FinancialOperationsPage() {
                       value={accFormAccountNumber}
                       onChange={(e) => setAccFormAccountNumber(e.target.value)}
                       placeholder="Ex: 102-1021-884920"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-mono font-bold text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-mono font-bold text-[#062653] focus:outline-hidden"
                     />
                   </div>
                 </div>
               </div>
 
-              {/* 2. PARAMÈTRES MONÉTAIRES & DISPONIBILITÉ */}
+              {/* 2. PARAMÈTRES MONÉTAIRES */}
               <div>
                 <div className="flex items-center justify-between mb-4 border-b border-slate-100 pb-2">
                   <h3 className="text-xs font-bold text-[#062653] uppercase tracking-wider flex items-center gap-2">
-                    <span>2. Paramètres Monétaires & Affectation</span>
+                    <span>2. Paramètres Monétaires</span>
                   </h3>
                 </div>
 
@@ -912,11 +981,17 @@ export default function FinancialOperationsPage() {
                     </label>
                     <select
                       value={accFormCurrency}
-                      onChange={(e) => setAccFormCurrency(e.target.value as any)}
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      onChange={(e) => setAccFormCurrency(e.target.value)}
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-bold text-[#062653] focus:outline-hidden"
                     >
-                      <option value="HTG">HTG (Gourdes)</option>
-                      <option value="USD">USD (Dollars Américains)</option>
+                      {SUPPORTED_CURRENCIES.map((cur) => (
+                        <option key={cur.code} value={cur.code}>
+                          {cur.label}
+                        </option>
+                      ))}
+                      {!SUPPORTED_CURRENCIES.some((c) => c.code === accFormCurrency) && (
+                        <option value={accFormCurrency}>{accFormCurrency}</option>
+                      )}
                     </select>
                   </div>
 
@@ -931,7 +1006,7 @@ export default function FinancialOperationsPage() {
                       value={accFormInitialBalance}
                       onChange={(e) => setAccFormInitialBalance(e.target.value)}
                       placeholder="0.00"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653] focus:outline-hidden focus:border-[#062653] disabled:bg-slate-100 disabled:text-slate-400"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-bold text-[#062653] focus:outline-hidden disabled:bg-slate-100 disabled:text-slate-400"
                     />
                     {editingAccount && (
                       <span className="text-[10px] text-slate-400 mt-1 block">
@@ -950,42 +1025,24 @@ export default function FinancialOperationsPage() {
                       required
                       value={accFormInitialBalanceDate}
                       onChange={(e) => setAccFormInitialBalanceDate(e.target.value)}
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden"
                     />
                     <span className="text-[10px] text-slate-400 mt-1 block">
                       Date de référence du solde de départ.
                     </span>
                   </div>
-
-                  <div className="sm:col-span-2 lg:col-span-3">
-                    <label className="block text-xs font-semibold text-[#263445] mb-1.5">
-                      Succursale de rattachement
-                    </label>
-                    <select
-                      value={accFormBranchId}
-                      onChange={(e) => setAccFormBranchId(e.target.value)}
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
-                    >
-                      <option value="">Toutes les succursales</option>
-                      {branches.map((b) => (
-                        <option key={b.id} value={b.id}>
-                          {b.name}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
                 </div>
               </div>
 
               {/* ACTIONS */}
-              <div className="pt-6 border-t border-[#DCE2EA] flex items-center justify-end gap-3">
+              <div className="pt-6 border-t border-slate-100 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => {
                     setIsAccountModalOpen(false);
                     setEditingAccount(null);
                   }}
-                  className="px-5 py-2.5 rounded-xl border border-[#DCE2EA] text-xs font-semibold text-[#64748B] hover:bg-slate-50 transition cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-[#64748B] transition cursor-pointer"
                 >
                   Annuler
                 </button>
@@ -1019,7 +1076,7 @@ export default function FinancialOperationsPage() {
             <button
               type="button"
               onClick={() => setIsDepositModalOpen(false)}
-              className="p-2 bg-white border border-[#DCE2EA] rounded-xl hover:bg-slate-50 text-[#64748B] transition-colors cursor-pointer"
+              className="p-2 bg-[#F4F6F9] rounded-xl hover:bg-slate-200 text-[#64748B] transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -1034,7 +1091,7 @@ export default function FinancialOperationsPage() {
           </div>
 
           {/* MAIN CARD */}
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] p-6 sm:p-8 lg:p-10 shadow-xs">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 lg:p-10 shadow-xs">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -1059,7 +1116,7 @@ export default function FinancialOperationsPage() {
                     {isAccountLocked && selectedTxAccount ? (
                       <div
                         title={`${selectedTxAccount.bankName} - ${selectedTxAccount.accountName} (${maskAccountNumber(selectedTxAccount.accountNumber)}) — Solde : ${formatCurrency(selectedTxAccount.currentBalance, selectedTxAccount.currency)}`}
-                        className="w-full h-11 px-3.5 bg-slate-100 border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653] flex items-center justify-between gap-2 cursor-not-allowed select-none"
+                        className="w-full h-11 px-3.5 bg-slate-100 rounded-xl text-xs font-bold text-[#062653] flex items-center justify-between gap-2 cursor-not-allowed select-none"
                       >
                         <span className="truncate">
                           {selectedTxAccount.bankName} - {selectedTxAccount.accountName} ({maskAccountNumber(selectedTxAccount.accountNumber)}) — {formatCurrency(selectedTxAccount.currentBalance, selectedTxAccount.currency)}
@@ -1071,7 +1128,7 @@ export default function FinancialOperationsPage() {
                         value={txFormAccountId}
                         onChange={(e) => setTxFormAccountId(e.target.value)}
                         required
-                        className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                        className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-bold text-[#062653] focus:outline-hidden"
                       >
                         <option value="">Sélectionner un compte bancaire...</option>
                         {activeAccounts.map((acc) => (
@@ -1095,21 +1152,21 @@ export default function FinancialOperationsPage() {
                       value={txFormAmount}
                       onChange={(e) => setTxFormAmount(e.target.value)}
                       placeholder="Ex: 50000"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-black text-emerald-700 focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-black text-emerald-700 focus:outline-hidden"
                     />
                   </div>
 
                   <div>
                     <label className="block text-xs font-semibold text-[#263445] mb-1.5">
-                      N° Bordereau de Dépôt <span className="text-rose-500">*</span>
+                      N° Bordereau de Dépôt{" "}
+                      <span className="text-slate-400 font-normal">(Facultatif)</span>
                     </label>
                     <input
                       type="text"
-                      required
                       value={txFormRef}
                       onChange={(e) => setTxFormRef(e.target.value)}
                       placeholder="Ex: BOR-889410"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-mono font-bold text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-mono font-bold text-[#062653] focus:outline-hidden"
                     />
                   </div>
                 </div>
@@ -1133,7 +1190,7 @@ export default function FinancialOperationsPage() {
                       required
                       value={txFormDate}
                       onChange={(e) => setTxFormDate(e.target.value)}
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden"
                     />
                   </div>
 
@@ -1144,16 +1201,24 @@ export default function FinancialOperationsPage() {
                     <input
                       type="text"
                       required
+                      list="financial-op-employees"
                       value={txFormAuthorName}
-                      onChange={(e) => setTxFormAuthorName(e.target.value)}
+                      onChange={(e) => handleAuthorNameChange(e.target.value)}
                       placeholder="Nom du responsable ou coursier"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-[#263445] mb-1.5">
-                      Matricule / Identifiant <span className="text-rose-500">*</span>
+                    <label className="flex items-center justify-between gap-2 text-xs font-semibold text-[#263445] mb-1.5">
+                      <span>
+                        Matricule / Identifiant <span className="text-rose-500">*</span>
+                      </span>
+                      {txFormAuthorMatricule && (
+                        <span className="text-[10px] font-medium text-emerald-700">
+                          Auto-reconnu
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
@@ -1161,7 +1226,7 @@ export default function FinancialOperationsPage() {
                       value={txFormAuthorMatricule}
                       onChange={(e) => setTxFormAuthorMatricule(e.target.value)}
                       placeholder="Ex: ADM-001"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-mono font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-mono font-bold text-[#062653] focus:outline-hidden"
                     />
                   </div>
 
@@ -1175,7 +1240,7 @@ export default function FinancialOperationsPage() {
                       value={txFormReason}
                       onChange={(e) => setTxFormReason(e.target.value)}
                       placeholder="Ex: Versement recettes caisse du week-end"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden"
                     />
                   </div>
 
@@ -1188,7 +1253,7 @@ export default function FinancialOperationsPage() {
                       value={txFormDelegateName}
                       onChange={(e) => setTxFormDelegateName(e.target.value)}
                       placeholder="Nom de la personne qui va faire le dépôt"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden"
                     />
                   </div>
 
@@ -1199,9 +1264,9 @@ export default function FinancialOperationsPage() {
                     <select
                       value={txFormBranchId}
                       onChange={(e) => setTxFormBranchId(e.target.value)}
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden"
                     >
-                      <option value="">Toutes les succursales</option>
+                      <option value="">-- Sélectionner une succursale --</option>
                       {branches.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.name}
@@ -1220,14 +1285,14 @@ export default function FinancialOperationsPage() {
                   </h3>
                 </div>
 
-                <div className="p-6 bg-slate-50 border border-dashed border-[#DCE2EA] rounded-2xl">
+                <div className="p-6 bg-[#F4F6F9] rounded-2xl">
                   {txFormReceiptDataUrl ? (
-                    <div className="flex items-center justify-between gap-4 p-4 bg-white rounded-xl border border-slate-200">
+                    <div className="flex items-center justify-between gap-4 p-4 bg-white rounded-xl shadow-xs">
                       <div className="flex items-center gap-3">
                         <img
                           src={txFormReceiptDataUrl}
                           alt="Scan bordereau"
-                          className="w-16 h-16 object-cover rounded-lg border border-slate-200 shrink-0"
+                          className="w-16 h-16 object-cover rounded-lg shrink-0"
                         />
                         <div>
                           <span className="text-xs font-bold text-[#062653] block">
@@ -1245,7 +1310,7 @@ export default function FinancialOperationsPage() {
                       <button
                         type="button"
                         onClick={() => setTxFormReceiptDataUrl(undefined)}
-                        className="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-1 font-semibold cursor-pointer border border-rose-200 transition"
+                        className="px-3 py-1.5 text-xs text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg flex items-center gap-1 font-semibold cursor-pointer transition"
                       >
                         <Trash2 className="w-4 h-4" />
                         Retirer le fichier
@@ -1263,7 +1328,7 @@ export default function FinancialOperationsPage() {
                       />
                       <label
                         htmlFor="tx-receipt-upload-large"
-                        className="w-full py-8 px-4 border border-slate-200 rounded-xl flex flex-col items-center justify-center gap-2 text-xs text-[#64748B] hover:bg-white hover:border-[#062653] transition cursor-pointer bg-white"
+                        className="w-full py-8 px-4 rounded-xl flex flex-col items-center justify-center gap-2 text-xs text-[#64748B] hover:bg-slate-50 transition cursor-pointer bg-white shadow-2xs"
                       >
                         <Upload className="w-6 h-6 text-slate-400" />
                         <span className="font-semibold text-[#062653]">
@@ -1279,11 +1344,11 @@ export default function FinancialOperationsPage() {
               </div>
 
               {/* ACTIONS */}
-              <div className="pt-6 border-t border-[#DCE2EA] flex items-center justify-end gap-3">
+              <div className="pt-6 border-t border-slate-100 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setIsDepositModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl border border-[#DCE2EA] text-xs font-semibold text-[#64748B] hover:bg-slate-50 transition cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-[#64748B] transition cursor-pointer"
                 >
                   Annuler
                 </button>
@@ -1310,7 +1375,7 @@ export default function FinancialOperationsPage() {
             <button
               type="button"
               onClick={() => setIsWithdrawalModalOpen(false)}
-              className="p-2 bg-white border border-[#DCE2EA] rounded-xl hover:bg-slate-50 text-[#64748B] transition-colors cursor-pointer"
+              className="p-2 bg-[#F4F6F9] rounded-xl hover:bg-slate-200 text-[#64748B] transition-colors cursor-pointer"
             >
               <ArrowLeft className="w-4 h-4" />
             </button>
@@ -1325,7 +1390,7 @@ export default function FinancialOperationsPage() {
           </div>
 
           {/* MAIN CARD */}
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] p-6 sm:p-8 lg:p-10 shadow-xs">
+          <div className="bg-white rounded-2xl p-6 sm:p-8 lg:p-10 shadow-xs">
             <form
               onSubmit={(e) => {
                 e.preventDefault();
@@ -1350,7 +1415,7 @@ export default function FinancialOperationsPage() {
                     {isAccountLocked && selectedTxAccount ? (
                       <div
                         title={`${selectedTxAccount.bankName} - ${selectedTxAccount.accountName} (${maskAccountNumber(selectedTxAccount.accountNumber)}) — Solde : ${formatCurrency(selectedTxAccount.currentBalance, selectedTxAccount.currency)}`}
-                        className="w-full h-11 px-3.5 bg-slate-100 border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653] flex items-center justify-between gap-2 cursor-not-allowed select-none"
+                        className="w-full h-11 px-3.5 bg-slate-100 rounded-xl text-xs font-bold text-[#062653] flex items-center justify-between gap-2 cursor-not-allowed select-none"
                       >
                         <span className="truncate">
                           {selectedTxAccount.bankName} - {selectedTxAccount.accountName} ({maskAccountNumber(selectedTxAccount.accountNumber)}) — {formatCurrency(selectedTxAccount.currentBalance, selectedTxAccount.currency)}
@@ -1362,7 +1427,7 @@ export default function FinancialOperationsPage() {
                         value={txFormAccountId}
                         onChange={(e) => setTxFormAccountId(e.target.value)}
                         required
-                        className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                        className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-bold text-[#062653] focus:outline-hidden"
                       >
                         <option value="">Sélectionner un compte bancaire...</option>
                         {activeAccounts.map((acc) => (
@@ -1386,7 +1451,7 @@ export default function FinancialOperationsPage() {
                       value={txFormAmount}
                       onChange={(e) => setTxFormAmount(e.target.value)}
                       placeholder="Ex: 25000"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-black text-rose-700 focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-black text-rose-700 focus:outline-hidden"
                     />
                   </div>
 
@@ -1400,7 +1465,7 @@ export default function FinancialOperationsPage() {
                       value={txFormRef}
                       onChange={(e) => setTxFormRef(e.target.value)}
                       placeholder="Ex: CHQ-002491"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-mono font-bold text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-mono font-bold text-[#062653] focus:outline-hidden"
                     />
                   </div>
                 </div>
@@ -1424,7 +1489,7 @@ export default function FinancialOperationsPage() {
                       required
                       value={txFormDate}
                       onChange={(e) => setTxFormDate(e.target.value)}
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden"
                     />
                   </div>
 
@@ -1435,16 +1500,24 @@ export default function FinancialOperationsPage() {
                     <input
                       type="text"
                       required
+                      list="financial-op-employees"
                       value={txFormAuthorName}
-                      onChange={(e) => setTxFormAuthorName(e.target.value)}
+                      onChange={(e) => handleAuthorNameChange(e.target.value)}
                       placeholder="Nom du responsable ou bénéficiaire"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden"
                     />
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-[#263445] mb-1.5">
-                      Matricule / Identifiant <span className="text-rose-500">*</span>
+                    <label className="flex items-center justify-between gap-2 text-xs font-semibold text-[#263445] mb-1.5">
+                      <span>
+                        Matricule / Identifiant <span className="text-rose-500">*</span>
+                      </span>
+                      {txFormAuthorMatricule && (
+                        <span className="text-[10px] font-medium text-emerald-700">
+                          Auto-reconnu
+                        </span>
+                      )}
                     </label>
                     <input
                       type="text"
@@ -1452,7 +1525,7 @@ export default function FinancialOperationsPage() {
                       value={txFormAuthorMatricule}
                       onChange={(e) => setTxFormAuthorMatricule(e.target.value)}
                       placeholder="Ex: ADM-001"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-mono font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-mono font-bold text-[#062653] focus:outline-hidden"
                     />
                   </div>
 
@@ -1466,7 +1539,7 @@ export default function FinancialOperationsPage() {
                       value={txFormReason}
                       onChange={(e) => setTxFormReason(e.target.value)}
                       placeholder="Ex: Approvisionnement caisse succursale Jérémie"
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden"
                     />
                   </div>
 
@@ -1477,9 +1550,9 @@ export default function FinancialOperationsPage() {
                     <select
                       value={txFormBranchId}
                       onChange={(e) => setTxFormBranchId(e.target.value)}
-                      className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden focus:border-[#062653]"
+                      className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs font-medium text-[#062653] focus:outline-hidden"
                     >
-                      <option value="">Toutes les succursales</option>
+                      <option value="">-- Sélectionner une succursale --</option>
                       {branches.map((b) => (
                         <option key={b.id} value={b.id}>
                           {b.name}
@@ -1498,14 +1571,14 @@ export default function FinancialOperationsPage() {
                   </h3>
                 </div>
 
-                <div className="p-6 bg-slate-50 border border-dashed border-[#DCE2EA] rounded-2xl">
+                <div className="p-6 bg-[#F4F6F9] rounded-2xl">
                   {txFormReceiptDataUrl ? (
-                    <div className="flex items-center justify-between gap-4 p-4 bg-white rounded-xl border border-slate-200">
+                    <div className="flex items-center justify-between gap-4 p-4 bg-white rounded-xl shadow-xs">
                       <div className="flex items-center gap-3">
                         <img
                           src={txFormReceiptDataUrl}
                           alt="Scan reçu"
-                          className="w-16 h-16 object-cover rounded-lg border border-slate-200 shrink-0"
+                          className="w-16 h-16 object-cover rounded-lg shrink-0"
                         />
                         <div>
                           <span className="text-xs font-bold text-[#062653] block">
@@ -1523,7 +1596,7 @@ export default function FinancialOperationsPage() {
                       <button
                         type="button"
                         onClick={() => setTxFormReceiptDataUrl(undefined)}
-                        className="px-3 py-1.5 text-xs text-rose-600 hover:bg-rose-50 rounded-lg flex items-center gap-1 font-semibold cursor-pointer border border-rose-200 transition"
+                        className="px-3 py-1.5 text-xs text-rose-600 bg-rose-50 hover:bg-rose-100 rounded-lg flex items-center gap-1 font-semibold cursor-pointer transition"
                       >
                         <Trash2 className="w-4 h-4" />
                         Retirer le fichier
@@ -1541,7 +1614,7 @@ export default function FinancialOperationsPage() {
                       />
                       <label
                         htmlFor="tx-receipt-upload-large-withdrawal"
-                        className="w-full py-8 px-4 border border-slate-200 rounded-xl flex flex-col items-center justify-center gap-2 text-xs text-[#64748B] hover:bg-white hover:border-[#062653] transition cursor-pointer bg-white"
+                        className="w-full py-8 px-4 rounded-xl flex flex-col items-center justify-center gap-2 text-xs text-[#64748B] hover:bg-slate-50 transition cursor-pointer bg-white shadow-2xs"
                       >
                         <Upload className="w-6 h-6 text-slate-400" />
                         <span className="font-semibold text-[#062653]">
@@ -1557,11 +1630,11 @@ export default function FinancialOperationsPage() {
               </div>
 
               {/* ACTIONS */}
-              <div className="pt-6 border-t border-[#DCE2EA] flex items-center justify-end gap-3">
+              <div className="pt-6 border-t border-slate-100 flex items-center justify-end gap-3">
                 <button
                   type="button"
                   onClick={() => setIsWithdrawalModalOpen(false)}
-                  className="px-5 py-2.5 rounded-xl border border-[#DCE2EA] text-xs font-semibold text-[#64748B] hover:bg-slate-50 transition cursor-pointer"
+                  className="px-5 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-xs font-semibold text-[#64748B] transition cursor-pointer"
                 >
                   Annuler
                 </button>
@@ -1592,11 +1665,11 @@ export default function FinancialOperationsPage() {
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                 <div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#062653] bg-slate-100 px-2.5 py-0.5 rounded-md border border-slate-200">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-[#062653] bg-slate-100 px-2.5 py-0.5 rounded-md">
                       Comptes & Trésorerie
                     </span>
                     {selectedBranchId !== "ALL" && (
-                      <span className="text-[10px] font-semibold text-[#062653] bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1">
+                      <span className="text-[10px] font-semibold text-[#062653] bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
                         <MapPin className="w-3 h-3 text-[#FF7900]" />
                         {branches.find((b) => b.id === selectedBranchId)?.name || selectedBranchId}
                       </span>
@@ -1607,7 +1680,7 @@ export default function FinancialOperationsPage() {
                     Comptes Bancaires de l'Entreprise
                   </h1>
                   <p className="text-xs text-[#64748B] mt-0.5">
-                    Gestion des comptes bancaires actifs et inactifs, soldes disponibles et rattachement aux succursales.
+                    Gestion des comptes bancaires de l'entreprise, statuts et soldes disponibles.
                   </p>
                 </div>
 
@@ -1616,7 +1689,7 @@ export default function FinancialOperationsPage() {
                     type="button"
                     onClick={fetchData}
                     title="Rafraîchir les données"
-                    className="p-2.5 rounded-xl border border-[#DCE2EA] bg-white text-[#64748B] hover:bg-slate-50 transition cursor-pointer"
+                    className="p-2.5 rounded-xl bg-[#F4F6F9] text-[#64748B] hover:bg-slate-200 transition cursor-pointer"
                   >
                     <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-[#FF7900]" : ""}`} />
                   </button>
@@ -1631,7 +1704,7 @@ export default function FinancialOperationsPage() {
                 </div>
               </div>
 
-              {/* Grille de cartes des comptes actifs - Style Cartes Bancaires Électroniques Dégradé Gris */}
+              {/* Grille de cartes des comptes - Style Cartes Bancaires Électroniques Dégradé Gris */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
                 {accounts.map((acc) => {
                   const theme = getBankCardTheme(acc.bankName);
@@ -1639,7 +1712,7 @@ export default function FinancialOperationsPage() {
                   return (
                     <div
                       key={acc.id}
-                      className={`relative overflow-hidden rounded-xl p-3.5 sm:p-4 shadow-xs border ${theme.border} ${theme.gradient} flex flex-col justify-between transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 group min-h-[175px]`}
+                      className={`relative overflow-hidden rounded-xl p-3.5 sm:p-4 shadow-xs ${theme.gradient} flex flex-col justify-between transition-all duration-200 hover:shadow-md hover:-translate-y-0.5 group min-h-[175px] ${!acc.isActive ? "opacity-70" : ""}`}
                     >
                       {/* Reflets métalliques de carte bancaire argentée / platine */}
                       <div className="absolute -right-10 -top-10 w-36 h-36 rounded-full bg-white/80 blur-xl pointer-events-none" />
@@ -1649,9 +1722,16 @@ export default function FinancialOperationsPage() {
                       {/* Haut de la carte : Nom de la banque & Sans Contact */}
                       <div className="flex items-start justify-between gap-2 relative z-10">
                         <div className="overflow-hidden">
-                          <h4 className="text-xs sm:text-sm font-black text-[#062653] tracking-tight truncate" title={acc.bankName}>
-                            {acc.bankName}
-                          </h4>
+                          <div className="flex items-center gap-1.5">
+                            <h4 className="text-xs sm:text-sm font-black text-[#062653] tracking-tight truncate" title={acc.bankName}>
+                              {acc.bankName}
+                            </h4>
+                            {!acc.isActive && (
+                              <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-slate-200 text-slate-600 shrink-0">
+                                Inactif
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[10px] text-slate-500 truncate tracking-wide font-medium mt-0.5" title={acc.accountName}>
                             {acc.accountName}
                           </p>
@@ -1706,17 +1786,17 @@ export default function FinancialOperationsPage() {
                         )}
                       </div>
 
-                      {/* Bas de la carte : Succursale & Boutons d'actions */}
+                      {/* Bas de la carte : Entreprise titulaire & Boutons d'actions */}
                       <div className="mt-2.5 pt-2 border-t border-slate-300/80 flex items-center justify-between gap-1.5 relative z-10">
-                        <span className="text-[10px] text-slate-500 font-medium truncate max-w-[110px]" title={acc.branchName || "Toutes succursales"}>
-                          {acc.branchName || "Toutes succursales"}
+                        <span className="text-[10px] text-[#062653]/80 font-semibold truncate max-w-[110px]" title={`Compte de l'entreprise (${companyName})`}>
+                          {companyName}
                         </span>
                         <div className="flex items-center gap-1.5 shrink-0">
                           {/* Bouton Voir : détails complets du compte */}
                           <button
                             type="button"
                             onClick={() => setViewingAccount(acc)}
-                            className="px-2 py-1 rounded-md bg-white hover:bg-slate-50 text-[#062653] font-bold text-[10px] border border-slate-300 shadow-2xs transition-all active:scale-95 cursor-pointer flex items-center gap-1"
+                            className="px-2 py-1 rounded-md bg-white/95 hover:bg-white text-[#062653] font-bold text-[10px] shadow-xs transition-all active:scale-95 cursor-pointer flex items-center gap-1"
                             title="Voir les informations complètes du compte"
                           >
                             <Eye className="w-3 h-3 text-[#062653]" />
@@ -1747,7 +1827,7 @@ export default function FinancialOperationsPage() {
                           <button
                             type="button"
                             onClick={() => openAccountModal(acc)}
-                            className="p-1 rounded-md bg-white/80 hover:bg-white text-slate-700 border border-slate-300/60 shadow-2xs transition-colors cursor-pointer"
+                            className="p-1 rounded-md bg-white/90 hover:bg-white text-slate-700 shadow-xs transition-colors cursor-pointer"
                             title="Modifier le compte"
                           >
                             <Edit className="w-3 h-3" />
@@ -1761,8 +1841,8 @@ export default function FinancialOperationsPage() {
 
               {/* Message si aucun compte */}
               {accounts.length === 0 && (
-                <div className="bg-white rounded-2xl border border-dashed border-[#DCE2EA] p-12 text-center space-y-3">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-50 flex items-center justify-center mx-auto text-[#64748B]">
+                <div className="bg-white rounded-2xl shadow-xs p-12 text-center space-y-3">
+                  <div className="w-12 h-12 rounded-2xl bg-[#F4F6F9] flex items-center justify-center mx-auto text-[#64748B]">
                     <Landmark className="w-6 h-6" />
                   </div>
                   <h4 className="text-sm font-bold text-[#062653]">Aucun compte bancaire enregistré</h4>
@@ -1788,25 +1868,22 @@ export default function FinancialOperationsPage() {
       {activeTab === "report" && (
         <div className="space-y-5">
           {/* Header contextuel Rapport */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 no-print">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7900] bg-[#FFF4EB] px-2.5 py-0.5 rounded-md border border-[#FF7900]/20">
-                  Journal Consolidé
-                </span>
-                {selectedBranchId !== "ALL" && (
-                  <span className="text-[10px] font-semibold text-[#062653] bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200 flex items-center gap-1">
+              {selectedBranchId !== "ALL" && (
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-[10px] font-semibold text-[#062653] bg-slate-100 px-2 py-0.5 rounded-md flex items-center gap-1">
                     <MapPin className="w-3 h-3 text-[#FF7900]" />
                     {branches.find((b) => b.id === selectedBranchId)?.name || selectedBranchId}
                   </span>
-                )}
-              </div>
-              <h1 className="text-2xl font-bold text-[#062653] tracking-tight mt-1 flex items-center gap-2">
+                </div>
+              )}
+              <h1 className="text-2xl font-bold text-[#062653] tracking-tight flex items-center gap-2">
                 <Receipt className="w-6 h-6 text-[#062653]" />
                 Rapport des Transactions Bancaires
               </h1>
               <p className="text-xs text-[#64748B] mt-0.5">
-                Vue comptable générale de l'ensemble des flux (dépôts & retraits) avec options d'export Excel et impression PDF.
+                Vue comptable générale de l'ensemble des flux bancaires (dépôts & retraits).
               </p>
             </div>
 
@@ -1815,108 +1892,185 @@ export default function FinancialOperationsPage() {
                 type="button"
                 onClick={fetchData}
                 title="Rafraîchir les données"
-                className="p-2.5 rounded-xl border border-[#DCE2EA] bg-white text-[#64748B] hover:bg-slate-50 transition cursor-pointer"
+                className="p-2.5 rounded-xl bg-[#F4F6F9] text-[#64748B] hover:bg-slate-200 transition cursor-pointer"
               >
                 <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin text-[#FF7900]" : ""}`} />
-              </button>
-              <button
-                type="button"
-                onClick={handleExportExcel}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-white bg-emerald-600 hover:bg-emerald-700 transition shadow-xs cursor-pointer"
-                title="Exporter vers Microsoft Excel"
-              >
-                <Download className="w-3.5 h-3.5" />
-                <span>Exporter Excel</span>
-              </button>
-              <button
-                type="button"
-                onClick={handlePrintReport}
-                className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold text-[#062653] bg-slate-100 hover:bg-slate-200 transition border border-slate-200 cursor-pointer"
-                title="Imprimer ou enregistrer en PDF"
-              >
-                <Printer className="w-3.5 h-3.5 text-[#062653]" />
-                <span>Imprimer / PDF</span>
               </button>
             </div>
           </div>
 
-          {/* KPI Summary Cards */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 no-print">
-            <div className="bg-emerald-50/70 p-4 rounded-2xl border border-emerald-200">
-              <div className="flex items-center justify-between text-emerald-800 text-xs font-semibold mb-1">
-                <span>Total Versements (Dépôts)</span>
-                <ArrowDownLeft className="w-4 h-4 text-emerald-600" />
-              </div>
-              <div className="text-lg font-black text-emerald-900">
-                {formatCurrency(filteredLedgerStats.depHtg, "HTG")}
-              </div>
-              {filteredLedgerStats.depUsd > 0 && (
-                <div className="text-xs font-bold text-emerald-700 mt-0.5">
-                  + {formatCurrency(filteredLedgerStats.depUsd, "USD")}
+          {/* KPI Summary Cards (Couleurs solides façon Tableau de Bord) */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Box 1: Total Versements */}
+            <div className="bg-[#059669] text-white p-5 rounded-2xl shadow-md flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between text-emerald-100/95 text-xs font-bold mb-1.5">
+                  <span>Total Versements (Dépôts)</span>
+                  <ArrowDownLeft className="w-4 h-4 text-white/90" />
                 </div>
-              )}
-              <span className="text-[10px] text-emerald-600 block mt-1">
+                <div className="space-y-0.5">
+                  {(showAllDepositsCurrencies
+                    ? filteredLedgerStats.deposits
+                    : filteredLedgerStats.deposits.slice(0, 3)
+                  ).map((entry, idx) => (
+                    <div
+                      key={entry.currency}
+                      className={`text-lg font-black tracking-tight ${
+                        idx === 0 ? "text-white" : "text-emerald-100"
+                      }`}
+                    >
+                      {formatCurrency(entry.amount, entry.currency)}
+                    </div>
+                  ))}
+                </div>
+                {filteredLedgerStats.deposits.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllDepositsCurrencies((v) => !v)}
+                    className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-white/95 hover:text-white underline underline-offset-2 cursor-pointer"
+                  >
+                    {showAllDepositsCurrencies
+                      ? "Voir moins"
+                      : `Voir plus (+${filteredLedgerStats.deposits.length - 3})`}
+                  </button>
+                )}
+              </div>
+              <span className="text-[11px] font-medium text-emerald-100/85 block mt-3">
                 Période sélectionnée
               </span>
             </div>
 
-            <div className="bg-amber-50/70 p-4 rounded-2xl border border-amber-200">
-              <div className="flex items-center justify-between text-amber-800 text-xs font-semibold mb-1">
-                <span>Total Retraits (Décaissements)</span>
-                <ArrowUpRight className="w-4 h-4 text-amber-600" />
-              </div>
-              <div className="text-lg font-black text-amber-900">
-                {formatCurrency(filteredLedgerStats.retHtg, "HTG")}
-              </div>
-              {filteredLedgerStats.retUsd > 0 && (
-                <div className="text-xs font-bold text-amber-700 mt-0.5">
-                  + {formatCurrency(filteredLedgerStats.retUsd, "USD")}
+            {/* Box 2: Total Retraits */}
+            <div className="bg-[#FF7900] text-white p-5 rounded-2xl shadow-md flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between text-amber-50 text-xs font-bold mb-1.5">
+                  <span>Total Retraits (Décaissements)</span>
+                  <ArrowUpRight className="w-4 h-4 text-white/90" />
                 </div>
-              )}
-              <span className="text-[10px] text-amber-600 block mt-1">
+                <div className="space-y-0.5">
+                  {(showAllWithdrawalsCurrencies
+                    ? filteredLedgerStats.withdrawals
+                    : filteredLedgerStats.withdrawals.slice(0, 3)
+                  ).map((entry, idx) => (
+                    <div
+                      key={entry.currency}
+                      className={`text-lg font-black tracking-tight ${
+                        idx === 0 ? "text-white" : "text-amber-50"
+                      }`}
+                    >
+                      {formatCurrency(entry.amount, entry.currency)}
+                    </div>
+                  ))}
+                </div>
+                {filteredLedgerStats.withdrawals.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllWithdrawalsCurrencies((v) => !v)}
+                    className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-white/95 hover:text-white underline underline-offset-2 cursor-pointer"
+                  >
+                    {showAllWithdrawalsCurrencies
+                      ? "Voir moins"
+                      : `Voir plus (+${filteredLedgerStats.withdrawals.length - 3})`}
+                  </button>
+                )}
+              </div>
+              <span className="text-[11px] font-medium text-amber-100/90 block mt-3">
                 Période sélectionnée
               </span>
             </div>
 
-            <div className="bg-blue-50/70 p-4 rounded-2xl border border-blue-200">
-              <div className="flex items-center justify-between text-blue-800 text-xs font-semibold mb-1">
-                <span>Solde Net des Flux</span>
-                <Wallet className="w-4 h-4 text-blue-600" />
+            {/* Box 3: Solde Net */}
+            <div className="bg-[#2563EB] text-white p-5 rounded-2xl shadow-md flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between text-blue-100/95 text-xs font-bold mb-1.5">
+                  <span>Solde Net des Flux</span>
+                  <Wallet className="w-4 h-4 text-white/90" />
+                </div>
+                <div className="space-y-0.5">
+                  {(showAllNetCurrencies
+                    ? filteredLedgerStats.net
+                    : filteredLedgerStats.net.slice(0, 3)
+                  ).map((entry, idx) => (
+                    <div
+                      key={entry.currency}
+                      className={`text-lg font-black tracking-tight ${
+                        idx === 0 ? "text-white" : "text-blue-100"
+                      }`}
+                    >
+                      {formatCurrency(entry.amount, entry.currency)}
+                    </div>
+                  ))}
+                </div>
+                {filteredLedgerStats.net.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllNetCurrencies((v) => !v)}
+                    className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-white/95 hover:text-white underline underline-offset-2 cursor-pointer"
+                  >
+                    {showAllNetCurrencies
+                      ? "Voir moins"
+                      : `Voir plus (+${filteredLedgerStats.net.length - 3})`}
+                  </button>
+                )}
               </div>
-              <div
-                className={`text-lg font-black ${
-                  filteredLedgerStats.netHtg >= 0 ? "text-blue-900" : "text-rose-600"
-                }`}
-              >
-                {formatCurrency(filteredLedgerStats.netHtg, "HTG")}
-              </div>
-              <div className="text-xs font-bold text-blue-700 mt-0.5">
-                Net USD : {formatCurrency(filteredLedgerStats.netUsd, "USD")}
-              </div>
-              <span className="text-[10px] text-blue-600 block mt-1">
+              <span className="text-[11px] font-medium text-blue-100/85 block mt-3">
                 Dépôts moins retraits
               </span>
             </div>
 
-            <div className="bg-[#062653] text-white p-4 rounded-2xl shadow-xs">
-              <div className="flex items-center justify-between text-white/80 text-xs font-semibold mb-1">
-                <span>Disponibilité Bancaire Globale</span>
-                <Landmark className="w-4 h-4 text-[#FF7900]" />
+            {/* Box 4: Disponibilité Bancaire Globale (Noir solide + max 3 devises + Voir plus) */}
+            <div className="bg-black text-white p-5 rounded-2xl shadow-md flex flex-col justify-between">
+              <div>
+                <div className="flex items-center justify-between text-white/85 text-xs font-bold mb-1.5">
+                  <span>
+                    {filterAccountId !== "ALL"
+                      ? "Disponibilité du Compte"
+                      : "Disponibilité Bancaire Globale"}
+                  </span>
+                  <Landmark className="w-4 h-4 text-[#FF7900]" />
+                </div>
+                <div className="space-y-0.5">
+                  {(showAllBalanceCurrencies
+                    ? totalAccountBalances.byCurrency
+                    : totalAccountBalances.byCurrency.slice(0, 3)
+                  ).map((entry, idx) => (
+                    <div
+                      key={entry.currency}
+                      className={`text-lg font-black tracking-tight ${
+                        idx === 0 ? "text-white" : "text-emerald-400"
+                      }`}
+                    >
+                      {formatCurrency(entry.amount, entry.currency)}
+                    </div>
+                  ))}
+                </div>
+                {totalAccountBalances.byCurrency.length > 3 && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllBalanceCurrencies((v) => !v)}
+                    className="mt-1.5 inline-flex items-center gap-1 text-[11px] font-bold text-[#FF7900] hover:text-amber-300 underline underline-offset-2 cursor-pointer"
+                  >
+                    {showAllBalanceCurrencies
+                      ? "Voir moins"
+                      : `Voir plus (+${totalAccountBalances.byCurrency.length - 3})`}
+                  </button>
+                )}
               </div>
-              <div className="text-lg font-black text-white">
-                {formatCurrency(totalAccountBalances.htg, "HTG")}
-              </div>
-              <div className="text-xs font-bold text-emerald-400 mt-0.5">
-                {formatCurrency(totalAccountBalances.usd, "USD")}
-              </div>
-              <span className="text-[10px] text-white/60 block mt-1">
-                Comptes bancaires actifs
+              <span className="text-[11px] font-medium text-white/75 block mt-3">
+                {totalAccountBalances.activeCount > 1
+                  ? `${totalAccountBalances.activeCount} comptes bancaires actifs`
+                  : totalAccountBalances.activeCount === 1
+                  ? "1 compte bancaire actif"
+                  : "Aucun compte actif"}
+                {totalAccountBalances.inactiveCount > 0
+                  ? ` (${totalAccountBalances.inactiveCount} inactif${totalAccountBalances.inactiveCount > 1 ? "s" : ""})`
+                  : ""}
               </span>
             </div>
           </div>
 
           {/* Filtres Avancés Rapport */}
-          <div className="bg-white p-3.5 rounded-2xl border border-[#DCE2EA] shadow-xs flex items-center justify-between gap-3 flex-wrap no-print">
+          <div className="bg-white p-3.5 rounded-2xl shadow-xs flex items-center justify-between gap-3 flex-wrap">
             <div className="relative flex-1 min-w-[220px]">
               <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
               <input
@@ -1924,7 +2078,7 @@ export default function FinancialOperationsPage() {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Rechercher par référence, n° bordereau, auteur, délégué, motif, compte..."
-                className="w-full pl-9 pr-3.5 py-1.5 rounded-xl border border-[#DCE2EA] text-xs focus:outline-hidden focus:border-[#062653]"
+                className="w-full pl-9 pr-3.5 py-2 rounded-xl bg-[#F4F6F9] text-xs focus:outline-hidden"
               />
             </div>
 
@@ -1932,7 +2086,7 @@ export default function FinancialOperationsPage() {
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value as any)}
-                className="px-2.5 py-1.5 rounded-xl border border-[#DCE2EA] text-xs bg-white text-[#062653] font-medium focus:outline-hidden"
+                className="px-3 py-2 rounded-xl text-xs bg-[#F4F6F9] text-[#062653] font-medium focus:outline-hidden"
               >
                 <option value="ALL">Dépôts & Retraits (Tous)</option>
                 <option value="DEPOSIT">Dépôts uniquement</option>
@@ -1942,7 +2096,7 @@ export default function FinancialOperationsPage() {
               <select
                 value={filterAccountId}
                 onChange={(e) => setFilterAccountId(e.target.value)}
-                className="px-2.5 py-1.5 rounded-xl border border-[#DCE2EA] text-xs bg-white text-[#062653] font-medium focus:outline-hidden"
+                className="px-3 py-2 rounded-xl text-xs bg-[#F4F6F9] text-[#062653] font-medium focus:outline-hidden"
               >
                 <option value="ALL">Tous les comptes</option>
                 {accounts.map((acc) => (
@@ -1955,7 +2109,7 @@ export default function FinancialOperationsPage() {
               <select
                 value={filterPeriod}
                 onChange={(e) => setFilterPeriod(e.target.value as any)}
-                className="px-2.5 py-1.5 rounded-xl border border-[#DCE2EA] text-xs bg-white text-[#062653] font-medium focus:outline-hidden"
+                className="px-3 py-2 rounded-xl text-xs bg-[#F4F6F9] text-[#062653] font-medium focus:outline-hidden"
               >
                 <option value="all">Toutes les dates</option>
                 <option value="today">Aujourd'hui</option>
@@ -1970,14 +2124,14 @@ export default function FinancialOperationsPage() {
                     type="date"
                     value={customStartDate}
                     onChange={(e) => setCustomStartDate(e.target.value)}
-                    className="px-2 py-1 rounded-lg border border-[#DCE2EA] text-xs bg-white"
+                    className="px-2.5 py-1.5 rounded-lg text-xs bg-[#F4F6F9]"
                   />
                   <span className="text-slate-400">à</span>
                   <input
                     type="date"
                     value={customEndDate}
                     onChange={(e) => setCustomEndDate(e.target.value)}
-                    className="px-2 py-1 rounded-lg border border-[#DCE2EA] text-xs bg-white"
+                    className="px-2.5 py-1.5 rounded-lg text-xs bg-[#F4F6F9]"
                   />
                 </div>
               )}
@@ -1987,10 +2141,10 @@ export default function FinancialOperationsPage() {
           {/* Tableau Consolidé (Imprimable) */}
           <div
             id="printable-financial-report"
-            className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xs overflow-hidden"
+            className="bg-white rounded-2xl shadow-xs overflow-hidden"
           >
             {/* Printable Header */}
-            <div className="p-6 border-b border-[#DCE2EA]">
+            <div className="p-6 border-b border-slate-100">
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2 mb-1">
@@ -2015,28 +2169,39 @@ export default function FinancialOperationsPage() {
                   <span className="text-[#64748B] block">Succursale :</span>
                   <span className="font-bold text-[#062653]">
                     {selectedBranchId === "ALL"
-                      ? "Toutes les succursales (Consolidé)"
+                      ? `${companyName} (Consolidé)`
                       : branches.find((b) => b.id === selectedBranchId)?.name || selectedBranchId}
                   </span>
                 </div>
               </div>
 
               <div className="mt-4 pt-3 border-t border-slate-100 flex items-center justify-between text-xs flex-wrap gap-2">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-wrap">
                   <span>
                     <strong>{filteredTransactions.length}</strong> transaction(s) listée(s)
                   </span>
                   <span className="text-emerald-700">
-                    Dépôts : <strong>{formatCurrency(filteredLedgerStats.depHtg, "HTG")}</strong>
-                    {filteredLedgerStats.depUsd > 0 && ` / ${formatCurrency(filteredLedgerStats.depUsd, "USD")}`}
+                    Dépôts :{" "}
+                    <strong>
+                      {filteredLedgerStats.deposits
+                        .map((e) => formatCurrency(e.amount, e.currency))
+                        .join(" / ")}
+                    </strong>
                   </span>
                   <span className="text-amber-700">
-                    Retraits : <strong>{formatCurrency(filteredLedgerStats.retHtg, "HTG")}</strong>
-                    {filteredLedgerStats.retUsd > 0 && ` / ${formatCurrency(filteredLedgerStats.retUsd, "USD")}`}
+                    Retraits :{" "}
+                    <strong>
+                      {filteredLedgerStats.withdrawals
+                        .map((e) => formatCurrency(e.amount, e.currency))
+                        .join(" / ")}
+                    </strong>
                   </span>
                 </div>
                 <div className="font-bold text-[#062653]">
-                  Solde Net : {formatCurrency(filteredLedgerStats.netHtg, "HTG")}
+                  Solde Net :{" "}
+                  {filteredLedgerStats.net
+                    .map((e) => formatCurrency(e.amount, e.currency))
+                    .join(" / ")}
                 </div>
               </div>
             </div>
@@ -2077,10 +2242,10 @@ export default function FinancialOperationsPage() {
 
                           <td className="px-4 py-3">
                             <span
-                              className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${
                                 isDeposit
-                                  ? "bg-emerald-50 text-emerald-700 border border-emerald-200"
-                                  : "bg-amber-50 text-amber-700 border border-amber-200"
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-amber-50 text-amber-700"
                               }`}
                             >
                               {isDeposit ? (
@@ -2100,7 +2265,9 @@ export default function FinancialOperationsPage() {
                           </td>
 
                           <td className="px-4 py-3 font-mono font-semibold text-slate-800">
-                            {tx.referenceNumber}
+                            {tx.referenceNumber && tx.referenceNumber !== "N/A"
+                              ? tx.referenceNumber
+                              : "—"}
                           </td>
 
                           <td className="px-4 py-3">
@@ -2119,7 +2286,9 @@ export default function FinancialOperationsPage() {
                           </td>
 
                           <td className="px-4 py-3 text-[#64748B]">
-                            {tx.branchName || "Toutes les succursales"}
+                            {tx.branchName && tx.branchName !== "Toutes les succursales"
+                              ? tx.branchName
+                              : companyName}
                           </td>
 
                           <td className="px-4 py-3 text-right">
@@ -2151,7 +2320,7 @@ export default function FinancialOperationsPage() {
                             <button
                               type="button"
                               onClick={() => setDeletingTx(tx)}
-                              className="p-1.5 rounded-lg border border-rose-200 text-rose-600 hover:bg-rose-50 transition cursor-pointer"
+                              className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition cursor-pointer"
                               title="Supprimer la transaction"
                             >
                               <Trash2 className="w-3.5 h-3.5" />
@@ -2176,8 +2345,8 @@ export default function FinancialOperationsPage() {
       ---------------------------------------------------- */}
       {viewReceiptUrl && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-xs p-4 no-print">
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
-            <div className="p-4 border-b border-[#DCE2EA] flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] flex flex-col overflow-hidden">
+            <div className="p-4 border-b border-slate-100 flex items-center justify-between">
               <h3 className="text-sm font-bold text-[#062653] flex items-center gap-2">
                 <FileText className="w-4 h-4 text-[#FF7900]" />
                 Justificatif Bancaire (Bordereau / Reçu)
@@ -2215,8 +2384,8 @@ export default function FinancialOperationsPage() {
       ---------------------------------------------------- */}
       {deletingTx && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 no-print">
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-2xl w-full max-w-sm p-6 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto text-rose-600">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center mx-auto text-rose-600">
               <Trash2 className="w-6 h-6" />
             </div>
 
@@ -2268,7 +2437,7 @@ export default function FinancialOperationsPage() {
         {viewingAccount && (
           <div className="space-y-5">
             {/* Aperçu Carte Électronique */}
-            <div className={`relative overflow-hidden rounded-2xl p-4 sm:p-5 shadow-sm border border-slate-300 ${getBankCardTheme(viewingAccount.bankName).gradient} flex flex-col justify-between min-h-[175px]`}>
+            <div className={`relative overflow-hidden rounded-2xl p-4 sm:p-5 shadow-sm ${getBankCardTheme(viewingAccount.bankName).gradient} flex flex-col justify-between min-h-[175px]`}>
               <div className="absolute -right-10 -top-10 w-36 h-36 rounded-full bg-white/80 blur-xl pointer-events-none" />
               <div className="absolute -left-10 -bottom-10 w-36 h-36 rounded-full bg-slate-400/20 blur-xl pointer-events-none" />
               <div className="absolute inset-0 bg-gradient-to-tr from-transparent via-white/35 to-white/60 pointer-events-none" />
@@ -2283,7 +2452,7 @@ export default function FinancialOperationsPage() {
                   </p>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold ${viewingAccount.isActive ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-700"}`}>
+                  <span className={`text-xs font-bold ${viewingAccount.isActive ? "text-emerald-600" : "text-slate-400"}`}>
                     {viewingAccount.isActive ? "Actif" : "Inactif"}
                   </span>
                   <Wifi className="w-4 h-4 rotate-90 text-slate-500" />
@@ -2329,24 +2498,24 @@ export default function FinancialOperationsPage() {
             </div>
 
             {/* Grille détaillée des informations */}
-            <div className="bg-white rounded-2xl border border-[#DCE2EA] p-4 space-y-3">
+            <div className="bg-white rounded-2xl shadow-xs p-4 space-y-3">
               <h5 className="text-xs font-bold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
                 <Building2 className="w-3.5 h-3.5 text-[#062653]" />
                 Coordonnées & Caractéristiques
               </h5>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 text-xs">
-                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 space-y-0.5">
+                <div className="p-2.5 bg-[#F4F6F9] rounded-xl space-y-0.5">
                   <span className="text-[10px] font-semibold text-[#64748B] block">Institution Bancaire</span>
                   <span className="text-xs font-bold text-[#062653] block">{viewingAccount.bankName}</span>
                 </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 space-y-0.5">
+                <div className="p-2.5 bg-[#F4F6F9] rounded-xl space-y-0.5">
                   <span className="text-[10px] font-semibold text-[#64748B] block">Intitulé / Nom du Compte</span>
                   <span className="text-xs font-bold text-[#062653] block">{viewingAccount.accountName}</span>
                 </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 space-y-1 sm:col-span-2">
+                <div className="p-2.5 bg-[#F4F6F9] rounded-xl space-y-1 sm:col-span-2">
                   <div className="flex items-center justify-between">
                     <span className="text-[10px] font-semibold text-[#64748B]">Numéro de Compte Complet</span>
                     <button
@@ -2372,27 +2541,27 @@ export default function FinancialOperationsPage() {
                   </span>
                 </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 space-y-0.5">
+                <div className="p-2.5 bg-[#F4F6F9] rounded-xl space-y-0.5">
                   <span className="text-[10px] font-semibold text-[#64748B] block">Devise de Tenue</span>
                   <div className="flex items-center gap-2">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${viewingAccount.currency === "USD" ? "bg-blue-100 text-blue-800 border border-blue-200" : "bg-emerald-100 text-emerald-800 border border-emerald-200"}`}>
+                    <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${viewingAccount.currency === "USD" ? "bg-blue-100 text-blue-800" : "bg-emerald-100 text-emerald-800"}`}>
                       {viewingAccount.currency}
                     </span>
                     <span className="text-[11px] text-[#64748B]">
-                      {viewingAccount.currency === "USD" ? "Dollars américains" : "Gourdes haïtiennes"}
+                      {getCurrencyName(viewingAccount.currency)}
                     </span>
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 space-y-0.5">
-                  <span className="text-[10px] font-semibold text-[#64748B] block">Succursale de Rattachement</span>
+                <div className="p-2.5 bg-[#F4F6F9] rounded-xl space-y-0.5">
+                  <span className="text-[10px] font-semibold text-[#64748B] block">Compte de l'Entreprise</span>
                   <div className="flex items-center gap-1 text-[#062653] font-semibold">
-                    <MapPin className="w-3 h-3 text-[#64748B] shrink-0" />
-                    <span className="text-xs truncate">{viewingAccount.branchName || "Toutes les succursales"}</span>
+                    <Building2 className="w-3 h-3 text-[#64748B] shrink-0" />
+                    <span className="text-xs truncate">{companyName}</span>
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 space-y-1">
+                <div className="p-2.5 bg-[#F4F6F9] rounded-xl space-y-1">
                   <span className="text-[10px] font-semibold text-[#64748B] block">Solde Initial à l'Ouverture</span>
                   <span className="text-xs font-bold text-slate-700 block">
                     {formatCurrency(viewingAccount.initialBalance, viewingAccount.currency)}
@@ -2405,7 +2574,7 @@ export default function FinancialOperationsPage() {
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-amber-50/70 rounded-xl border border-amber-200/80 space-y-0.5">
+                <div className="p-2.5 bg-amber-50/70 rounded-xl space-y-0.5">
                   <span className="text-[10px] font-semibold text-amber-800 block">Date d'initialisation du solde</span>
                   <div className="flex items-center gap-1.5 text-amber-950 font-bold text-xs">
                     <Calendar className="w-3.5 h-3.5 text-amber-700 shrink-0" />
@@ -2415,14 +2584,14 @@ export default function FinancialOperationsPage() {
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-emerald-50/70 rounded-xl border border-emerald-200/80 space-y-0.5">
+                <div className="p-2.5 bg-emerald-50/70 rounded-xl space-y-0.5">
                   <span className="text-[10px] font-semibold text-emerald-800 block">Solde Actuel Disponible</span>
                   <span className="text-sm font-black text-emerald-900 block">
                     {formatCurrency(viewingAccount.currentBalance, viewingAccount.currency)}
                   </span>
                 </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 space-y-0.5">
+                <div className="p-2.5 bg-[#F4F6F9] rounded-xl space-y-0.5">
                   <span className="text-[10px] font-semibold text-[#64748B] block">Statut du Compte</span>
                   <div className="flex items-center gap-1.5">
                     <span className={`w-2 h-2 rounded-full ${viewingAccount.isActive ? "bg-emerald-500" : "bg-slate-400"}`} />
@@ -2432,7 +2601,7 @@ export default function FinancialOperationsPage() {
                   </div>
                 </div>
 
-                <div className="p-2.5 bg-slate-50 rounded-xl border border-slate-100 space-y-0.5">
+                <div className="p-2.5 bg-[#F4F6F9] rounded-xl space-y-0.5">
                   <span className="text-[10px] font-semibold text-[#64748B] block">Date d'enregistrement</span>
                   <div className="flex items-center gap-1 text-[#062653]">
                     <Clock className="w-3 h-3 text-[#64748B]" />
@@ -2443,7 +2612,7 @@ export default function FinancialOperationsPage() {
             </div>
 
             {/* Actions rapides */}
-            <div className="p-3.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-2.5">
+            <div className="p-3.5 bg-[#F4F6F9] rounded-2xl space-y-2.5">
               <span className="text-[11px] font-bold text-[#062653] uppercase tracking-wide block">
                 Actions directes
               </span>
@@ -2483,7 +2652,7 @@ export default function FinancialOperationsPage() {
                     setViewingAccount(null);
                     openAccountModal(accToEdit);
                   }}
-                  className="px-3 py-1.5 text-xs font-bold text-[#062653] bg-white border border-[#DCE2EA] rounded-xl hover:bg-slate-100 flex items-center gap-1.5 cursor-pointer transition"
+                  className="px-3 py-1.5 text-xs font-bold text-[#062653] bg-white rounded-xl hover:bg-slate-100 shadow-2xs flex items-center gap-1.5 cursor-pointer transition"
                 >
                   <Edit className="w-3.5 h-3.5 text-[#062653]" />
                   <span>Modifier</span>
@@ -2496,7 +2665,7 @@ export default function FinancialOperationsPage() {
                     setViewingAccount(null);
                     setDeletingAccount(accToDelete);
                   }}
-                  className="px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 border border-rose-200 rounded-xl hover:bg-rose-100 flex items-center gap-1.5 cursor-pointer transition"
+                  className="px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 flex items-center gap-1.5 cursor-pointer transition"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>Supprimer</span>
@@ -2523,8 +2692,8 @@ export default function FinancialOperationsPage() {
       ---------------------------------------------------- */}
       {deletingAccount && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-xs p-4 no-print">
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-2xl w-full max-w-sm p-6 space-y-4">
-            <div className="w-12 h-12 rounded-2xl bg-rose-50 border border-rose-200 flex items-center justify-center mx-auto text-rose-600">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm p-6 space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-50 flex items-center justify-center mx-auto text-rose-600">
               <Trash2 className="w-6 h-6" />
             </div>
 

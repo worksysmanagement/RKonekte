@@ -10,6 +10,7 @@ import {
   Eye,
   FileText,
   History,
+  Mail,
   PlusCircle,
   Power,
   Receipt,
@@ -365,17 +366,24 @@ export default function SuperAdminOrganizationsPage() {
           <button
             type="button"
             onClick={loadData}
-            className="h-9 px-3.5 bg-white hover:bg-slate-50 border border-[#DCE2EA] text-[#062653] text-xs font-semibold rounded-xl shadow-2xs transition-colors inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+            className="h-9 px-3.5 bg-white hover:bg-slate-50 text-[#062653] text-xs font-semibold rounded-xl shadow-2xs transition-colors inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${loading ? "animate-spin" : ""}`} />
             <span>Actualiser</span>
           </button>
           <Link
             href="/super-admin/subscription-settings"
-            className="h-9 px-3.5 bg-white hover:bg-slate-50 border border-[#DCE2EA] text-[#062653] text-xs font-semibold rounded-xl shadow-2xs transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+            className="h-9 px-3.5 bg-white hover:bg-slate-50 text-[#062653] text-xs font-semibold rounded-xl shadow-2xs transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
           >
             <Settings className="w-3.5 h-3.5 text-[#FF7900]" />
             <span>Tarifs &amp; Comptes</span>
+          </Link>
+          <Link
+            href="/super-admin/broadcast"
+            className="h-9 px-3.5 bg-white hover:bg-slate-50 text-[#062653] text-xs font-semibold rounded-xl shadow-2xs transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <Mail className="w-3.5 h-3.5 text-[#FF7900]" />
+            <span>Diffuser un message</span>
           </Link>
           <Link
             href="/super-admin/organizations/new"
@@ -388,7 +396,7 @@ export default function SuperAdminOrganizationsPage() {
       </div>
 
       {/* UNIFIED TOOLBAR: SEGMENTED FILTERS + SEARCH */}
-      <div className="bg-white border border-[#DCE2EA] rounded-2xl p-3 shadow-2xs flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+      <div className="bg-white rounded-2xl p-3 shadow-xs flex flex-col xl:flex-row xl:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-1.5">
           <button
             type="button"
@@ -449,13 +457,13 @@ export default function SuperAdminOrganizationsPage() {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Rechercher entreprise, e-mail, réf..."
-            className="w-full h-9 pl-8 pr-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#062653] outline-none transition-colors"
+            className="w-full h-9 pl-8 pr-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white outline-none transition-colors"
           />
         </div>
       </div>
 
       {/* ORGANIZATIONS TABLE — CLEAN PRO LAYOUT WITH 1-LINE HEADERS & ZERO PILL BACKGROUNDS */}
-      <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xs overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-slate-400 text-sm">Chargement...</div>
         ) : filteredOrgs.length === 0 ? (
@@ -608,11 +616,20 @@ export default function SuperAdminOrganizationsPage() {
                           <button
                             type="button"
                             onClick={() => openHistoryModal(org)}
-                            className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-xs font-semibold border border-[#DCE2EA] text-[#062653] hover:bg-slate-100 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                            className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-xs font-semibold bg-[#F4F6F9] text-[#062653] hover:bg-slate-200/70 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
                           >
                             <History className="w-3.5 h-3.5 shrink-0" />
                             <span>Historique</span>
                           </button>
+
+                          <Link
+                            href={`/super-admin/broadcast?orgId=${org.id}`}
+                            title="Envoyer un e-mail à cette entreprise"
+                            className="h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-xs font-semibold bg-[#F4F6F9] text-[#062653] hover:bg-slate-200/70 transition-colors whitespace-nowrap shrink-0 cursor-pointer"
+                          >
+                            <Mail className="w-3.5 h-3.5 text-[#FF7900] shrink-0" />
+                            <span>Contacter</span>
+                          </Link>
 
                           {!isPendingActivation && !isExpired && (
                             <button
@@ -626,7 +643,7 @@ export default function SuperAdminOrganizationsPage() {
                               className={`h-8 px-2.5 inline-flex items-center gap-1.5 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap shrink-0 cursor-pointer ${
                                 isStopped
                                   ? "bg-[#062653] hover:bg-[#031B3A] text-white"
-                                  : "text-rose-600 hover:bg-rose-50 border border-rose-200"
+                                  : "text-rose-600 bg-rose-50 hover:bg-rose-100"
                               }`}
                             >
                               <Power className="w-3.5 h-3.5 shrink-0" />
@@ -660,7 +677,7 @@ export default function SuperAdminOrganizationsPage() {
         {renewOrg && (
           <div className="space-y-4">
             {/* BANDEAU ENTREPRISE SOBRE SANS FOND COLORÉ */}
-            <div className="px-4 py-3 bg-white border border-[#DCE2EA] rounded-xl flex flex-wrap items-center justify-between gap-3">
+            <div className="px-4 py-3 bg-[#F4F6F9] rounded-xl flex flex-wrap items-center justify-between gap-3">
               <div className="flex flex-wrap items-baseline gap-x-3 gap-y-0.5">
                 <span className="text-xs text-[#64748B]">Entreprise cliente :</span>
                 <span className="text-base font-bold text-[#062653]">{renewOrg.name}</span>
@@ -687,8 +704,8 @@ export default function SuperAdminOrganizationsPage() {
             >
               {/* COLONNE GAUCHE : RÉFÉRENCE & PREUVE SOUMISES PAR LE CLIENT (FOND BLANC) */}
               {renewOrg.pendingRenewal && (
-                <div className="lg:col-span-5 p-4 bg-white border border-[#DCE2EA] rounded-xl space-y-3.5 text-xs text-[#263445]">
-                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-[#DCE2EA]">
+                <div className="lg:col-span-5 p-4 bg-[#F4F6F9]/70 rounded-xl space-y-3.5 text-xs text-[#263445]">
+                  <div className="flex items-center justify-between gap-2 pb-2.5 border-b border-slate-200/70">
                     <span className="font-bold text-[#062653] flex items-center gap-1.5">
                       <Receipt className="w-4 h-4 text-[#FF7900] shrink-0" />
                       <span>Référence soumise par le client</span>
@@ -754,15 +771,15 @@ export default function SuperAdminOrganizationsPage() {
                   )}
 
                   {renewOrg.pendingRenewal.proofDataUrl && (
-                    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white border border-[#DCE2EA]">
+                    <div className="flex items-center gap-3 p-2.5 rounded-xl bg-white shadow-2xs">
                       {renewOrg.pendingRenewal.proofDataUrl.startsWith("data:image/") ? (
                         <img
                           src={renewOrg.pendingRenewal.proofDataUrl}
                           alt="Preuve de paiement"
-                          className="w-11 h-11 rounded-lg object-cover border border-[#DCE2EA] shrink-0"
+                          className="w-11 h-11 rounded-lg object-cover shrink-0"
                         />
                       ) : (
-                        <div className="w-11 h-11 rounded-lg bg-white border border-[#DCE2EA] text-rose-600 flex items-center justify-center shrink-0">
+                        <div className="w-11 h-11 rounded-lg bg-[#F4F6F9] text-rose-600 flex items-center justify-center shrink-0">
                           <FileText className="w-5 h-5" />
                         </div>
                       )}
@@ -783,7 +800,7 @@ export default function SuperAdminOrganizationsPage() {
                             title: `Preuve de paiement — ${renewOrg.name}`,
                           })
                         }
-                        className="px-3 py-1.5 rounded-lg border border-[#062653] bg-white hover:bg-[#062653] text-[#062653] hover:text-white text-[11px] font-bold flex items-center gap-1 shrink-0 transition-colors cursor-pointer whitespace-nowrap"
+                        className="px-3 py-1.5 rounded-lg bg-[#F4F6F9] hover:bg-[#062653] text-[#062653] hover:text-white text-[11px] font-bold flex items-center gap-1 shrink-0 transition-colors cursor-pointer whitespace-nowrap"
                       >
                         <Eye className="w-3.5 h-3.5" />
                         <span>Voir la preuve</span>
@@ -792,14 +809,14 @@ export default function SuperAdminOrganizationsPage() {
                   )}
 
                   {/* BASCULE DÉCISION SOBRE SANS FOND COLORÉ */}
-                  <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-[#DCE2EA]">
+                  <div className="grid grid-cols-2 gap-2 pt-2.5 border-t border-slate-200/70">
                     <button
                       type="button"
                       onClick={() => setRenewTab("APPROVE")}
-                      className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer flex items-center justify-center gap-1.5 bg-white ${
+                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 bg-white shadow-2xs ${
                         renewTab === "APPROVE"
-                          ? "border-2 border-emerald-600 text-emerald-700"
-                          : "border-[#DCE2EA] text-[#64748B] hover:text-[#062653]"
+                          ? "ring-2 ring-emerald-600 text-emerald-700"
+                          : "text-[#64748B] hover:text-[#062653]"
                       }`}
                     >
                       <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
@@ -808,10 +825,10 @@ export default function SuperAdminOrganizationsPage() {
                     <button
                       type="button"
                       onClick={() => setRenewTab("REJECT")}
-                      className={`px-3 py-2 rounded-lg text-xs font-bold border transition-colors cursor-pointer flex items-center justify-center gap-1.5 bg-white ${
+                      className={`px-3 py-2 rounded-lg text-xs font-bold transition-colors cursor-pointer flex items-center justify-center gap-1.5 bg-white shadow-2xs ${
                         renewTab === "REJECT"
-                          ? "border-2 border-rose-600 text-rose-700"
-                          : "border-[#DCE2EA] text-[#64748B] hover:text-rose-700"
+                          ? "ring-2 ring-rose-600 text-rose-700"
+                          : "text-[#64748B] hover:text-rose-700"
                       }`}
                     >
                       <XCircle className="w-3.5 h-3.5 shrink-0" />
@@ -824,7 +841,7 @@ export default function SuperAdminOrganizationsPage() {
               {/* COLONNE DROITE : FORMULAIRE DE VALIDATION OU DE REFUS */}
               <div className={renewOrg.pendingRenewal ? "lg:col-span-7" : ""}>
                 {renewTab === "REJECT" && renewOrg.pendingRenewal ? (
-                  <div className="p-4 bg-white border border-[#DCE2EA] rounded-xl space-y-4">
+                  <div className="p-4 bg-[#F4F6F9]/50 rounded-xl space-y-4">
                     <div>
                       <label className="block text-xs font-bold text-[#062653] mb-1.5">
                         Motif du refus (envoyé par e-mail à l&apos;entreprise)
@@ -834,15 +851,15 @@ export default function SuperAdminOrganizationsPage() {
                         value={rejectionReason}
                         onChange={(e) => setRejectionReason(e.target.value)}
                         placeholder="Ex : Référence introuvable sur notre compte MonCash ou montant incomplet."
-                        className="w-full p-3 text-xs bg-white border border-[#DCE2EA] rounded-xl focus:border-rose-500 outline-none"
+                        className="w-full p-3 text-xs bg-white shadow-2xs rounded-xl outline-none"
                       />
                     </div>
-                    <div className="flex justify-end gap-2 pt-3 border-t border-[#DCE2EA]">
+                    <div className="flex justify-end gap-2 pt-3 border-t border-slate-100">
                       <button
                         type="button"
                         disabled={processingRenewal}
                         onClick={() => setRenewOrg(null)}
-                        className="px-4 py-2 text-xs font-semibold text-[#64748B] border border-[#DCE2EA] hover:text-[#062653] bg-white rounded-lg cursor-pointer"
+                        className="px-4 py-2 text-xs font-semibold text-[#64748B] hover:text-[#062653] bg-white shadow-2xs rounded-lg cursor-pointer"
                       >
                         Fermer
                       </button>
@@ -872,10 +889,10 @@ export default function SuperAdminOrganizationsPage() {
                               key={m}
                               type="button"
                               onClick={() => setDurationMonths(m)}
-                              className={`p-2.5 rounded-xl bg-white text-left cursor-pointer transition-all ${
+                              className={`p-2.5 rounded-xl text-left cursor-pointer transition-all ${
                                 isSel
-                                  ? "border-2 border-[#FF7900]"
-                                  : "border border-[#DCE2EA] hover:border-slate-300"
+                                  ? "ring-2 ring-[#FF7900] bg-[#FFF8F2]"
+                                  : "bg-[#F4F6F9] hover:bg-slate-200/70"
                               }`}
                             >
                               <div className="text-xs font-bold text-[#062653]">
@@ -898,7 +915,7 @@ export default function SuperAdminOrganizationsPage() {
                         <select
                           value={paymentMethod}
                           onChange={(e) => setPaymentMethod(e.target.value)}
-                          className="w-full h-10 px-3 text-xs border border-[#DCE2EA] rounded-xl bg-white outline-none focus:border-[#062653]"
+                          className="w-full h-10 px-3 text-xs rounded-xl bg-[#F4F6F9] focus:bg-white outline-none transition-colors"
                         >
                           {(settings?.paymentAccounts || []).map((a) => (
                             <option key={a.id} value={a.label}>
@@ -924,13 +941,13 @@ export default function SuperAdminOrganizationsPage() {
                           value={paymentReference}
                           onChange={(e) => setPaymentReference(e.target.value)}
                           placeholder="Ex : MC-884920"
-                          className="w-full h-10 px-3 text-xs font-mono bg-white border border-[#DCE2EA] rounded-xl outline-none focus:border-[#062653]"
+                          className="w-full h-10 px-3 text-xs font-mono bg-[#F4F6F9] focus:bg-white rounded-xl outline-none transition-colors"
                         />
                       </div>
                     </div>
 
                     {calculatedWindow && (
-                      <div className="p-3 bg-white border border-[#DCE2EA] rounded-xl space-y-1 text-xs">
+                      <div className="p-3 bg-[#F4F6F9] rounded-xl space-y-1 text-xs">
                         <div className="flex items-center justify-between font-bold">
                           <span className="flex items-center gap-1.5 text-[#062653]">
                             <Calendar className="w-4 h-4 text-emerald-600 shrink-0" />
@@ -975,17 +992,17 @@ export default function SuperAdminOrganizationsPage() {
                           type="date"
                           value={customExpiryDate}
                           onChange={(e) => setCustomExpiryDate(e.target.value)}
-                          className="h-9 px-3 text-xs bg-white border border-[#DCE2EA] rounded-lg"
+                          className="h-9 px-3 text-xs bg-[#F4F6F9] focus:bg-white rounded-lg outline-none"
                         />
                       )}
                     </div>
 
-                    <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-[#DCE2EA]">
+                    <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
                       <button
                         type="button"
                         disabled={processingRenewal}
                         onClick={() => setRenewOrg(null)}
-                        className="px-4 py-2 text-xs font-semibold text-[#64748B] border border-[#DCE2EA] hover:text-[#062653] bg-white rounded-lg cursor-pointer"
+                        className="px-4 py-2 text-xs font-semibold text-[#64748B] hover:text-[#062653] bg-[#F4F6F9] hover:bg-slate-200/70 rounded-lg cursor-pointer"
                       >
                         Annuler
                       </button>
@@ -1029,11 +1046,11 @@ export default function SuperAdminOrganizationsPage() {
                 Chargement de l'historique...
               </div>
             ) : historyItems.length === 0 ? (
-              <div className="py-10 text-center text-xs text-slate-500 bg-white rounded-xl border border-[#DCE2EA]">
+              <div className="py-10 text-center text-xs text-slate-500 bg-[#F4F6F9] rounded-xl">
                 Aucun renouvellement ni soumission de paiement enregistré pour cette entreprise.
               </div>
             ) : (
-              <div className="overflow-x-auto border border-[#DCE2EA] rounded-xl">
+              <div className="overflow-x-auto rounded-xl">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#F4F6F9] text-[10px] uppercase font-bold text-[#64748B] border-b border-[#DCE2EA]">
                     <tr>
@@ -1163,7 +1180,7 @@ export default function SuperAdminOrganizationsPage() {
       >
         {serviceModalOrg && (
           <div className="space-y-4">
-            <div className="p-4 rounded-xl bg-white border border-[#DCE2EA] text-xs space-y-2 text-[#263445]">
+            <div className="p-4 rounded-xl bg-[#F4F6F9] text-xs space-y-2 text-[#263445]">
               <div
                 className={`font-bold flex items-center gap-2 ${
                   serviceModalOrg.subscriptionState?.serviceStopped

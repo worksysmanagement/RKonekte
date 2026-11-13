@@ -154,10 +154,10 @@ export function DecisionModal({
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         <div
-          className={`p-4 rounded-xl flex items-start gap-3 border ${
+          className={`p-4 rounded-xl flex items-start gap-3 ${
             isApprove
-              ? "bg-[#FFF4EB] border-[#FF7900]/20 text-slate-800"
-              : "bg-slate-50 border-slate-200 text-slate-800"
+              ? "bg-[#FFF4EB] text-slate-800"
+              : "bg-[#F4F6F9] text-slate-800"
           }`}
         >
           {isApprove ? (
@@ -178,7 +178,7 @@ export function DecisionModal({
         </div>
 
         {error && (
-          <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg text-rose-700 text-xs font-medium flex items-center gap-2">
+          <div className="p-3 bg-rose-50 rounded-lg text-rose-700 text-xs font-medium flex items-center gap-2">
             <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
             {error}
           </div>
@@ -186,7 +186,7 @@ export function DecisionModal({
 
         {/* APPROVAL: TRANSPARENT SIGNATURE PREVIEW & ATTACHMENT */}
         {isApprove && (
-          <div className="p-3.5 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+          <div className="p-3.5 bg-[#F4F6F9] rounded-xl space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-1.5">
                 <FileSignature className="w-4 h-4 text-[#062653]" />
@@ -216,7 +216,7 @@ export function DecisionModal({
             </div>
 
             {showDrawMode ? (
-              <div className="border border-slate-300 rounded-lg bg-white overflow-hidden p-1">
+              <div className="rounded-lg bg-white shadow-xs overflow-hidden p-1">
                 <canvas
                   ref={canvasRef}
                   width={340}
@@ -233,7 +233,7 @@ export function DecisionModal({
               </div>
             ) : (
               <div
-                className="w-full h-20 rounded-lg border border-slate-200 flex items-center justify-center p-2 relative overflow-hidden"
+                className="w-full h-20 rounded-lg flex items-center justify-center p-2 relative overflow-hidden"
                 style={{
                   backgroundImage:
                     "linear-gradient(45deg, #e2e8f0 25%, transparent 25%), linear-gradient(-45deg, #e2e8f0 25%, transparent 25%), linear-gradient(45deg, transparent 75%, #e2e8f0 75%), linear-gradient(-45deg, transparent 75%, #e2e8f0 75%)",
@@ -285,7 +285,7 @@ export function DecisionModal({
               value={rejectionReason}
               onChange={(e) => setRejectionReason(e.target.value)}
               placeholder="Indiquez le motif précis du refus (ex. Effectif minimum insuffisant sur cette période...)"
-              className="w-full p-3 border border-slate-300 rounded-lg text-sm text-slate-900 focus:bg-white"
+              className="w-full p-3 bg-[#F4F6F9] rounded-lg text-sm text-slate-900 focus:bg-white"
             />
           </div>
         )}

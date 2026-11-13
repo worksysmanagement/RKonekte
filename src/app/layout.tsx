@@ -35,7 +35,7 @@ export default function RootLayout({
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
           rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=WindSong:wght@400;500&display=swap"
+          href="https://fonts.googleapis.com/css2?family=Caveat:wght@400;600;700&family=WindSong:wght@400;500&display=swap"
         />
       </head>
       <body className={`h-full flex flex-col antialiased text-slate-900 selection:bg-blue-100 selection:text-blue-900 ${poppins.className}`}>

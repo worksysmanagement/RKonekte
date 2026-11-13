@@ -92,10 +92,10 @@ export function CustomSelect({
         type="button"
         disabled={disabled}
         onClick={() => setOpen((prev) => !prev)}
-        className={`w-full h-11 px-3.5 bg-[#F4F6F9] hover:bg-slate-50 focus:bg-white border rounded-xl text-xs font-semibold text-[#263445] transition-all flex items-center justify-between text-left select-none shadow-xs cursor-pointer ${
+        className={`w-full h-11 px-3.5 bg-[#F4F6F9] hover:bg-slate-200/70 rounded-xl text-xs font-semibold text-[#263445] transition-all flex items-center justify-between text-left select-none cursor-pointer ${
           open
-            ? "border-[#062653] ring-2 ring-[#062653]/15 bg-white"
-            : "border-[#DCE2EA] hover:border-slate-300"
+            ? "ring-2 ring-[#062653]/15 bg-white shadow-xs"
+            : ""
         } ${disabled ? "opacity-50 cursor-not-allowed" : ""}`}
       >
         <div className="flex items-center gap-2.5 truncate min-w-0 mr-2">
@@ -116,7 +116,7 @@ export function CustomSelect({
       {open && (
         <div
           role="listbox"
-          className="absolute left-0 top-full mt-1.5 w-full z-50 bg-white border border-[#DCE2EA] rounded-xl shadow-xl py-1.5 max-h-60 overflow-y-auto animate-fadeIn"
+          className="absolute left-0 top-full mt-1.5 w-full z-50 bg-white rounded-xl shadow-xl py-1.5 max-h-60 overflow-y-auto animate-fadeIn"
         >
           {options.length === 0 ? (
             <div className="px-3.5 py-3 text-xs text-slate-400 text-center">

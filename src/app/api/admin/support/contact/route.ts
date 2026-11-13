@@ -2,6 +2,36 @@ import { NextRequest, NextResponse } from "next/server";
 import { requireAuth, requireTenantUser, handleApiError } from "@/lib/auth/guard";
 import { sendEmail } from "@/lib/notifications/email";
 
+function formatUserRole(role?: string): string {
+  switch (role?.toUpperCase()) {
+    case "CASHIER":
+      return "Caissier";
+    case "SECRETARY":
+      return "Secrétaire / RH";
+    case "FINANCIAL_MANAGER":
+      return "Directeur Financier";
+    case "ORGANIZATION_ADMIN":
+      return "Administrateur / Direction";
+    case "BRANCH_MANAGER":
+      return "Responsable de Succursale";
+    case "SUPER_ADMIN":
+      return "Super Administrateur";
+    case "EMPLOYEE":
+      return "Employé";
+    default:
+      return role || "Utilisateur";
+  }
+}
+
+function escapeHtml(str: string): string {
+  return str
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
 export async function POST(req: NextRequest) {
   try {
     const authSession = await requireAuth();
@@ -32,82 +62,80 @@ export async function POST(req: NextRequest) {
       timeStyle: "medium",
     });
 
-    const emailSubject = `[Support RKonekte] ${subject.trim()} — ${orgName}`;
+    const emailSubject = `[Support] ${subject.trim()} — ${orgName}`;
 
-    const htmlContent = `
-    <!DOCTYPE html>
-    <html>
-      <head>
-        <meta charset="utf-8" />
-        <style>
-          body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #F4F6F9; margin: 0; padding: 24px; color: #1E293B; }
-          .container { max-width: 620px; margin: 0 auto; background: #FFFFFF; border-radius: 16px; border: 1px solid #E2E8F0; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); }
-          .header { background: #031B3A; color: #FFFFFF; padding: 24px 32px; border-bottom: 3px solid #FF7900; }
-          .header h1 { margin: 0; font-size: 20px; font-weight: 700; }
-          .header p { margin: 4px 0 0; font-size: 13px; color: #94A3B8; }
-          .content { padding: 32px; }
-          .meta-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 12px; padding: 18px; margin-bottom: 24px; }
-          .meta-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }
-          .meta-label { font-weight: 600; color: #64748B; }
-          .meta-val { font-weight: 700; color: #0F172A; }
-          .badge { display: inline-block; background: #FFF4EB; color: #FF7900; border: 1px solid rgba(255,121,0,0.25); font-size: 11px; font-weight: 700; padding: 3px 8px; border-radius: 6px; text-transform: uppercase; }
-          .message-title { font-size: 14px; font-weight: 700; color: #031B3A; margin: 0 0 12px; text-transform: uppercase; letter-spacing: 0.5px; }
-          .message-box { background: #FFFFFF; border: 1px solid #CBD5E1; border-left: 4px solid #031B3A; border-radius: 8px; padding: 16px; font-size: 14px; line-height: 1.6; color: #334155; white-space: pre-wrap; }
-          .footer { background: #F8FAFC; border-top: 1px solid #E2E8F0; padding: 18px 32px; font-size: 12px; color: #64748B; text-align: center; }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <div class="header">
-            <h1>Nouvelle Demande de Support Client</h1>
-            <p>Plateforme RKonekte • Système de gestion d'entreprise</p>
-          </div>
-          <div class="content">
-            <div class="meta-box">
-              <div class="meta-row">
-                <span class="meta-label">Entreprise :</span>
-                <span class="meta-val">${orgName}</span>
-              </div>
-              <div class="meta-row">
-                <span class="meta-label">Expéditeur :</span>
-                <span class="meta-val">${senderName} (${senderEmail})</span>
-              </div>
-              <div class="meta-row">
-                <span class="meta-label">Rôle de l'utilisateur :</span>
-                <span class="meta-val">${userRole}</span>
-              </div>
-              <div class="meta-row">
-                <span class="meta-label">Catégorie :</span>
-                <span class="meta-val"><span class="badge">${cleanCategory}</span></span>
-              </div>
-              <div class="meta-row">
-                <span class="meta-label">Onglet concerné :</span>
-                <span class="meta-val">${cleanModule}</span>
-              </div>
-              <div class="meta-row" style="margin-bottom: 0;">
-                <span class="meta-label">Date et heure :</span>
-                <span class="meta-val">${nowStr}</span>
-              </div>
-            </div>
+    const safeOrgName = escapeHtml(orgName);
+    const safeSenderName = escapeHtml(senderName);
+    const safeSenderEmail = escapeHtml(senderEmail);
+    const safeRole = escapeHtml(formatUserRole(userRole));
+    const safeCategory = escapeHtml(cleanCategory);
+    const safeModule = escapeHtml(cleanModule);
+    const safeNowStr = escapeHtml(nowStr);
+    const safeSubject = escapeHtml(subject.trim());
+    const safeMessage = escapeHtml(message.trim());
 
-            <div class="message-title">Objet : ${subject.trim()}</div>
-            <div class="message-box">${message.trim()}</div>
-          </div>
-          <div class="footer">
-            Cet e-mail a été généré automatiquement depuis le Centre de Support RKonekte par un utilisateur authentifié.<br />
-            Pour répondre, écrivez directement à <strong>${senderEmail}</strong>.
-          </div>
-        </div>
-      </body>
-    </html>
-    `;
+    const htmlContent = `<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+  </head>
+  <body style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #FFFFFF; color: #111827; margin: 0; padding: 24px; font-size: 14px; line-height: 1.5;">
+    <div style="max-width: 600px; margin: 0 auto;">
+      <h2 style="font-size: 18px; font-weight: 700; color: #111827; margin: 0 0 16px 0; padding-bottom: 8px; border-bottom: 1px solid #E5E7EB;">
+        Demande de support
+      </h2>
+
+      <table style="width: 100%; border-collapse: collapse; margin-bottom: 18px; font-size: 13px;">
+        <tr>
+          <td style="padding: 4px 0; width: 140px; color: #6B7280; font-weight: 500;">Entreprise :</td>
+          <td style="padding: 4px 0; color: #111827; font-weight: 600;">${safeOrgName}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #6B7280; font-weight: 500;">Expéditeur :</td>
+          <td style="padding: 4px 0; color: #111827; font-weight: 600;">${safeSenderName} &lt;${safeSenderEmail}&gt;</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #6B7280; font-weight: 500;">Rôle :</td>
+          <td style="padding: 4px 0; color: #111827; font-weight: 600;">${safeRole}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #6B7280; font-weight: 500;">Catégorie :</td>
+          <td style="padding: 4px 0; color: #111827; font-weight: 600;">${safeCategory}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #6B7280; font-weight: 500;">Onglet concerné :</td>
+          <td style="padding: 4px 0; color: #111827; font-weight: 600;">${safeModule}</td>
+        </tr>
+        <tr>
+          <td style="padding: 4px 0; color: #6B7280; font-weight: 500;">Date :</td>
+          <td style="padding: 4px 0; color: #111827; font-weight: 600;">${safeNowStr}</td>
+        </tr>
+      </table>
+
+      <hr style="border: 0; border-top: 1px solid #E5E7EB; margin: 18px 0;" />
+
+      <div style="font-size: 14px; font-weight: 700; color: #111827; margin-bottom: 8px;">
+        Objet : ${safeSubject}
+      </div>
+
+      <div style="font-size: 14px; line-height: 1.6; color: #111827; white-space: pre-wrap; margin-bottom: 24px;">${safeMessage}</div>
+
+      <hr style="border: 0; border-top: 1px solid #E5E7EB; margin: 18px 0;" />
+
+      <div style="font-size: 12px; color: #6B7280;">
+        Répondre directement à cet e-mail pour contacter ${safeSenderName} (${safeSenderEmail}).
+      </div>
+    </div>
+  </body>
+</html>`;
 
     // Send the email to rkonekte509@gmail.com
     const result = await sendEmail({
       to: targetEmail,
       subject: emailSubject,
       html: htmlContent,
-      text: `Nouvelle demande de support\n\nEntreprise : ${orgName}\nExpéditeur : ${senderName} (${senderEmail})\nRôle : ${userRole}\nCatégorie : ${cleanCategory}\nModule : ${cleanModule}\n\nObjet : ${subject.trim()}\n\nMessage :\n${message.trim()}`,
+      replyTo: senderEmail && senderEmail !== "Non renseigné" ? senderEmail : undefined,
+      text: `Demande de support\n\nEntreprise : ${orgName}\nExpéditeur : ${senderName} (${senderEmail})\nRôle : ${formatUserRole(userRole)}\nCatégorie : ${cleanCategory}\nOnglet : ${cleanModule}\nDate : ${nowStr}\n\nObjet : ${subject.trim()}\n\n${message.trim()}`,
     });
 
     if (!result.success) {

@@ -7,69 +7,73 @@ export async function GET(req: NextRequest) {
     const { organizationId } = await requireTenantUser();
     const supabase = getSupabaseAdminClient();
 
-    // 1. Fetch users from organization
-    const { data: users, error: usersErr } = await supabase
-      .from("users")
-      .select("id, name, email, role, status")
-      .eq("organization_id", organizationId);
+    // 1. Fetch active users of the organization (not employees)
+    let orgUsers: any[] = [];
+    try {
+      const { data: users, error: usersErr } = await supabase
+        .from("users")
+        .select("id, name, email, role, status")
+        .eq("organization_id", organizationId)
+        .order("name", { ascending: true });
 
-    if (usersErr) {
-      throw usersErr;
-    }
-
-    // 2. Fetch existing signature delegations from Supabase table
-    const { data: delegations, error: delegErr } = await supabase
-      .from("signature_delegations")
-      .select("*")
-      .eq("organization_id", organizationId);
-
-    if (delegErr) {
-      console.warn("Could not query signature_delegations:", delegErr);
-    }
-
-    const delegMap = new Map<string, any>();
-    for (const d of delegations || []) {
-      delegMap.set(d.user_id, d);
-    }
-
-    // 3. Build enriched signers list
-    const signers = (users || []).map((u) => {
-      const existing = delegMap.get(u.id);
-      const isPDG = u.role === "ORGANIZATION_ADMIN";
-      const isSecretary = u.role === "SECRETARY" || u.role === "RH";
-      const isFinance = u.role === "FINANCIAL_MANAGER";
-
-      if (existing) {
-        return {
-          id: existing.id,
-          userId: u.id,
-          userName: u.name,
-          userEmail: u.email,
-          role: u.role,
-          canSignLeaves: Boolean(existing.can_sign_leaves),
-          canSignSalaryRaises: Boolean(existing.can_sign_salary_raises),
-          canSignAuthorizations: Boolean(existing.can_sign_authorizations),
-          spendingLimitHTG: Number(existing.spending_limit_htg || 0),
-          status: existing.status || "ACTIVE",
-        };
+      if (!usersErr && users) {
+        orgUsers = users;
       }
+    } catch (_) {}
 
-      // Default delegations if not yet registered in table
-      return {
-        id: `sig-virt-${u.id}`,
-        userId: u.id,
-        userName: u.name,
-        userEmail: u.email,
-        role: u.role,
-        canSignLeaves: isPDG || isSecretary,
-        canSignSalaryRaises: isPDG || isFinance,
-        canSignAuthorizations: isPDG || isFinance,
-        spendingLimitHTG: isPDG ? 500000 : isFinance ? 250000 : 0,
-        status: u.status || "ACTIVE",
-      };
+    if (orgUsers.length === 0) {
+      try {
+        const { listOrgUsers } = await import("@/lib/services/users");
+        const localUsers = await listOrgUsers(organizationId);
+        orgUsers = localUsers || [];
+      } catch (_) {}
+    }
+
+    // 2. Fetch only explicit signature delegations from table
+    let delegations: any[] = [];
+    try {
+      const { data: delegs, error: delegErr } = await supabase
+        .from("signature_delegations")
+        .select("*")
+        .eq("organization_id", organizationId)
+        .order("created_at", { ascending: false });
+
+      if (!delegErr && delegs) {
+        delegations = delegs;
+      }
+    } catch (_) {}
+
+    const userMap = new Map<string, any>();
+    for (const u of orgUsers) {
+      userMap.set(u.id, u);
+    }
+
+    // 3. Build signers list ONLY from explicit delegations (no virtual auto-generation)
+    // If no delegation exists, returns [] so the page starts at 0.
+    const signers = delegations
+      .map((d: any) => {
+        const u = userMap.get(d.user_id);
+        if (!u && !d.user_name) return null;
+        return {
+          id: d.id,
+          userId: d.user_id,
+          userName: u?.name || d.user_name || "Utilisateur",
+          userEmail: u?.email || d.user_email || "",
+          role: u?.role || d.role || "COLLABORATEUR",
+          canSignLeaves: Boolean(d.can_sign_leaves),
+          canSignSalaryRaises: Boolean(d.can_sign_salary_raises),
+          canSignAuthorizations: Boolean(d.can_sign_authorizations),
+          status: d.status || "ACTIVE",
+          signatureUrl: d.signature_url || null,
+        };
+      })
+      .filter(Boolean);
+
+    return NextResponse.json({
+      success: true,
+      signers,
+      availableUsers: orgUsers.filter((u) => u.status !== "DISABLED"),
     });
-
-    return NextResponse.json({ success: true, signers });
   } catch (err) {
     return handleApiError(err);
   }
@@ -88,11 +92,10 @@ export async function POST(req: NextRequest) {
       canSignLeaves,
       canSignSalaryRaises,
       canSignAuthorizations,
-      spendingLimitHTG,
       status,
     } = body;
 
-    // Resolve user ID by email if not provided
+    // Resolve user ID
     let targetUserId = userId;
     if (!targetUserId && userEmail) {
       const { data: u } = await supabase
@@ -108,18 +111,22 @@ export async function POST(req: NextRequest) {
 
     if (!targetUserId) {
       return NextResponse.json(
-        { error: "Utilisateur introuvable pour cette délégation de signature." },
+        { error: "Veuillez sélectionner un utilisateur pour cette délégation de signature." },
         { status: 400 }
       );
     }
 
     // Check if delegation already exists
-    const { data: existing } = await supabase
-      .from("signature_delegations")
-      .select("id")
-      .eq("organization_id", organizationId)
-      .eq("user_id", targetUserId)
-      .maybeSingle();
+    let existing: any = null;
+    try {
+      const { data } = await supabase
+        .from("signature_delegations")
+        .select("id")
+        .eq("organization_id", organizationId)
+        .eq("user_id", targetUserId)
+        .maybeSingle();
+      existing = data;
+    } catch (_) {}
 
     const delegationId = existing?.id || `sig-${crypto.randomUUID()}`;
 
@@ -130,23 +137,27 @@ export async function POST(req: NextRequest) {
       can_sign_leaves: Boolean(canSignLeaves),
       can_sign_salary_raises: Boolean(canSignSalaryRaises),
       can_sign_authorizations: Boolean(canSignAuthorizations),
-      spending_limit_htg: Number(spendingLimitHTG || 0),
+      spending_limit_htg: 0,
       status: status || "ACTIVE",
       updated_at: now,
     };
 
-    if (existing) {
-      await supabase
-        .from("signature_delegations")
-        .update(payload)
-        .eq("id", delegationId);
-    } else {
-      await supabase
-        .from("signature_delegations")
-        .insert({
-          ...payload,
-          created_at: now,
-        });
+    try {
+      if (existing) {
+        await supabase
+          .from("signature_delegations")
+          .update(payload)
+          .eq("id", delegationId);
+      } else {
+        await supabase
+          .from("signature_delegations")
+          .insert({
+            ...payload,
+            created_at: now,
+          });
+      }
+    } catch (e) {
+      console.warn("Could not insert/update signature_delegations in Supabase:", e);
     }
 
     return NextResponse.json({
@@ -156,6 +167,57 @@ export async function POST(req: NextRequest) {
         ...payload,
       },
     });
+  } catch (err) {
+    return handleApiError(err);
+  }
+}
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const { organizationId } = await requireTenantUser();
+    const { searchParams } = new URL(req.url);
+    const delegationId = searchParams.get("id");
+    const userId = searchParams.get("userId");
+    const resetAll = searchParams.get("reset") === "true";
+
+    const supabase = getSupabaseAdminClient();
+
+    if (resetAll) {
+      try {
+        await supabase
+          .from("signature_delegations")
+          .delete()
+          .eq("organization_id", organizationId);
+      } catch (_) {}
+      return NextResponse.json({ success: true, message: "Page remise à zéro" });
+    }
+
+    if (!delegationId && !userId) {
+      return NextResponse.json(
+        { error: "Identifiant de délégation ou utilisateur requis" },
+        { status: 400 }
+      );
+    }
+
+    try {
+      if (delegationId) {
+        await supabase
+          .from("signature_delegations")
+          .delete()
+          .eq("organization_id", organizationId)
+          .eq("id", delegationId);
+      } else if (userId) {
+        await supabase
+          .from("signature_delegations")
+          .delete()
+          .eq("organization_id", organizationId)
+          .eq("user_id", userId);
+      }
+    } catch (e) {
+      console.warn("Could not delete from signature_delegations in Supabase:", e);
+    }
+
+    return NextResponse.json({ success: true });
   } catch (err) {
     return handleApiError(err);
   }

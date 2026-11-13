@@ -20,7 +20,6 @@ import {
   Layers,
   ArrowRight,
   TrendingUp,
-  Receipt,
   Edit3,
   Eye,
 } from "lucide-react";
@@ -932,7 +931,7 @@ export default function FinancialReportsPage() {
         <div>
           {isCashier && (
             <div className="flex items-center gap-2 mb-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded">
                 Espace Caissier
               </span>
             </div>
@@ -1006,9 +1005,9 @@ export default function FinancialReportsPage() {
         <div className="space-y-6 print:hidden">
           <form onSubmit={handleSaveEntry} className="space-y-6">
           {/* DATE SELECTOR & STATUS BAR */}
-          <div className="bg-white p-5 rounded-2xl border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div className="bg-white p-5 rounded-2xl shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-emerald-50 border border-emerald-200 flex items-center justify-center text-emerald-700 shrink-0">
+              <div className="w-10 h-10 rounded-xl bg-emerald-50 flex items-center justify-center text-emerald-700 shrink-0">
                 <Calendar className="w-5 h-5" />
               </div>
               <div>
@@ -1028,7 +1027,7 @@ export default function FinancialReportsPage() {
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
                 style={{ backgroundColor: "#000000", color: "#ffffff", colorScheme: "dark" }}
-                className="h-10 px-4 bg-black hover:bg-neutral-900 border border-black rounded-xl text-xs font-bold text-white focus:outline-none focus:ring-2 focus:ring-black/40 cursor-pointer shadow-xs transition-colors"
+                className="h-10 px-4 bg-black hover:bg-neutral-900 rounded-xl text-xs font-bold text-white focus:outline-hidden focus:ring-2 focus:ring-black/40 cursor-pointer shadow-xs transition-colors"
               />
 
               {/* BOUTON VERT SOLIDE ET TEXTE BLANC: NOUVELLE SAISIE */}
@@ -1070,8 +1069,8 @@ export default function FinancialReportsPage() {
           </div>
 
           {/* DYNAMIC AMOUNTS GRID */}
-          <div className="bg-white p-6 rounded-2xl border border-[#DCE2EA] shadow-xs space-y-6">
-            <div className="flex items-center justify-between border-b border-[#DCE2EA] pb-3">
+          <div className="bg-white p-6 rounded-2xl shadow-xs space-y-6">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div>
                 <h3 className="text-sm font-bold text-[#062653] uppercase tracking-wider flex items-center gap-2">
                   <span>Ventilation des Rentrées par Mode de Paiement</span>
@@ -1088,8 +1087,8 @@ export default function FinancialReportsPage() {
             {/* SECTIONS: HTG & USD */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {/* 1. GOURDES (HTG) */}
-              <div className="space-y-4 bg-emerald-50/40 p-4 sm:p-5 rounded-xl border border-emerald-200/80">
-                <div className="pb-2 border-b border-emerald-200">
+              <div className="space-y-4 bg-emerald-50/50 p-4 sm:p-5 rounded-xl">
+                <div className="pb-2 border-b border-emerald-200/60">
                   <span className="text-xs font-extrabold text-emerald-900 uppercase tracking-wide flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                     Modes de Règlement en Gourdes (HTG)
@@ -1124,10 +1123,10 @@ export default function FinancialReportsPage() {
                             }}
                             onWheel={(e) => e.currentTarget.blur()}
                             onChange={(e) => handleAmountChange(rub.id, e.target.value)}
-                            className={`flex-1 h-10 px-3.5 border rounded-xl text-xs font-bold font-mono text-right transition-colors ${
+                            className={`flex-1 h-10 px-3.5 rounded-xl text-xs font-bold font-mono text-right transition-colors ${
                               existingEntryId && !isEditing
-                                ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
-                                : "bg-white text-[#062653] border-[#DCE2EA] focus:border-emerald-600 focus:ring-2 focus:ring-emerald-500/20"
+                                ? "bg-slate-100 text-slate-500 cursor-not-allowed"
+                                : "bg-white text-[#062653] shadow-2xs focus:ring-2 focus:ring-emerald-500/20"
                             }`}
                           />
                           <div className="h-10 px-3 rounded-xl bg-emerald-600 text-white text-xs font-black flex items-center justify-center shrink-0 min-w-[54px] shadow-xs select-none">
@@ -1141,8 +1140,8 @@ export default function FinancialReportsPage() {
               </div>
 
               {/* 2. DOLLARS (USD) */}
-              <div className="space-y-4 bg-blue-50/40 p-4 sm:p-5 rounded-xl border border-blue-200/80">
-                <div className="pb-2 border-b border-blue-200">
+              <div className="space-y-4 bg-blue-50/50 p-4 sm:p-5 rounded-xl">
+                <div className="pb-2 border-b border-blue-200/60">
                   <span className="text-xs font-extrabold text-blue-900 uppercase tracking-wide flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-blue-500"></span>
                     Modes de Règlement en Dollars (USD)
@@ -1177,10 +1176,10 @@ export default function FinancialReportsPage() {
                             }}
                             onWheel={(e) => e.currentTarget.blur()}
                             onChange={(e) => handleAmountChange(rub.id, e.target.value)}
-                            className={`flex-1 h-10 px-3.5 border rounded-xl text-xs font-bold font-mono text-right transition-colors ${
+                            className={`flex-1 h-10 px-3.5 rounded-xl text-xs font-bold font-mono text-right transition-colors ${
                               existingEntryId && !isEditing
-                                ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
-                                : "bg-white text-[#062653] border-[#DCE2EA] focus:border-blue-600 focus:ring-2 focus:ring-blue-500/20"
+                                ? "bg-slate-100 text-slate-500 cursor-not-allowed"
+                                : "bg-white text-[#062653] shadow-2xs focus:ring-2 focus:ring-blue-500/20"
                             }`}
                           />
                           <div className="h-10 px-3 rounded-xl bg-blue-600 text-white text-xs font-black flex items-center justify-center shrink-0 min-w-[54px] shadow-xs select-none">
@@ -1205,17 +1204,17 @@ export default function FinancialReportsPage() {
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
                 placeholder="Précisions éventuelles sur un écart de caisse, un virement en attente de compensation, etc."
-                className={`w-full p-3 border rounded-xl text-xs transition-colors ${
+                className={`w-full p-3 rounded-xl text-xs transition-colors ${
                   existingEntryId && !isEditing
-                    ? "bg-slate-100 text-slate-500 border-slate-200 cursor-not-allowed"
-                    : "bg-[#F4F6F9] border-[#DCE2EA] text-[#263445] focus:bg-white focus:border-[#FF7900]"
+                    ? "bg-slate-100 text-slate-500 cursor-not-allowed"
+                    : "bg-[#F4F6F9] text-[#263445] focus:bg-white"
                 }`}
               />
             </div>
           </div>
 
           {/* TOTALS BAR & SAVE BUTTON */}
-          <div className="bg-white p-5 rounded-2xl border border-[#DCE2EA] shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-white p-5 rounded-2xl shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div className="flex flex-wrap items-center gap-4 sm:gap-8">
               <div>
                 <span className="text-[10px] uppercase font-bold text-black block">
@@ -1290,7 +1289,7 @@ export default function FinancialReportsPage() {
       {activeTab === "reports" && (
         <div className="space-y-6">
           {/* PERIOD TABS */}
-          <div className="bg-white p-3 rounded-2xl border border-[#DCE2EA] shadow-xs flex items-center justify-between flex-wrap gap-2 print:hidden">
+          <div className="bg-white p-3 rounded-2xl shadow-xs flex items-center justify-between flex-wrap gap-2 print:hidden">
             <div className="flex items-center gap-1.5 overflow-x-auto">
               {[
                 { id: "daily", label: "Journalier" },
@@ -1338,7 +1337,7 @@ export default function FinancialReportsPage() {
                   value={filterDate}
                   onChange={(e) => setFilterDate(e.target.value)}
                   style={{ backgroundColor: "#000000", color: "#ffffff", colorScheme: "dark" }}
-                  className="h-9 px-3 bg-black hover:bg-neutral-900 border border-black rounded-lg text-xs font-bold text-white cursor-pointer shadow-xs transition-colors"
+                  className="h-9 px-3 bg-black hover:bg-neutral-900 rounded-lg text-xs font-bold text-white cursor-pointer shadow-xs transition-colors"
                 />
               )}
               {period === "weekly" && (
@@ -1349,7 +1348,7 @@ export default function FinancialReportsPage() {
                     value={filterDate}
                     onChange={(e) => setFilterDate(e.target.value)}
                     style={{ backgroundColor: "#000000", color: "#ffffff", colorScheme: "dark" }}
-                    className="h-9 px-3 bg-black hover:bg-neutral-900 border border-black rounded-lg text-xs font-bold text-white cursor-pointer shadow-xs transition-colors"
+                    className="h-9 px-3 bg-black hover:bg-neutral-900 rounded-lg text-xs font-bold text-white cursor-pointer shadow-xs transition-colors"
                   />
                 </div>
               )}
@@ -1359,7 +1358,7 @@ export default function FinancialReportsPage() {
                   value={filterDate.slice(0, 7)}
                   onChange={(e) => setFilterDate(`${e.target.value}-01`)}
                   style={{ backgroundColor: "#000000", color: "#ffffff", colorScheme: "dark" }}
-                  className="h-9 px-3 bg-black hover:bg-neutral-900 border border-black rounded-lg text-xs font-bold text-white cursor-pointer shadow-xs transition-colors"
+                  className="h-9 px-3 bg-black hover:bg-neutral-900 rounded-lg text-xs font-bold text-white cursor-pointer shadow-xs transition-colors"
                 />
               )}
               {period === "yearly" && (
@@ -1367,7 +1366,7 @@ export default function FinancialReportsPage() {
                   value={filterDate.slice(0, 4)}
                   onChange={(e) => setFilterDate(`${e.target.value}-01-01`)}
                   style={{ backgroundColor: "#000000", color: "#ffffff", colorScheme: "dark" }}
-                  className="h-9 px-3 bg-black hover:bg-neutral-900 border border-black rounded-lg text-xs font-bold text-white cursor-pointer shadow-xs transition-colors"
+                  className="h-9 px-3 bg-black hover:bg-neutral-900 rounded-lg text-xs font-bold text-white cursor-pointer shadow-xs transition-colors"
                 >
                   {[2024, 2025, 2026, 2027, 2028].map((y) => (
                     <option key={y} value={y} className="bg-neutral-900 text-white">
@@ -1383,7 +1382,7 @@ export default function FinancialReportsPage() {
                     value={filterStartDate}
                     onChange={(e) => setFilterStartDate(e.target.value)}
                     style={{ backgroundColor: "#000000", color: "#ffffff", colorScheme: "dark" }}
-                    className="h-9 px-2.5 bg-black hover:bg-neutral-900 border border-black rounded-lg text-xs font-bold text-white cursor-pointer shadow-xs transition-colors"
+                    className="h-9 px-2.5 bg-black hover:bg-neutral-900 rounded-lg text-xs font-bold text-white cursor-pointer shadow-xs transition-colors"
                   />
                   <span className="text-xs text-[#64748B]">au</span>
                   <input
@@ -1391,7 +1390,7 @@ export default function FinancialReportsPage() {
                     value={filterEndDate}
                     onChange={(e) => setFilterEndDate(e.target.value)}
                     style={{ backgroundColor: "#000000", color: "#ffffff", colorScheme: "dark" }}
-                    className="h-9 px-2.5 bg-black hover:bg-neutral-900 border border-black rounded-lg text-xs font-bold text-white cursor-pointer shadow-xs transition-colors"
+                    className="h-9 px-2.5 bg-black hover:bg-neutral-900 rounded-lg text-xs font-bold text-white cursor-pointer shadow-xs transition-colors"
                   />
                 </div>
               )}
@@ -1399,7 +1398,7 @@ export default function FinancialReportsPage() {
           </div>
 
           {/* SECONDARY FILTERS BAR: CASHIER & BRANCH */}
-          <div className="bg-white p-4 rounded-2xl border border-[#DCE2EA] shadow-xs flex flex-wrap items-center justify-between gap-4 print:hidden">
+          <div className="bg-white p-4 rounded-2xl shadow-xs flex flex-wrap items-center justify-between gap-4 print:hidden">
             <div className="flex flex-wrap items-center gap-4">
               {/* Cashier Filter */}
               <div className="flex items-center gap-2">
@@ -1410,7 +1409,7 @@ export default function FinancialReportsPage() {
                 <select
                   value={selectedCashierId}
                   onChange={(e) => setSelectedCashierId(e.target.value)}
-                  className="h-9 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs font-semibold text-[#062653] cursor-pointer"
+                  className="h-9 px-3 bg-[#F4F6F9] rounded-lg text-xs font-semibold text-[#062653] focus:bg-white cursor-pointer"
                 >
                   <option value="ALL">Tous les caissiers</option>
                   {cashiersList.map((u) => (
@@ -1430,7 +1429,7 @@ export default function FinancialReportsPage() {
                 <select
                   value={selectedBranchId}
                   onChange={(e) => handleBranchSelectChange(e.target.value)}
-                  className="h-9 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs font-semibold text-[#062653] cursor-pointer"
+                  className="h-9 px-3 bg-[#F4F6F9] rounded-lg text-xs font-semibold text-[#062653] focus:bg-white cursor-pointer"
                 >
                   <option value="ALL">Toutes les succursales</option>
                   {branches.map((b) => (
@@ -1450,7 +1449,7 @@ export default function FinancialReportsPage() {
           {/* KPI CARDS (SOLID COLORED BOXES EXACTLY LIKE IN DASHBOARD) */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-5 print:hidden">
             {/* 1. TOTAL RECETTES HTG - SOLID GREEN #059669 */}
-            <div className="relative overflow-hidden bg-[#059669] text-white p-6 rounded-2xl sm:rounded-3xl border border-[#059669] shadow-md flex flex-col justify-between">
+            <div className="relative overflow-hidden bg-[#059669] text-white p-6 rounded-2xl sm:rounded-3xl shadow-md flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-bold uppercase tracking-wider text-emerald-100/90">
@@ -1473,7 +1472,7 @@ export default function FinancialReportsPage() {
             </div>
 
             {/* 2. TOTAL RECETTES USD - SOLID BLUE #062653 */}
-            <div className="relative overflow-hidden bg-[#062653] text-white p-6 rounded-2xl sm:rounded-3xl border border-[#062653] shadow-md flex flex-col justify-between">
+            <div className="relative overflow-hidden bg-[#062653] text-white p-6 rounded-2xl sm:rounded-3xl shadow-md flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-bold uppercase tracking-wider text-blue-100/90">
@@ -1496,7 +1495,7 @@ export default function FinancialReportsPage() {
             </div>
 
             {/* 3. CAISSIERS ACTIFS - SOLID ORANGE #FF7900 */}
-            <div className="relative overflow-hidden bg-[#FF7900] text-white p-6 rounded-2xl sm:rounded-3xl border border-[#FF7900] shadow-md flex flex-col justify-between">
+            <div className="relative overflow-hidden bg-[#FF7900] text-white p-6 rounded-2xl sm:rounded-3xl shadow-md flex flex-col justify-between">
               <div>
                 <div className="flex items-center justify-between gap-3">
                   <span className="text-xs font-bold uppercase tracking-wider text-amber-100/95">
@@ -1515,7 +1514,7 @@ export default function FinancialReportsPage() {
           </div>
 
           {/* CONSOLIDATED TABLE WITH ALL RUBRIQUES COLUMNS */}
-          <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xs overflow-hidden print:border-none print:shadow-none print:rounded-none">
+          <div className="bg-white rounded-2xl shadow-xs overflow-hidden print:shadow-none print:rounded-none">
             {entriesLoading ? (
               <div className="p-12 text-center text-xs text-[#64748B]">
                 <RefreshCw className="w-5 h-5 animate-spin text-[#062653] mx-auto mb-2" />
@@ -1523,7 +1522,6 @@ export default function FinancialReportsPage() {
               </div>
             ) : entries.length === 0 ? (
               <div className="p-12 text-center text-xs text-[#64748B] space-y-2">
-                <Receipt className="w-8 h-8 text-slate-300 mx-auto" />
                 <p className="font-semibold text-[#062653]">
                   Aucune rentrée enregistrée sur cette période.
                 </p>
@@ -1722,12 +1720,12 @@ export default function FinancialReportsPage() {
       >
         {editingEntry && (
           <form onSubmit={handleSaveAdminEdit} className="space-y-5">
-            <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
+            <div className="bg-[#F4F6F9] rounded-xl p-3.5 flex flex-wrap items-center justify-between gap-3 text-xs">
               <div>
                 <span className="text-slate-500 block text-[11px]">Caissier</span>
                 <span className="font-bold text-[#062653] text-sm">{editingEntry.cashierName}</span>
                 {resolveMatricule(editingEntry) && (
-                  <span className="ml-2 font-mono text-[10px] text-slate-600 bg-white px-2 py-0.5 rounded border border-slate-200 font-semibold">
+                  <span className="ml-2 font-mono text-[10px] text-slate-600 bg-white px-2 py-0.5 rounded shadow-2xs font-semibold">
                     {resolveMatricule(editingEntry)}
                   </span>
                 )}
@@ -1750,7 +1748,7 @@ export default function FinancialReportsPage() {
               </label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[340px] overflow-y-auto pr-1">
                 {activeRubriques.map((rub) => (
-                  <div key={rub.id} className="bg-white border border-[#DCE2EA] rounded-xl p-3 focus-within:border-[#062653] focus-within:ring-2 focus-within:ring-[#062653]/10 transition-all">
+                  <div key={rub.id} className="bg-[#F4F6F9] focus-within:bg-white rounded-xl p-3 focus-within:ring-2 focus-within:ring-[#062653]/15 transition-all">
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-xs font-semibold text-[#062653] truncate">{rub.name}</span>
                       <span className={`text-[10px] font-black px-1.5 py-0.5 rounded ${rub.currency === "USD" ? "bg-blue-600 text-white" : "bg-emerald-600 text-white"}`}>
@@ -1770,7 +1768,7 @@ export default function FinancialReportsPage() {
                         }));
                       }}
                       placeholder="0.00"
-                      className="w-full text-sm font-mono font-bold text-[#062653] focus:outline-none bg-transparent"
+                      className="w-full text-sm font-mono font-bold text-[#062653] focus:outline-hidden bg-transparent"
                     />
                   </div>
                 ))}
@@ -1786,12 +1784,12 @@ export default function FinancialReportsPage() {
                 value={adminEditNotes}
                 onChange={(e) => setAdminEditNotes(e.target.value)}
                 placeholder="Explication de la modification ou régularisation..."
-                className="w-full p-2.5 border border-[#DCE2EA] rounded-xl text-xs text-[#062653] bg-white focus:outline-none focus:border-[#062653]"
+                className="w-full p-2.5 rounded-xl text-xs text-[#062653] bg-[#F4F6F9] focus:bg-white focus:outline-hidden"
               />
             </div>
 
             {/* LIVE PREVIEW OF RECALCULATED TOTALS */}
-            <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-slate-100 border border-slate-200">
+            <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#F4F6F9]">
               <div className="bg-emerald-600 text-white p-3 rounded-lg flex items-center justify-between">
                 <div>
                   <span className="text-[10px] uppercase font-bold text-emerald-100 block">Nouveau Total HTG</span>
@@ -1812,7 +1810,7 @@ export default function FinancialReportsPage() {
               </div>
             </div>
 
-            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-[#DCE2EA]">
+            <div className="flex items-center justify-end gap-2.5 pt-2 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => {
@@ -1820,7 +1818,7 @@ export default function FinancialReportsPage() {
                   setEditingEntry(null);
                 }}
                 disabled={adminEditSaving}
-                className="px-4 py-2 border border-[#DCE2EA] hover:bg-slate-50 text-slate-700 text-xs font-semibold rounded-xl cursor-pointer"
+                className="px-4 py-2 bg-[#F4F6F9] hover:bg-slate-200/70 text-slate-700 text-xs font-semibold rounded-xl cursor-pointer"
               >
                 Annuler
               </button>
@@ -1856,7 +1854,7 @@ export default function FinancialReportsPage() {
       >
         <div className="space-y-6">
           {/* ADD NEW RUBRIQUE FORM */}
-          <form onSubmit={handleAddRubrique} className="p-4 bg-[#F4F6F9] rounded-xl border border-[#DCE2EA] space-y-3">
+          <form onSubmit={handleAddRubrique} className="p-4 bg-[#F4F6F9] rounded-xl space-y-3">
             <span className="text-xs font-bold text-[#062653] block uppercase tracking-wide">
               + Ajouter un mode de paiement / rubrique
             </span>
@@ -1871,7 +1869,7 @@ export default function FinancialReportsPage() {
                   placeholder="Ex: CHEQUE HTG, NATCASH, POS CARTE..."
                   value={newRubName}
                   onChange={(e) => setNewRubName(e.target.value)}
-                  className="w-full h-10 px-3 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-semibold focus:border-[#FF7900]"
+                  className="w-full h-10 px-3 bg-white shadow-2xs rounded-xl text-xs text-[#062653] font-semibold"
                 />
               </div>
               <div>
@@ -1881,7 +1879,7 @@ export default function FinancialReportsPage() {
                 <select
                   value={newRubCurrency}
                   onChange={(e) => setNewRubCurrency(e.target.value as any)}
-                  className="w-full h-10 px-3 bg-white border border-[#DCE2EA] rounded-xl text-xs font-bold text-[#062653] cursor-pointer"
+                  className="w-full h-10 px-3 bg-white shadow-2xs rounded-xl text-xs font-bold text-[#062653] cursor-pointer"
                 >
                   <option value="HTG">HTG (Gourdes)</option>
                   <option value="USD">USD (Dollars)</option>
@@ -1902,7 +1900,7 @@ export default function FinancialReportsPage() {
 
           {/* LIST OF CURRENT RUBRIQUES */}
           <div className="space-y-3">
-            <div className="flex items-center justify-between text-xs font-bold text-[#062653] border-b border-[#DCE2EA] pb-2">
+            <div className="flex items-center justify-between text-xs font-bold text-[#062653] border-b border-slate-100 pb-2">
               <span>Rubriques de caisse existantes ({rubriques.length})</span>
               <button
                 type="button"
@@ -1919,8 +1917,8 @@ export default function FinancialReportsPage() {
               {rubriques.map((rub, idx) => (
                 <div
                   key={rub.id}
-                  className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs transition-colors ${
-                    rub.isActive ? "bg-white border-[#DCE2EA] hover:border-slate-300" : "bg-slate-50 border-slate-200 opacity-60"
+                  className={`p-3 rounded-xl flex items-center justify-between gap-3 text-xs transition-colors ${
+                    rub.isActive ? "bg-[#F4F6F9] hover:bg-slate-200/60" : "bg-slate-100 opacity-60"
                   }`}
                 >
                   <div className="flex items-center gap-2.5">
@@ -1966,7 +1964,7 @@ export default function FinancialReportsPage() {
           </div>
 
           {/* SLIDEOVER FOOTER */}
-          <div className="pt-4 border-t border-[#DCE2EA] flex items-center justify-between">
+          <div className="pt-4 border-t border-slate-100 flex items-center justify-between">
             <span className="text-[11px] text-[#64748B]">
               {rubriques.filter((r) => r.isActive).length} rubrique(s) active(s) sur {rubriques.length}
             </span>

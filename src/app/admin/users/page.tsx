@@ -239,14 +239,14 @@ export default function AdminUsersPage() {
       </div>
 
       {/* 2. SEARCH & FILTER BAR */}
-      <div className="bg-white p-4 rounded-xl border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
+      <div className="bg-white p-4 rounded-xl shadow-xs flex flex-col md:flex-row gap-3 items-stretch md:items-center justify-between">
         <div className="relative flex-1">
           <input
             type="text"
             placeholder="Rechercher par nom, email..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full h-9 pl-9 pr-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs text-[#263445] placeholder-[#64748B] focus:bg-white transition-colors"
+            className="w-full h-9 pl-9 pr-3 bg-[#F4F6F9] rounded-lg text-xs text-[#263445] placeholder-[#64748B] focus:bg-white transition-colors"
           />
           <Search className="w-4 h-4 text-[#64748B] absolute left-3 top-2.5" />
         </div>
@@ -257,7 +257,7 @@ export default function AdminUsersPage() {
             <select
               value={roleFilter}
               onChange={(e) => setRoleFilter(e.target.value)}
-              className="h-9 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs font-semibold text-[#263445]"
+              className="h-9 px-3 bg-[#F4F6F9] rounded-lg text-xs font-semibold text-[#263445] focus:bg-white transition-colors"
             >
               <option value="ALL">Tous les rôles</option>
               <option value="ORGANIZATION_ADMIN">PDG / Propriétaire</option>
@@ -281,7 +281,7 @@ export default function AdminUsersPage() {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="h-9 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs font-semibold text-[#263445]"
+              className="h-9 px-3 bg-[#F4F6F9] rounded-lg text-xs font-semibold text-[#263445] focus:bg-white transition-colors"
             >
               <option value="ALL">Tous les statuts</option>
               <option value="ACTIVE">Actif</option>
@@ -292,7 +292,7 @@ export default function AdminUsersPage() {
       </div>
 
       {/* 4. TABLE OF USERS */}
-      <div className="bg-white rounded-xl border border-[#DCE2EA] shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-[#64748B] text-xs">
             Chargement des utilisateurs...
@@ -304,7 +304,7 @@ export default function AdminUsersPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-[#DCE2EA]">
+              <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-slate-200/70">
                 <tr>
                   <th className="px-5 py-3">Utilisateur</th>
                   <th className="px-5 py-3">Email professionnel</th>
@@ -314,7 +314,7 @@ export default function AdminUsersPage() {
                   <th className="px-5 py-3 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#DCE2EA]">
+              <tbody className="divide-y divide-slate-100">
                 {filteredUsers.map((u) => {
                   const isSuperAdminTarget = u.role === "SUPER_ADMIN";
                   return (
@@ -387,7 +387,7 @@ export default function AdminUsersPage() {
         {editingUser && (
           <form onSubmit={handleSaveRole} className="space-y-4">
             {/* Read-only user context */}
-            <div className="bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl p-3.5 space-y-2">
+            <div className="bg-[#F4F6F9] rounded-xl p-3.5 space-y-2">
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-3 min-w-0">
                   <div className="w-9 h-9 rounded-full bg-[#062653] text-white flex items-center justify-center font-bold text-xs shrink-0">
@@ -405,7 +405,7 @@ export default function AdminUsersPage() {
                 <StatusBadge status={editingUser.status} size="sm" />
               </div>
 
-              <div className="pt-2 border-t border-[#DCE2EA] flex items-center justify-between gap-2 text-[11px]">
+              <div className="pt-2 border-t border-slate-200/70 flex items-center justify-between gap-2 text-[11px]">
                 <span className="text-[#64748B] font-medium">Rôle actuel :</span>
                 <span className="font-semibold text-[#062653] text-right">
                   {resolveRoleLabel(editingUser.role)}
@@ -429,7 +429,7 @@ export default function AdminUsersPage() {
                   setSelectedRole(e.target.value);
                   setModalError(null);
                 }}
-                className="w-full h-10 px-3 bg-white border border-[#DCE2EA] focus:border-[#062653] focus:outline-none rounded-lg text-xs font-semibold text-[#263445] cursor-pointer"
+                className="w-full h-10 px-3 bg-[#F4F6F9] focus:bg-white focus:outline-hidden rounded-lg text-xs font-semibold text-[#263445] cursor-pointer transition-colors"
                 required
               >
                 <optgroup label="Rôles système">
@@ -460,7 +460,7 @@ export default function AdminUsersPage() {
             </div>
 
             {modalError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-lg flex items-start gap-2 text-xs text-rose-700">
+              <div className="p-3 bg-rose-50 rounded-lg flex items-start gap-2 text-xs text-rose-700">
                 <AlertCircle className="w-4 h-4 shrink-0 mt-0.5 text-rose-600" />
                 <span>{modalError}</span>
               </div>
@@ -471,7 +471,7 @@ export default function AdminUsersPage() {
                 type="button"
                 onClick={closeEditRoleModal}
                 disabled={savingRole}
-                className="px-4 py-2 text-xs font-semibold text-[#263445] bg-white border border-[#DCE2EA] hover:bg-[#F4F6F9] rounded-lg transition-colors cursor-pointer disabled:opacity-50"
+                className="px-4 py-2 text-xs font-semibold text-[#263445] bg-[#F4F6F9] hover:bg-slate-200/70 rounded-lg transition-colors cursor-pointer disabled:opacity-50"
               >
                 Annuler
               </button>

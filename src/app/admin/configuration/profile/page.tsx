@@ -176,7 +176,7 @@ export default function MyProfileDossierPage() {
       {/* 1. HEADER */}
       <div>
         <div className="flex items-center gap-2">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7900] bg-[#FFF4EB] px-2 py-0.5 rounded border border-[#FF7900]/20">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7900] bg-[#FFF4EB] px-2 py-0.5 rounded">
             Dossier Collaborateur
           </span>
         </div>
@@ -208,7 +208,7 @@ export default function MyProfileDossierPage() {
               <div className="absolute -left-1.5 -bottom-1.5 inset-0 bg-emerald-500 rounded-xs" />
 
               {/* Carte blanche principale avec verre flouté et ombre douce */}
-              <div className="relative bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-2xl px-5 py-3.5 flex items-center gap-3 pr-8 min-w-[320px] sm:min-w-[380px]">
+              <div className="relative bg-white/95 backdrop-blur-md shadow-2xl px-5 py-3.5 flex items-center gap-3 pr-8 min-w-[320px] sm:min-w-[380px]">
                 {/* Cercle avec check vert */}
                 <div className="w-5 h-5 rounded-full border-2 border-emerald-500 flex items-center justify-center shrink-0">
                   <Check className="w-3.5 h-3.5 text-emerald-500 stroke-[3]" />
@@ -249,7 +249,7 @@ export default function MyProfileDossierPage() {
 
             <div className="relative">
               <div className="absolute -left-1.5 -bottom-1.5 inset-0 bg-rose-600 rounded-xs" />
-              <div className="relative bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-2xl px-5 py-3.5 flex items-center gap-3 pr-8 min-w-[320px] sm:min-w-[380px]">
+              <div className="relative bg-white/95 backdrop-blur-md shadow-2xl px-5 py-3.5 flex items-center gap-3 pr-8 min-w-[320px] sm:min-w-[380px]">
                 <div className="w-5 h-5 rounded-full border-2 border-rose-600 flex items-center justify-center shrink-0">
                   <AlertCircle className="w-3.5 h-3.5 text-rose-600 stroke-[2.5]" />
                 </div>
@@ -273,15 +273,15 @@ export default function MyProfileDossierPage() {
       )}
 
       {profileLoading && !profileData.employeeNumber ? (
-        <div className="bg-white rounded-xl border border-[#DCE2EA] p-12 text-center text-[#64748B] text-xs flex flex-col items-center justify-center gap-2">
+        <div className="bg-white rounded-xl shadow-xs p-12 text-center text-[#64748B] text-xs flex flex-col items-center justify-center gap-2">
           <RefreshCw className="w-5 h-5 animate-spin text-[#FF7900]" />
           Chargement de votre dossier...
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-[#DCE2EA] p-6 sm:p-7 shadow-xs">
+        <div className="bg-white rounded-xl p-6 sm:p-7 shadow-xs">
           <form onSubmit={handleProfileSubmit} className="space-y-6">
             {/* Informations Générales (Lecture seule / assignées par la direction) */}
-            <div className="p-4 bg-[#F4F6F9] rounded-xl border border-[#DCE2EA]">
+            <div className="p-4 bg-[#F4F6F9] rounded-xl">
               <h3 className="text-[11px] font-bold uppercase tracking-wider text-[#062653] mb-3">
                 Affectation & Données Officielles
               </h3>
@@ -321,7 +321,7 @@ export default function MyProfileDossierPage() {
 
             {/* 1. Coordonnées & Téléphone */}
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#FF7900] pb-1 border-b border-[#DCE2EA] mb-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#FF7900] pb-1 border-b border-slate-100 mb-4">
                 1. Coordonnées de Contact
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -333,7 +333,7 @@ export default function MyProfileDossierPage() {
                     type="email"
                     disabled
                     value={profileData.email || ""}
-                    className="w-full h-10 px-3 bg-slate-100 border border-[#DCE2EA] rounded-xl text-xs text-[#64748B] cursor-not-allowed font-medium"
+                    className="w-full h-10 px-3 bg-slate-100 rounded-xl text-xs text-[#64748B] cursor-not-allowed font-medium"
                   />
                 </div>
                 <div>
@@ -346,7 +346,7 @@ export default function MyProfileDossierPage() {
                     value={profileData.phone || ""}
                     onChange={(e) => setProfileData({ ...profileData, phone: e.target.value })}
                     placeholder="+509 3000-0000"
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                    className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                   />
                 </div>
               </div>
@@ -354,7 +354,7 @@ export default function MyProfileDossierPage() {
 
             {/* 2. Informations Personnelles & Études */}
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#FF7900] pb-1 border-b border-[#DCE2EA] mb-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#FF7900] pb-1 border-b border-slate-100 mb-4">
                 2. Informations Personnelles & Études
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -364,7 +364,7 @@ export default function MyProfileDossierPage() {
                       Date de naissance
                     </label>
                     {calculateAge(profileData.birthDate) !== null && (
-                      <span className="text-[10px] font-bold text-[#FF7900] bg-orange-50 border border-orange-100 px-2 py-0.5 rounded-md">
+                      <span className="text-[10px] font-bold text-[#FF7900] bg-orange-50 px-2 py-0.5 rounded-md">
                         Âge calculé : {calculateAge(profileData.birthDate)} ans
                       </span>
                     )}
@@ -373,7 +373,7 @@ export default function MyProfileDossierPage() {
                     type="date"
                     value={profileData.birthDate || ""}
                     onChange={(e) => setProfileData({ ...profileData, birthDate: e.target.value })}
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                    className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                   />
                 </div>
                 <div>
@@ -385,7 +385,7 @@ export default function MyProfileDossierPage() {
                     value={profileData.studyDomain || ""}
                     onChange={(e) => setProfileData({ ...profileData, studyDomain: e.target.value })}
                     placeholder="Ex: Comptabilité, Gestion, Informatique..."
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                    className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                   />
                 </div>
               </div>
@@ -393,7 +393,7 @@ export default function MyProfileDossierPage() {
 
             {/* 3. Santé & Dossier Médical */}
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#FF7900] pb-1 border-b border-[#DCE2EA] mb-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#FF7900] pb-1 border-b border-slate-100 mb-4">
                 3. Santé & Dossier Médical
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -404,7 +404,7 @@ export default function MyProfileDossierPage() {
                   <select
                     value={profileData.bloodGroup || ""}
                     onChange={(e) => setProfileData({ ...profileData, bloodGroup: e.target.value })}
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors font-medium"
+                    className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors font-medium"
                   >
                     <option value="">Non renseigné</option>
                     {BLOOD_GROUPS.map((grp) => (
@@ -423,7 +423,7 @@ export default function MyProfileDossierPage() {
                     value={profileData.medicalNotes || ""}
                     onChange={(e) => setProfileData({ ...profileData, medicalNotes: e.target.value })}
                     placeholder="Ex: Asthme, Allergie pénicilline, Diabète (laisser vide si aucune)"
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                    className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                   />
                 </div>
               </div>
@@ -431,7 +431,7 @@ export default function MyProfileDossierPage() {
 
             {/* 4. Appel en Cas d'Urgence */}
             <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-[#FF7900] pb-1 border-b border-[#DCE2EA] mb-4">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-[#FF7900] pb-1 border-b border-slate-100 mb-4">
                 4. Appel en Cas d'Urgence
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -444,7 +444,7 @@ export default function MyProfileDossierPage() {
                     value={profileData.emergencyContactName || ""}
                     onChange={(e) => setProfileData({ ...profileData, emergencyContactName: e.target.value })}
                     placeholder="Ex: Marie Joseph"
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                    className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                   />
                 </div>
                 <div>
@@ -456,7 +456,7 @@ export default function MyProfileDossierPage() {
                     value={profileData.emergencyContactRelation || ""}
                     onChange={(e) => setProfileData({ ...profileData, emergencyContactRelation: e.target.value })}
                     placeholder="Ex: Épouse, Père, Frère, Proche..."
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                    className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                   />
                 </div>
                 <div>
@@ -468,14 +468,14 @@ export default function MyProfileDossierPage() {
                     value={profileData.emergencyContactPhone || ""}
                     onChange={(e) => setProfileData({ ...profileData, emergencyContactPhone: e.target.value })}
                     placeholder="Ex: +509 3000-0000"
-                    className="w-full h-10 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                    className="w-full h-10 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                   />
                 </div>
               </div>
             </div>
 
             {/* Submit button */}
-            <div className="pt-4 border-t border-[#DCE2EA] flex justify-end">
+            <div className="pt-4 border-t border-slate-100 flex justify-end">
               <button
                 type="submit"
                 disabled={profileSaving}

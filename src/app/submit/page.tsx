@@ -14,9 +14,9 @@ export default function SubmitLeavePage() {
           <ArrowLeft className="w-4 h-4 text-[#FF7900]" />
           Retour à la connexion
         </Link>
-        <div className="flex items-center gap-2.5 bg-white px-3 py-1.5 rounded-lg border border-[#DCE2EA] shadow-2xs">
+        <div className="flex items-center gap-2.5 bg-[#F4F6F9] px-3 py-1.5 rounded-lg">
           <img src="/logo-rkonekte.png" alt="RKonekte" className="h-6 w-auto object-contain" />
-          <span className="text-xs font-bold text-[#062653] border-l border-[#DCE2EA] pl-2">
+          <span className="text-xs font-bold text-[#062653] pl-2">
             Demande de Congé
           </span>
         </div>

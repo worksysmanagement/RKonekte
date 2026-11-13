@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 import { generateLeaveRequestPdfBlob, downloadPdfBlob, printPdfDocument } from "@/lib/utils/pdf";
+import { isImageSignature } from "@/lib/utils/signature";
 
 export default function EmployeeRequestStatusPage() {
   const params = useParams();
@@ -153,7 +154,7 @@ export default function EmployeeRequestStatusPage() {
   if (error || !request) {
     return (
       <div className="min-h-screen bg-white flex items-center justify-center p-4">
-        <div className="max-w-md w-full bg-white rounded-2xl border border-slate-200 p-8 text-center shadow-xs">
+        <div className="max-w-md w-full bg-white rounded-2xl p-8 text-center shadow-lg">
           <div className="w-12 h-12 bg-rose-50 text-rose-600 rounded-full flex items-center justify-center mx-auto mb-4">
             <AlertCircle className="w-6 h-6" />
           </div>
@@ -203,7 +204,7 @@ export default function EmployeeRequestStatusPage() {
               type="button"
               onClick={handleDownloadPdf}
               disabled={downloadingPdf}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75 border border-red-600"
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75"
               title="Télécharger la feuille officielle en fichier PDF"
             >
               {downloadingPdf ? (
@@ -218,7 +219,7 @@ export default function EmployeeRequestStatusPage() {
               type="button"
               onClick={handlePrint}
               disabled={printingPdf}
-              className="px-4 py-2 bg-black hover:bg-zinc-800 border border-black text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75"
+              className="px-4 py-2 bg-black hover:bg-zinc-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75"
               title="Imprimer directement la feuille officielle"
             >
               {printingPdf ? (
@@ -447,18 +448,24 @@ export default function EmployeeRequestStatusPage() {
 
                 {/* Contenu Signature Employé */}
                 <div className="py-2 flex flex-col items-center justify-center min-h-[70px]">
-                  {request.employeeSignature ? (
+                  {isImageSignature(request.employeeSignature) ? (
                     <img
                       src={request.employeeSignature}
                       alt={`Signature de ${request.firstName} ${request.lastName}`}
                       className="h-16 max-w-[200px] object-contain my-1 drop-shadow-xs"
                     />
                   ) : (
-                    <div className="text-center">
-                      <div className="font-windsong text-3xl sm:text-4xl text-[#062653] italic select-none py-1">
-                        {request.typedSignatureText || `${request.firstName} ${request.lastName}`}
+                    <div className="text-center py-1 select-none">
+                      <div
+                        className="font-windsong text-3xl sm:text-4xl text-[#062653] py-1 leading-normal tracking-wide"
+                        style={{ fontFamily: "'WindSong', 'Caveat', 'Dancing Script', cursive, sans-serif" }}
+                      >
+                        {request.typedSignatureText ||
+                          (!isImageSignature(request.employeeSignature) ? request.employeeSignature : "") ||
+                          `${request.firstName} ${request.lastName}`}
                       </div>
-                      <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider">
+                      <div className="w-44 h-0.5 bg-[#062653]/30 mx-auto mt-0.5" />
+                      <span className="text-[9px] font-mono text-slate-400 uppercase tracking-wider block mt-1">
                         Signature officielle certifiée
                       </span>
                     </div>
@@ -488,19 +495,30 @@ export default function EmployeeRequestStatusPage() {
                       Signature de l'Administration
                     </span>
                     <span
-                      className={`text-[9.5px] font-bold px-2 py-0.5 rounded-full shrink-0 ${
+                      className={`text-[11px] font-bold shrink-0 inline-flex items-center gap-1 ${
                         isApproved
-                          ? "bg-emerald-100 text-emerald-800"
+                          ? "text-emerald-600"
                           : isRejected
-                          ? "bg-rose-100 text-rose-800"
-                          : "bg-amber-100 text-amber-800"
+                          ? "text-rose-600"
+                          : "text-[#FF7900]"
                       }`}
                     >
-                      {isApproved
-                        ? "Accordé & Signé"
-                        : isRejected
-                        ? "Refusé"
-                        : "En attente"}
+                      {isApproved ? (
+                        <>
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          Accordé & Signé
+                        </>
+                      ) : isRejected ? (
+                        <>
+                          <XCircle className="w-3 h-3 text-rose-600" />
+                          Refusé
+                        </>
+                      ) : (
+                        <>
+                          <Clock className="w-3 h-3 text-[#FF7900]" />
+                          En attente
+                        </>
+                      )}
                     </span>
                   </div>
                   <div className="text-xs text-slate-700 leading-normal pt-1">
@@ -578,7 +596,7 @@ export default function EmployeeRequestStatusPage() {
         </div>
 
         {/* BOTTOM DOWNLOAD CTA (Hidden on print) */}
-        <div className="max-w-4xl mx-auto print:hidden pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 bg-white p-4 rounded-xl border border-slate-200 shadow-2xs">
+        <div className="max-w-4xl mx-auto print:hidden pt-2 flex flex-col sm:flex-row items-center justify-between gap-3 bg-[#F4F6F9] p-4 rounded-xl">
           <div className="flex items-center gap-2 text-xs text-slate-600">
             <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0" />
             <span>Feuille certifiée conforme aux registres de l'entreprise</span>
@@ -587,7 +605,7 @@ export default function EmployeeRequestStatusPage() {
             type="button"
             onClick={handleDownloadPdf}
             disabled={downloadingPdf}
-            className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75 border border-red-600"
+            className="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95 disabled:opacity-75"
           >
             {downloadingPdf ? (
               <RotateCw className="w-4 h-4 text-white animate-spin" />

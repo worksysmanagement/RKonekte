@@ -1,9 +1,8 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Clock, ArrowRight } from "lucide-react";
+import { Clock } from "lucide-react";
 import { SidebarProvider } from "./SidebarContext";
 import { AdminSidebar } from "./AdminSidebar";
 import { AdminHeader } from "./AdminHeader";
@@ -112,8 +111,7 @@ export function AdminShell({
     subscriptionSummary?.shouldShowCountdownBanner &&
     !subscriptionSummary?.isExpired &&
     !subscriptionSummary?.serviceStopped &&
-    !subscriptionSummary?.isAccessBlocked &&
-    !pathname.startsWith("/admin/subscription");
+    !subscriptionSummary?.isAccessBlocked;
 
   const days = subscriptionSummary?.daysRemaining;
 
@@ -122,7 +120,7 @@ export function AdminShell({
       ? "Votre forfait expire aujourd'hui !"
       : `Votre abonnement se termine dans ${days} jour${days !== 1 ? "s" : ""}`;
 
-  const bannerSub = `Échéance prévue le ${formatFrDate(subscriptionSummary?.subscriptionExpiresAt)}. Choisissez votre durée (1, 3, 6 ou 12 mois) et transmettez votre référence de paiement.`;
+  const bannerSub = `Échéance prévue le ${formatFrDate(subscriptionSummary?.subscriptionExpiresAt)}. Veuillez contacter l'administration RKonekte pour prolonger votre accès avant l'expiration.`;
 
   return (
     <SidebarProvider>
@@ -138,7 +136,7 @@ export function AdminShell({
             userBranchName={userBranchName}
           />
           {showBanner && (
-            <div className="print:hidden px-4 sm:px-6 lg:px-8 py-3 border-b flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50 border-amber-200 text-amber-950">
+            <div className="print:hidden px-4 sm:px-6 lg:px-8 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-amber-50 text-amber-950">
               <div className="flex items-start sm:items-center gap-3">
                 <div className="w-8 h-8 rounded-lg flex items-center justify-center shrink-0 bg-[#FF7900] text-white">
                   <Clock className="w-4 h-4" />
@@ -157,14 +155,6 @@ export function AdminShell({
                   </p>
                 </div>
               </div>
-
-              <Link
-                href="/admin/subscription"
-                className="px-3.5 py-2 rounded-lg text-xs font-bold text-white shadow-2xs transition-colors flex items-center gap-1.5 shrink-0 self-start sm:self-center bg-[#062653] hover:bg-[#031B3A]"
-              >
-                <span>Renouveler maintenant</span>
-                <ArrowRight className="w-3.5 h-3.5" />
-              </Link>
             </div>
           )}
           <main className="flex-1 overflow-y-auto print:overflow-visible print:p-0 print:bg-white p-4 sm:p-6 lg:p-8 bg-white">

@@ -87,37 +87,37 @@ export function AuditTimeline({ auditLogs, notifications }: AuditTimelineProps) 
         return {
           icon: <FileText className="w-4 h-4 text-slate-700" />,
           title: "Demande créée",
-          bgColor: "bg-slate-100 text-slate-800 border-slate-200",
+          bgColor: "bg-slate-100 text-slate-800",
         };
       case "APPROVED":
         return {
           icon: <CheckCircle2 className="w-4 h-4 text-emerald-600" />,
           title: "Demande approuvée",
-          bgColor: "bg-slate-100 text-slate-800 border-slate-200",
+          bgColor: "bg-slate-100 text-slate-800",
         };
       case "REJECTED":
         return {
           icon: <XCircle className="w-4 h-4 text-rose-600" />,
           title: "Demande refusée",
-          bgColor: "bg-rose-50 text-rose-700 border-rose-200",
+          bgColor: "bg-rose-50 text-rose-700",
         };
       case "NOTIFICATION_SENT":
         return {
           icon: <Send className="w-4 h-4 text-slate-600" />,
           title: `Notification ${item.actor} envoyée`,
-          bgColor: "bg-slate-100 text-slate-800 border-slate-200",
+          bgColor: "bg-slate-100 text-slate-800",
         };
       case "NOTIFICATION_FAILED":
         return {
           icon: <AlertTriangle className="w-4 h-4 text-amber-600" />,
           title: `Échec notification ${item.actor}`,
-          bgColor: "bg-slate-100 text-slate-800 border-slate-200",
+          bgColor: "bg-slate-100 text-slate-800",
         };
       default:
         return {
           icon: <Bell className="w-4 h-4 text-slate-600" />,
           title: item.action,
-          bgColor: "bg-slate-100 text-slate-800 border-slate-200",
+          bgColor: "bg-slate-100 text-slate-800",
         };
     }
   };
@@ -141,13 +141,13 @@ export function AuditTimeline({ auditLogs, notifications }: AuditTimelineProps) 
 
           return (
             <div key={item.id} className="relative group">
-              <div className="absolute -left-[31px] top-0.5 w-6 h-6 rounded-full bg-white border border-slate-300 flex items-center justify-center shadow-2xs">
+              <div className="absolute -left-[31px] top-0.5 w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-xs">
                 {badge.icon}
               </div>
 
               <div>
                 <div className="flex items-center gap-2">
-                  <span className={`text-xs px-2 py-0.5 rounded-md font-medium border ${badge.bgColor}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-md font-medium ${badge.bgColor}`}>
                     {badge.title}
                   </span>
                   <span className="text-xs text-slate-400">{dateStr}</span>
@@ -163,7 +163,7 @@ export function AuditTimeline({ auditLogs, notifications }: AuditTimelineProps) 
                 </div>
 
                 {item.type === "AUDIT" && item.metadata?.rejectionReason && (
-                  <div className="mt-1.5 p-2 bg-rose-50 text-rose-900 border border-rose-200 rounded text-xs">
+                  <div className="mt-1.5 p-2 bg-rose-50 text-rose-900 rounded text-xs">
                     <strong>Motif :</strong> {item.metadata.rejectionReason}
                   </div>
                 )}

@@ -172,8 +172,13 @@ export default function AdminRequestsPage() {
     }
   };
 
-  const handleDelete = async (id: string, requestNumber: string) => {
-    if (!confirm(`Êtes-vous sûr de vouloir supprimer définitivement la demande N° ${requestNumber} ?`)) {
+  const handleDelete = async (id: string, requestNumber: string, status?: string) => {
+    const isApproved = status === "APPROVED";
+    const confirmMessage = isApproved
+      ? `Êtes-vous sûr de vouloir retirer la demande approuvée N° ${requestNumber} de votre espace d'administration pour libérer votre espace ?\n\nRemarque importante : Elle ne sera PAS supprimée pour le collaborateur et restera APPROUVÉE et certifiée dans son dossier.`
+      : `Êtes-vous sûr de vouloir supprimer la demande N° ${requestNumber} ?\nElle sera enregistrée comme REFUSÉE pour le collaborateur.`;
+
+    if (!confirm(confirmMessage)) {
       return;
     }
     setDeletingId(id);
@@ -186,7 +191,14 @@ export default function AdminRequestsPage() {
       }
       setRequests((prev) => prev.filter((r) => r.id !== id));
       setTotal((prev) => Math.max(0, prev - 1));
-      showSystemToast(`La demande N° ${requestNumber} a été supprimée avec succès.`);
+      showSystemToast(
+        isApproved
+          ? `La demande approuvée N° ${requestNumber} a été retirée de l'administration (reste validée pour le collaborateur).`
+          : `La demande N° ${requestNumber} a été supprimée (enregistrée comme refusée pour le collaborateur).`
+      );
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event("rkonekte_notification_update"));
+      }
     } catch (err) {
       showSystemToast("Erreur réseau lors de la suppression.", "error");
     } finally {
@@ -217,7 +229,7 @@ export default function AdminRequestsPage() {
               Demandes de congé
             </h1>
             {activeBranchObj && (
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800">
                 {activeBranchObj.name} ({activeBranchObj.city})
               </span>
             )}
@@ -236,7 +248,7 @@ export default function AdminRequestsPage() {
             disabled={isMasterAccount}
             className={`px-4 py-2 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 self-start ${
               isMasterAccount
-                ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed select-none"
+                ? "bg-slate-200 text-slate-400 cursor-not-allowed select-none"
                 : "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
             }`}
           >
@@ -252,7 +264,7 @@ export default function AdminRequestsPage() {
       </div>
 
       {/* FILTERS & SEARCH BAR */}
-      <div className="bg-white p-4 rounded-xl border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="bg-white p-4 rounded-xl shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
         {/* Status Filter Tabs */}
         <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
           {[
@@ -285,14 +297,14 @@ export default function AdminRequestsPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher (nom, N° demande)..."
-            className="w-full h-10 pl-9 pr-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs text-[#263445] placeholder:text-[#64748B] focus:bg-white transition-all"
+            className="w-full h-10 pl-9 pr-3.5 bg-[#F4F6F9] rounded-lg text-xs text-[#263445] placeholder:text-[#64748B] focus:bg-white transition-all"
           />
           <Search className="w-4 h-4 text-[#64748B] absolute left-3 top-3" />
         </form>
       </div>
 
       {/* TABLE */}
-      <div className="bg-white rounded-xl border border-[#DCE2EA] shadow-xs overflow-hidden">
+      <div className="bg-white rounded-xl shadow-xs overflow-hidden">
         {loading ? (
           <div className="p-12 text-center text-[#64748B] text-xs">Chargement des demandes...</div>
         ) : filteredRequests.length === 0 ? (
@@ -302,7 +314,7 @@ export default function AdminRequestsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs">
-              <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-[#DCE2EA]">
+              <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-slate-200/70">
                 <tr>
                   <th className="px-5 py-3.5">N° Demande</th>
                   <th className="px-5 py-3.5">Employé</th>
@@ -314,7 +326,7 @@ export default function AdminRequestsPage() {
                   <th className="px-5 py-3.5 text-right">Action</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#DCE2EA]">
+              <tbody className="divide-y divide-slate-100">
                 {filteredRequests.map((req, idx) => (
                   <tr key={`${req.id}-${idx}`} className="hover:bg-slate-50/70 transition-colors">
                     <td className="px-5 py-4 font-bold text-[#062653]">
@@ -331,7 +343,7 @@ export default function AdminRequestsPage() {
                       <div className="text-[11px] text-[#64748B]">{req.position}</div>
                     </td>
                     <td className="px-5 py-4">
-                      <span className="inline-block px-2.5 py-1 bg-[#F4F6F9] border border-[#DCE2EA] rounded-md text-[11px] font-semibold text-[#263445]">
+                      <span className="inline-block px-2.5 py-1 bg-[#F4F6F9] rounded-md text-[11px] font-semibold text-[#263445]">
                         {req.leaveType === "ANNUAL"
                           ? "Annuel"
                           : req.leaveType === "SICK"
@@ -366,10 +378,14 @@ export default function AdminRequestsPage() {
                         </Link>
                         <button
                           type="button"
-                          onClick={() => handleDelete(req.id, req.requestNumber)}
+                          onClick={() => handleDelete(req.id, req.requestNumber, req.status)}
                           disabled={deletingId === req.id}
                           className="w-8 h-8 rounded-lg bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer disabled:opacity-50"
-                          title="Supprimer la demande"
+                          title={
+                            req.status === "APPROVED"
+                              ? "Retirer de l'espace administration (reste approuvée pour le collaborateur)"
+                              : "Supprimer la demande"
+                          }
                         >
                           <Trash2 className="w-4 h-4 text-white shrink-0" />
                         </button>
@@ -384,7 +400,7 @@ export default function AdminRequestsPage() {
 
         {/* PAGINATION */}
         {!loading && totalPages > 1 && (
-          <div className="p-4 border-t border-[#DCE2EA] flex items-center justify-between text-xs text-[#64748B]">
+          <div className="p-4 border-t border-slate-100 flex items-center justify-between text-xs text-[#64748B]">
             <div>
               Page {page} sur {totalPages} ({total} résultats)
             </div>
@@ -392,14 +408,14 @@ export default function AdminRequestsPage() {
               <button
                 onClick={() => handlePageChange(page - 1)}
                 disabled={page <= 1}
-                className="p-1.5 border border-[#DCE2EA] rounded-lg hover:bg-slate-50 disabled:opacity-40"
+                className="p-1.5 bg-[#F4F6F9] rounded-lg hover:bg-slate-200/70 disabled:opacity-40 cursor-pointer"
               >
                 <ChevronLeft className="w-4 h-4" />
               </button>
               <button
                 onClick={() => handlePageChange(page + 1)}
                 disabled={page >= totalPages}
-                className="p-1.5 border border-[#DCE2EA] rounded-lg hover:bg-slate-50 disabled:opacity-40"
+                className="p-1.5 bg-[#F4F6F9] rounded-lg hover:bg-slate-200/70 disabled:opacity-40 cursor-pointer"
               >
                 <ChevronRight className="w-4 h-4" />
               </button>

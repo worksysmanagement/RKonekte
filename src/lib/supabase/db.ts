@@ -1671,7 +1671,11 @@ export const supabaseDb = {
 
       const { data, error } = await query.order("submitted_at", { ascending: false });
       if (error) throw new Error(`Supabase error: ${error.message}`);
-      return (data || []).map(mapLeaveRequest);
+      let list = (data || []).map(mapLeaveRequest);
+      if (!filters?.includeArchived) {
+        list = list.filter((r) => !r.decisionComment?.includes("[ADMIN_ARCHIVED]"));
+      }
+      return list;
     },
 
     async approve(
@@ -1798,24 +1802,103 @@ export const supabaseDb = {
       return mapLeaveRequest(data);
     },
 
-    async delete(id: string, organizationId: string): Promise<void> {
+    async delete(id: string, organizationId: string, decidedBy: string = "Administration"): Promise<void> {
       const supabase = getSupabaseAdminClient();
+      const now = Date.now();
 
-      try {
-        await supabase
-          .from("audit_logs")
-          .delete()
-          .eq("leave_request_id", id)
-          .eq("organization_id", organizationId);
-      } catch (_) {}
-
-      const { error } = await supabase
+      const { data: current } = await supabase
         .from("leave_requests")
-        .delete()
+        .select("*")
+        .eq("id", id)
+        .eq("organization_id", organizationId)
+        .maybeSingle();
+
+      if (!current) return;
+
+      // 1. SI LA DEMANDE ÉTAIT APPROUVÉE : ON LA CONSERVE APPROUVÉE POUR L'EMPLOYÉ
+      if (current.status === "APPROVED") {
+        const existingComment = current.decision_comment || "";
+        const updatedComment = existingComment.includes("[ADMIN_ARCHIVED]")
+          ? existingComment
+          : existingComment
+          ? `${existingComment} [ADMIN_ARCHIVED]`
+          : "[ADMIN_ARCHIVED]";
+
+        await supabase
+          .from("leave_requests")
+          .update({
+            decision_comment: updatedComment,
+            updated_at: now,
+          })
+          .eq("id", id)
+          .eq("organization_id", organizationId);
+
+        try {
+          await supabase.from("audit_logs").insert({
+            id: `audit-${now}`,
+            organization_id: organizationId,
+            user_id: decidedBy,
+            leave_request_id: id,
+            action: "APPROVED",
+            old_status: "APPROVED",
+            new_status: "APPROVED",
+            metadata: JSON.stringify({ archivedByAdmin: true, source: "ADMIN_ARCHIVE" }),
+            created_at: now,
+          });
+        } catch (_) {}
+        return;
+      }
+
+      // 2. SI LA DEMANDE ÉTAIT EN ATTENTE : ON LA MARQUE REJETÉE
+      if (current.status === "PENDING") {
+        const rejectionReason = "Demande rejetée et supprimée par l'Administration.";
+        const { error } = await supabase
+          .from("leave_requests")
+          .update({
+            status: "REJECTED",
+            rejection_reason: rejectionReason,
+            decided_at: now,
+            decided_by: decidedBy,
+            decision_comment: "Supprimée depuis l'Administration [ADMIN_ARCHIVED]",
+            updated_at: now,
+          })
+          .eq("id", id)
+          .eq("organization_id", organizationId);
+
+        if (error) throw new Error(`Supabase error: ${error.message}`);
+
+        try {
+          await supabase.from("audit_logs").insert({
+            id: `audit-${now}`,
+            organization_id: organizationId,
+            user_id: decidedBy,
+            leave_request_id: id,
+            action: "REJECTED",
+            old_status: "PENDING",
+            new_status: "REJECTED",
+            metadata: JSON.stringify({ rejectionReason, source: "ADMIN_DELETE" }),
+            created_at: now,
+          });
+        } catch (_) {}
+        return;
+      }
+
+      // 3. DÉJÀ REJETÉE OU ANNULÉE : ON AJOUTE LE MARQUEUR D'ARCHIVAGE
+      const existingComment = current.decision_comment || "";
+      const updatedComment = existingComment.includes("[ADMIN_ARCHIVED]")
+        ? existingComment
+        : existingComment
+        ? `${existingComment} [ADMIN_ARCHIVED]`
+        : "[ADMIN_ARCHIVED]";
+
+      await supabase
+        .from("leave_requests")
+        .update({
+          decision_comment: updatedComment,
+          updated_at: now,
+        })
         .eq("id", id)
         .eq("organization_id", organizationId);
-
-      if (error) throw new Error(`Supabase error: ${error.message}`);
     },
   },
 

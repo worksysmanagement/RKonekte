@@ -292,7 +292,7 @@ export default function AdminDashboardPage() {
           <div className="flex items-center gap-2.5">
             <h1 className="text-2xl font-bold text-[#062653] tracking-tight">Tableau de bord</h1>
             {activeBranchObj && (
-              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800 border border-emerald-200">
+              <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-800">
                 {activeBranchObj.name} ({activeBranchObj.city})
               </span>
             )}
@@ -316,7 +316,7 @@ export default function AdminDashboardPage() {
           ) : (
             <Link
               href="/admin/requests"
-              className="px-4 py-2.5 bg-[#062653] hover:bg-[#031B3A] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 active:scale-95 cursor-pointer border-b-2 border-[#FF7900]"
+              className="px-4 py-2.5 bg-[#062653] hover:bg-[#031B3A] text-white text-xs font-bold rounded-xl transition-all shadow-xs flex items-center gap-1.5 active:scale-95 cursor-pointer"
             >
               <Plus className="w-4 h-4 text-[#FF7900]" />
               <span>Nouvelle requête</span>
@@ -334,7 +334,7 @@ export default function AdminDashboardPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-5 lg:gap-6">
           {/* 1. NOMBRE D'EMPLOYÉS - SOLID NOCTURNAL BLUE #114C5A */}
-          <div className="relative overflow-hidden bg-[#114C5A] text-white p-6 sm:p-7 rounded-2xl sm:rounded-3xl border border-[#114C5A] shadow-md flex flex-col justify-between">
+          <div className="relative overflow-hidden bg-[#114C5A] text-white p-6 sm:p-7 rounded-2xl sm:rounded-3xl shadow-md flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -365,7 +365,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* 2. NOMBRE DE SUCCURSALES - SOLID DARK TEAL #044F58 */}
-          <div className="relative overflow-hidden bg-[#044F58] text-white p-6 sm:p-7 rounded-2xl sm:rounded-3xl border border-[#044F58] shadow-md flex flex-col justify-between">
+          <div className="relative overflow-hidden bg-[#044F58] text-white p-6 sm:p-7 rounded-2xl sm:rounded-3xl shadow-md flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -396,7 +396,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* 3. UTILISATEURS ENREGISTRÉS - CLOUD WHITE #EDF0F4 */}
-          <div className="relative overflow-hidden bg-[#EDF0F4] text-[#062653] p-6 sm:p-7 rounded-2xl sm:rounded-3xl border border-[#DCE2EA] shadow-md flex flex-col justify-between">
+          <div className="relative overflow-hidden bg-[#EDF0F4] text-[#062653] p-6 sm:p-7 rounded-2xl sm:rounded-3xl shadow-md flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -437,7 +437,7 @@ export default function AdminDashboardPage() {
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 lg:gap-6">
           {/* 1. TOTAL - SOLID BLUE #062653 */}
-          <div className="relative overflow-hidden bg-[#062653] text-white p-6 sm:p-7 rounded-2xl sm:rounded-3xl border border-[#062653] shadow-md flex flex-col justify-between">
+          <div className="relative overflow-hidden bg-[#062653] text-white p-6 sm:p-7 rounded-2xl sm:rounded-3xl shadow-md flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -466,7 +466,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* 2. EN ATTENTE - SOLID ORANGE #FF7900 */}
-          <div className="relative overflow-hidden bg-[#FF7900] text-white p-6 sm:p-7 rounded-2xl sm:rounded-3xl border border-[#FF7900] shadow-md flex flex-col justify-between">
+          <div className="relative overflow-hidden bg-[#FF7900] text-white p-6 sm:p-7 rounded-2xl sm:rounded-3xl shadow-md flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -495,7 +495,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* 3. APPROUVÉES (RESTORED!) - SOLID GREEN #059669 */}
-          <div className="relative overflow-hidden bg-[#059669] text-white p-6 sm:p-7 rounded-2xl sm:rounded-3xl border border-[#059669] shadow-md flex flex-col justify-between">
+          <div className="relative overflow-hidden bg-[#059669] text-white p-6 sm:p-7 rounded-2xl sm:rounded-3xl shadow-md flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -524,7 +524,7 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* 4. REFUSÉES - SOLID RED #DC2626 */}
-          <div className="relative overflow-hidden bg-[#DC2626] text-white p-6 sm:p-7 rounded-2xl sm:rounded-3xl border border-[#DC2626] shadow-md flex flex-col justify-between">
+          <div className="relative overflow-hidden bg-[#DC2626] text-white p-6 sm:p-7 rounded-2xl sm:rounded-3xl shadow-md flex flex-col justify-between">
             <div>
               <div className="flex items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -566,11 +566,11 @@ export default function AdminDashboardPage() {
           onClick={() => setActiveModal(null)}
         >
           <div
-            className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden border border-[#DCE2EA] animate-in zoom-in-95 duration-200"
+            className="bg-white rounded-2xl sm:rounded-3xl shadow-2xl max-w-4xl w-full max-h-[85vh] flex flex-col overflow-hidden animate-in zoom-in-95 duration-200"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="p-5 sm:p-6 border-b border-[#DCE2EA] flex items-center justify-between bg-slate-50/70">
+            <div className="p-5 sm:p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/70">
               <div className="flex items-center gap-3">
                 <div className="p-2 rounded-xl bg-[#062653] text-white">
                   {activeModal === "employees" ? (
@@ -800,7 +800,7 @@ export default function AdminDashboardPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="p-4 sm:p-5 border-t border-[#DCE2EA] bg-slate-50/70 flex items-center justify-between gap-3">
+            <div className="p-4 sm:p-5 border-t border-slate-100 bg-slate-50/70 flex items-center justify-between gap-3">
               <Link
                 href={
                   activeModal === "employees"
@@ -820,7 +820,7 @@ export default function AdminDashboardPage() {
               <button
                 type="button"
                 onClick={() => setActiveModal(null)}
-                className="px-4 py-2 bg-white border border-[#DCE2EA] hover:bg-slate-100 text-xs font-semibold text-[#263445] rounded-xl transition-colors"
+                className="px-4 py-2 bg-white hover:bg-slate-100 text-xs font-semibold text-[#263445] rounded-xl shadow-2xs cursor-pointer transition-colors"
               >
                 Fermer
               </button>

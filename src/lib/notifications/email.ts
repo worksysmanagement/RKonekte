@@ -827,18 +827,6 @@ export function generateCompanyEventEmail(params: {
         <!-- HEADER -->
         <tr>
           <td style="background-color: #062653; padding: 26px 32px; text-align: left;">
-            <table border="0" cellpadding="0" cellspacing="0" style="margin-bottom: 10px;">
-              <tr>
-                <td style="background-color: #FF7900; color: #ffffff; font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 6px; text-transform: uppercase; letter-spacing: 0.5px;">
-                  ${safeCompany}
-                </td>
-                <td style="padding-left: 8px;">
-                  <span style="background-color: rgba(255,255,255,0.15); color: #34d399; font-size: 11px; font-weight: 700; padding: 4px 10px; border-radius: 6px; letter-spacing: 0.5px; text-transform: uppercase;">
-                    ${safeTypeLabel}
-                  </span>
-                </td>
-              </tr>
-            </table>
             <h1 style="margin: 0; color: #ffffff; font-size: 20px; font-weight: 700; letter-spacing: -0.2px;">
               ${safeTitle}
             </h1>
@@ -935,17 +923,31 @@ function renderTransactionalEmailLayout(params: {
   preheader: string;
   companyLabel?: string;
   bodyHtml: string;
-  ctaLabel: string;
-  ctaUrl: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
   closingNoteHtml?: string;
   footerText: string;
 }): string {
   const safeTitle = escapeEmailHtml(params.title);
   const safePreheader = escapeEmailHtml(params.preheader);
-  const safeUrl = escapeEmailHtml(params.ctaUrl);
-  const safeCta = escapeEmailHtml(params.ctaLabel);
+  const safeUrl = params.ctaUrl ? escapeEmailHtml(params.ctaUrl) : "";
+  const safeCta = params.ctaLabel ? escapeEmailHtml(params.ctaLabel) : "";
   const safeFooter = escapeEmailHtml(params.footerText);
-  const headerSub = params.companyLabel ? escapeEmailHtml(params.companyLabel) : "Espace Entreprise";
+
+  const ctaSection = safeUrl && safeCta ? `
+        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
+          <tr>
+            <td align="center" bgcolor="#062653" style="border-radius: 8px;">
+              <a href="${safeUrl}" target="_blank" style="display: inline-block; padding: 12px 24px; font-size: 14px; font-weight: 600; color: #ffffff; text-decoration: none;">${safeCta}</a>
+            </td>
+          </tr>
+        </table>
+        <p style="margin: 0 0 6px 0; font-size: 12px; color: #64748b;">
+          Si le bouton ne répond pas, vous pouvez ouvrir cette adresse dans votre navigateur :
+        </p>
+        <p style="margin: 0 0 18px 0; font-size: 12px; line-height: 1.5; word-break: break-all;">
+          <a href="${safeUrl}" target="_blank" style="color: #062653; text-decoration: underline;">${safeUrl}</a>
+        </p>` : "";
 
   return `<!DOCTYPE html>
 <html lang="fr">
@@ -961,23 +963,15 @@ function renderTransactionalEmailLayout(params: {
     <tr>
       <td style="padding: 22px 28px; border-bottom: 1px solid #e2e8f0;">
         <span style="font-size: 17px; font-weight: 700; color: #062653; letter-spacing: -0.2px;">RKonekte</span>
-        <span style="font-size: 12px; color: #64748b; padding-left: 8px;">${headerSub}</span>
       </td>
     </tr>
     <tr>
       <td style="padding: 28px; font-size: 14px; line-height: 1.65; color: #334155;">
         ${params.bodyHtml}
-        <table role="presentation" border="0" cellpadding="0" cellspacing="0" style="margin: 24px 0;">
-          <tr>
-            <td align="center" bgcolor="#062653" style="border-radius: 8px;">
-              <a href="${safeUrl}" target="_blank" style="display: inline-block; padding: 12px 24px; font-size: 14px; font-weight: 600; color: #ffffff; text-decoration: none;">${safeCta}</a>
-            </td>
-          </tr>
-        </table>
-        <p style="margin: 0 0 6px 0; font-size: 12px; color: #64748b;">
-          Si le bouton ne répond pas, vous pouvez ouvrir cette adresse dans votre navigateur :
-        </p>
-        <p style="margin: 0 0 18px 0; font-size: 12px; line-height: 1.5; word-break: break-all;">
+        ${ctaSection}
+        ${params.closingNoteHtml || ""}
+      </td>
+    </tr>
           <a href="${safeUrl}" target="_blank" style="color: #062653; text-decoration: underline;">${safeUrl}</a>
         </p>
         ${params.closingNoteHtml || ""}
@@ -1023,16 +1017,70 @@ export function generateCompanyActivationEmail(params: {
     ? `Nouveau lien pour définir le mot de passe de votre espace ${company}.`
     : `Définissez votre mot de passe pour activer l'espace ${company} sur RKonekte.`;
 
+  const bodyHtml = `
+    <p style="margin: 0 0 14px 0; color: #0f172a; font-size: 15px;">Bonjour ${safeName},</p>
+    <p style="margin: 0 0 14px 0;">${introHtml}</p>
+    <p style="margin: 0 0 16px 0;">${secondaryHtml}</p>
+
+    <!-- DOCUMENT DE SYNTHÈSE OFFICIEL NATUREL (SANS FOND NI CADRE) -->
+    <div style="margin: 22px 0 18px 0; border-top: 1px solid #e2e8f0; padding-top: 16px;">
+      <div style="margin-bottom: 14px;">
+        <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #ff7900; letter-spacing: 0.5px; display: block; margin-bottom: 2px;">Document de Synthèse Officiel</span>
+        <h3 style="margin: 0; color: #062653; font-size: 15px; font-weight: 700;">Guide de Démarrage, Tarifs &amp; Engagements</h3>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <h4 style="margin: 0 0 4px 0; color: #062653; font-size: 13px; font-weight: 700;">1. Objectif du Système</h4>
+        <p style="margin: 0; font-size: 12px; line-height: 1.6; color: #334155;">
+          RKonekte est la plateforme de gestion digitalisée conçue pour automatiser et sécuriser les processus de votre entreprise : formulaires de congés officiels imprimables A4 avec circuit d'approbation hiérarchique, revalorisations salariales formelles avec notifications automatiques, autorisations de dépenses certifiées par signature électronique sans fond (PNG transparent), opérations de caisse et rapports financiers consolidés en temps réel.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 14px;">
+        <h4 style="margin: 0 0 4px 0; color: #062653; font-size: 13px; font-weight: 700;">2. Tarifs &amp; Période Gratuite</h4>
+        <p style="margin: 0 0 6px 0; font-weight: 700; color: #059669; font-size: 12px;">
+          ✓ Premier mois offert (30 jours gratuits) dès l'activation de votre espace, sans engagement initial.
+        </p>
+        <table role="presentation" style="width: 100%; border-collapse: collapse; font-size: 11px; color: #334155; margin-bottom: 6px;">
+          <tr style="border-bottom: 1px solid #f1f5f9;">
+            <td style="padding: 4px 0;"><strong>1 mois :</strong> 50 USD / mois</td>
+            <td style="padding: 4px 0; text-align: right;"><strong>3 mois :</strong> 135 USD (-10%)</td>
+          </tr>
+          <tr>
+            <td style="padding: 4px 0;"><strong>6 mois :</strong> 255 USD (-15%)</td>
+            <td style="padding: 4px 0; text-align: right;"><strong>12 mois :</strong> 510 USD (-15%)</td>
+          </tr>
+        </table>
+        <p style="margin: 0; font-size: 11px; color: #64748b; line-height: 1.5;">
+          Moyens de paiement acceptés : Sogebank, Unibank, MonCash. Tout réabonnement anticipé s'ajoute directement à l'échéance : aucun jour restant n'est perdu.
+        </p>
+      </div>
+
+      <div style="margin-bottom: 18px;">
+        <h4 style="margin: 0 0 6px 0; color: #062653; font-size: 13px; font-weight: 700;">3. À savoir avant de vous lancer</h4>
+        <ul style="margin: 0; padding-left: 18px; font-size: 12px; line-height: 1.6; color: #334155;">
+          <li style="margin-bottom: 4px;"><strong>Rôle Administrateur :</strong> Vous disposez de la pleine autorité pour configurer votre logo transparent, vos succursales, et créer les accès de vos collaborateurs.</li>
+          <li style="margin-bottom: 4px;"><strong>Cloisonnement &amp; Confidentialité :</strong> Chaque utilisateur (employé, caissier, chef de succursale, RH) n'accède qu'aux modules et données autorisés par son niveau d'accès.</li>
+          <li><strong>Sécurité des documents :</strong> Chaque pièce générée est authentifiée, imprimable au format standard A4 et scellée avec vos signatures numériques.</li>
+        </ul>
+      </div>
+
+      <div style="border-top: 1px solid #e2e8f0; padding-top: 14px;">
+        <p style="margin: 0 0 6px 0; font-size: 13px; line-height: 1.5; color: #0f172a;">
+          Cliquez sur le bouton ci-dessous pour accéder à la configuration sécurisée de votre mot de passe :
+        </p>
+        <p style="margin: 0; font-size: 11px; line-height: 1.5; color: #64748b;">
+          <strong>Étape obligatoire :</strong> Sur la page sécurisée qui s'ouvrira, vous validerez le <strong>bouton radio de confirmation d'acceptation</strong> de ces conditions afin de débloquer l'enregistrement de votre mot de passe et activer votre espace.
+        </p>
+      </div>
+    </div>
+  `;
+
   const html = renderTransactionalEmailLayout({
     title: subject,
     preheader,
     companyLabel: company,
-    bodyHtml: `
-      <p style="margin: 0 0 14px 0; color: #0f172a; font-size: 15px;">Bonjour ${safeName},</p>
-      <p style="margin: 0 0 14px 0;">${introHtml}</p>
-      <p style="margin: 0 0 14px 0;">${secondaryHtml}</p>
-      <p style="margin: 0;">Cliquez ci-dessous pour définir votre mot de passe et accéder à votre espace :</p>
-    `,
+    bodyHtml,
     ctaLabel: "Définir mon mot de passe",
     ctaUrl: params.activationUrl,
     closingNoteHtml: `<p style="margin: 0; font-size: 12px; color: #64748b;">Si vous n'êtes pas à l'origine de cette démarche, vous pouvez ignorer cet e-mail.</p>`,
@@ -1659,4 +1707,69 @@ export function generateSuperAdminPaymentSubmittedEmail(params: {
   ].join("\n");
 
   return { subject, html, text };
+}
+
+export function generateSuperAdminBroadcastEmail(params: {
+  recipientName?: string;
+  companyName: string;
+  subject: string;
+  titleHeader?: string;
+  message: string;
+  ctaLabel?: string;
+  ctaUrl?: string;
+}): { subject: string; html: string; text: string } {
+  const recipient = (params.recipientName || "Responsable").trim();
+  const company = (params.companyName || "Votre organisation").trim();
+  const safeRecipient = escapeEmailHtml(recipient);
+  const safeCompany = escapeEmailHtml(company);
+  const subject = params.subject.trim();
+  const title = (params.titleHeader || "Communication Officielle RKonekte").trim();
+  const safeTitle = escapeEmailHtml(title);
+
+  const formattedMessage = params.message
+    .split(/\n\s*\n/)
+    .map((paragraph) => {
+      const escaped = escapeEmailHtml(paragraph.trim()).replace(/\n/g, "<br />");
+      return `<p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #334155;">${escaped}</p>`;
+    })
+    .join("\n");
+
+  const bodyHtml = `
+    <div style="margin-bottom: 16px;">
+      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #ff7900; letter-spacing: 0.5px; display: block; margin-bottom: 2px;">Notification Super-Administration</span>
+      <h3 style="margin: 0; color: #062653; font-size: 16px; font-weight: 700;">${safeTitle}</h3>
+    </div>
+    <p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #0f172a;">Bonjour ${safeRecipient},</p>
+    ${formattedMessage}
+    <p style="margin: 18px 0 0 0; font-size: 12px; line-height: 1.5; color: #64748b; border-top: 1px solid #f1f5f9; padding-top: 12px;">
+      Ce message officiel est transmis à l'attention de la direction de <strong>${safeCompany}</strong> par l'équipe de supervision RKonekte.
+    </p>
+  `;
+
+  const html = renderTransactionalEmailLayout({
+    title: subject,
+    preheader: subject,
+    bodyHtml,
+    ctaLabel: params.ctaLabel?.trim() || undefined,
+    ctaUrl: params.ctaUrl?.trim() || undefined,
+    footerText: `Message officiel de supervision RKonekte adressé à ${safeCompany}.`,
+  });
+
+  const textLines = [
+    `COMMUNICATION OFFICIELLE RKONEKTE - ${title}`,
+    "",
+    `Bonjour ${recipient},`,
+    "",
+    params.message.trim(),
+    "",
+    params.ctaUrl ? `${params.ctaLabel || "Accéder"} : ${params.ctaUrl}` : "",
+    "",
+    `Ce message officiel est transmis à l'attention de la direction de ${company} par l'équipe de supervision RKonekte.`,
+  ].filter(Boolean);
+
+  return {
+    subject,
+    html,
+    text: textLines.join("\n"),
+  };
 }

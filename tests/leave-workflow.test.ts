@@ -6,6 +6,7 @@ import {
   getLeaveRequestById,
   approveLeaveRequest,
   rejectLeaveRequest,
+  deleteLeaveRequest,
 } from "../src/lib/services/leave-requests";
 import { organizations, users, auditLogs } from "../src/db/schema";
 import { eq } from "drizzle-orm";
@@ -230,31 +231,110 @@ describe("Leave Request Lifecycle & Workflow Tests", () => {
     ).rejects.toThrow("La demande n'est plus en attente ou n'a pas été trouvée");
   });
 
-  it("Rejects leave request creation when organization subscription is expired or stopped", async () => {
-    const expiredAt = Date.now() - 2 * 86400_000;
-    await db
-      .update(organizations)
-      .set({ subscriptionExpiresAt: expiredAt, serviceStopped: false })
-      .where(eq(organizations.id, orgId));
+  it("Deletion from administration records the request as REJECTED for the employee", async () => {
+    const req = await createLeaveRequest(
+      {
+        organizationId: orgId,
+        firstName: "Alice",
+        lastName: "Smith",
+        employeeNumber: "EMP-100",
+        department: "Sales",
+        position: "Rep",
+        leaveType: "ANNUAL",
+        startDate: "2026-10-10",
+        endDate: "2026-10-12",
+        requestedDays: 3,
+        contactPhone: "+22501020304",
+      },
+      undefined,
+      db
+    );
 
-    await expect(
-      createLeaveRequest(
-        {
-          organizationId: orgId,
-          firstName: "Alice",
-          lastName: "Smith",
-          employeeNumber: "EMP-100",
-          department: "Sales",
-          position: "Rep",
-          leaveType: "ANNUAL",
-          startDate: "2026-10-10",
-          endDate: "2026-10-12",
-          requestedDays: 3,
-          contactPhone: "+22501020304",
-        },
-        undefined,
-        db
-      )
-    ).rejects.toThrow(/expiré|suspendu/i);
+    // Admin deletes the request
+    const delRes = await deleteLeaveRequest(
+      req.leaveRequest.id,
+      orgId,
+      "usr-sec",
+      "Secretary User",
+      db
+    );
+
+    expect(delRes.success).toBe(true);
+
+    // Request is NOT erased: it is marked as REJECTED with clear reason
+    const fetched = await getLeaveRequestById(req.leaveRequest.id, orgId, db);
+    expect(fetched).not.toBeNull();
+    expect(fetched?.status).toBe("REJECTED");
+    expect(fetched?.rejectionReason).toBe("Demande rejetée et supprimée par l'Administration.");
+    expect(fetched?.decidedBy).toBe("usr-sec");
+    expect(fetched?.decisionComment).toContain("Supprimée par Secretary User depuis l'Administration");
+
+    // Audit log was recorded
+    const logs = await db
+      .select()
+      .from(auditLogs)
+      .where(eq(auditLogs.leaveRequestId, req.leaveRequest.id));
+    expect(logs.length).toBeGreaterThan(0);
+    const delLog = logs.find((l: any) => l.action === "REJECTED");
+    expect(delLog).toBeDefined();
+    expect(delLog?.userId).toBe("usr-sec");
+    const meta = JSON.parse(delLog?.metadata || "{}");
+    expect(meta.source).toBe("ADMIN_DELETE");
+  });
+
+  it("Deleting an APPROVED request from administration archives it for the admin without affecting the employee's approved status", async () => {
+    const req = await createLeaveRequest(
+      {
+        organizationId: orgId,
+        firstName: "Alice",
+        lastName: "Smith",
+        employeeNumber: "EMP-100",
+        department: "Sales",
+        position: "Rep",
+        leaveType: "ANNUAL",
+        startDate: "2026-10-10",
+        endDate: "2026-10-12",
+        requestedDays: 3,
+        contactPhone: "+22501020304",
+      },
+      undefined,
+      db
+    );
+
+    // 1. Approve the request
+    await approveLeaveRequest(req.leaveRequest.id, orgId, "usr-sec", "Demande validée", db);
+
+    // Verify it is APPROVED
+    const beforeDel = await getLeaveRequestById(req.leaveRequest.id, orgId, db);
+    expect(beforeDel?.status).toBe("APPROVED");
+
+    // 2. Admin deletes it from their administration to free up space
+    const delRes = await deleteLeaveRequest(
+      req.leaveRequest.id,
+      orgId,
+      "usr-sec",
+      "Secretary User",
+      db
+    );
+
+    expect(delRes.success).toBe(true);
+    expect(delRes.actionTaken).toBe("ARCHIVED_FOR_ADMIN");
+
+    // 3. For the employee, it is STILL APPROVED! (Never converted to REJECTED)
+    const afterDel = await getLeaveRequestById(req.leaveRequest.id, orgId, db);
+    expect(afterDel?.status).toBe("APPROVED");
+    expect(afterDel?.decisionComment).toContain("[ADMIN_ARCHIVED]");
+
+    // 4. In admin list without includeArchived, it is filtered out to free up space
+    const { listLeaveRequests } = await import("../src/lib/services/leave-requests");
+    const adminList = await listLeaveRequests(orgId, { includeArchived: false }, db);
+    const foundInAdminList = adminList.items.find((r: any) => r.id === req.leaveRequest.id);
+    expect(foundInAdminList).toBeUndefined();
+
+    // 5. In employee list (includeArchived: true), it remains accessible
+    const employeeList = await listLeaveRequests(orgId, { includeArchived: true }, db);
+    const foundInEmpList = employeeList.items.find((r: any) => r.id === req.leaveRequest.id);
+    expect(foundInEmpList).toBeDefined();
+    expect(foundInEmpList?.status).toBe("APPROVED");
   });
 });

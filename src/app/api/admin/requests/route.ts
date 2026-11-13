@@ -42,7 +42,11 @@ export async function GET(req: NextRequest) {
       contactEmail: isEmployee ? (user.email || requestedEmail) : requestedEmail,
     });
 
-    return NextResponse.json(result);
+    return NextResponse.json({
+      ...result,
+      requests: result.items,
+      items: result.items,
+    });
   } catch (err) {
     return handleApiError(err);
   }

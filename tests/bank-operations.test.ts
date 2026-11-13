@@ -29,6 +29,8 @@ describe("Bank Operations Service (Opérations Financières)", () => {
     expect(newAccount.currency).toBe("HTG");
     expect(newAccount.currentBalance).toBe(50000);
     expect(newAccount.initialBalanceDate).toBe("2026-01-15");
+    expect(newAccount.branchId).toBeNull();
+    expect(newAccount.branchName).toBe("Compte de l'entreprise");
 
     const allAccounts = await listBankAccounts(testOrgId);
     expect(allAccounts.some((a) => a.id === newAccount.id && a.initialBalanceDate === "2026-01-15")).toBe(true);
@@ -87,15 +89,34 @@ describe("Bank Operations Service (Opérations Financières)", () => {
     );
     expect(delegatedTx.delegateName).toBe("Marc-Antoine Jean");
 
+    // Record a deposit without a bordereau number (referenceNumber is optional)
+    const noRefDeposit = await createBankTransaction(
+      testOrgId,
+      {
+        type: "DEPOSIT",
+        bankAccountId: acc.id,
+        amount: 5000,
+        reason: "Versement sans numéro de bordereau",
+        date: "2026-10-31",
+      },
+      {
+        name: "Administrateur Test",
+        employeeNumber: "ADM-001",
+        role: "ORGANIZATION_ADMIN",
+      }
+    );
+    expect(noRefDeposit.referenceNumber).toBe("N/A");
+    expect(noRefDeposit.authorMatricule).toBe("ADM-001");
+
     const listedTxs = await listBankTransactions(testOrgId);
     expect(
       listedTxs.some((t) => t.id === delegatedTx.id && t.delegateName === "Marc-Antoine Jean")
     ).toBe(true);
 
-    // Verify account balance updated
+    // Verify account balance updated (100000 + 25000 + 10000 + 5000)
     const accounts = await listBankAccounts(testOrgId);
     const updatedAcc = accounts.find((a) => a.id === acc.id);
-    expect(updatedAcc?.currentBalance).toBe(135000);
+    expect(updatedAcc?.currentBalance).toBe(140000);
   });
 
   it("records a withdrawal (décaissement) and automatically decreases the bank account balance", async () => {
@@ -176,5 +197,64 @@ describe("Bank Operations Service (Opérations Financières)", () => {
     expect(typeof stats.netHtg).toBe("number");
     expect(typeof stats.transactionsCount).toBe("number");
     expect(stats.activeAccountsCount).toBeGreaterThan(0);
+  });
+
+  it("isolates organizations strictly without leaking default demo balances and reconciles exact totals", async () => {
+    const freshOrgId = `test-org-isolated-${Date.now()}`;
+    const emptyAccounts = await listBankAccounts(freshOrgId);
+    expect(emptyAccounts).toEqual([]);
+
+    const emptyTxs = await listBankTransactions(freshOrgId);
+    expect(emptyTxs).toEqual([]);
+
+    const htgAcc = await createBankAccount(freshOrgId, {
+      bankName: "Sogebank",
+      accountName: "Compte Courant HTG",
+      accountNumber: "111-222-333",
+      currency: "htg",
+      initialBalance: 100000,
+    });
+    const usdAcc = await createBankAccount(freshOrgId, {
+      bankName: "Unibank",
+      accountName: "Compte USD",
+      accountNumber: "444-555-666",
+      currency: "usd",
+      initialBalance: 2500,
+    });
+
+    await createBankTransaction(
+      freshOrgId,
+      {
+        type: "DEPOSIT",
+        bankAccountId: htgAcc.id,
+        amount: 45000.5,
+        reason: "Dépôt test",
+      },
+      { name: "Admin Test", employeeNumber: "ADM-001" }
+    );
+    await createBankTransaction(
+      freshOrgId,
+      {
+        type: "WITHDRAWAL",
+        bankAccountId: htgAcc.id,
+        amount: 15000.25,
+        referenceNumber: "CHQ-100",
+        reason: "Retrait test",
+      },
+      { name: "Admin Test", employeeNumber: "ADM-001" }
+    );
+
+    const listed = await listBankAccounts(freshOrgId);
+    const updatedHtg = listed.find((a) => a.id === htgAcc.id);
+    const updatedUsd = listed.find((a) => a.id === usdAcc.id);
+    expect(updatedHtg?.currentBalance).toBe(130000.25);
+    expect(updatedHtg?.currency).toBe("HTG");
+    expect(updatedUsd?.currentBalance).toBe(2500);
+    expect(updatedUsd?.currency).toBe("USD");
+
+    await deleteBankAccount(freshOrgId, htgAcc.id);
+    const afterDeleteTxs = await listBankTransactions(freshOrgId);
+    expect(afterDeleteTxs.some((t) => t.bankAccountId === htgAcc.id)).toBe(false);
+    await deleteBankAccount(freshOrgId, usdAcc.id);
   });
 });

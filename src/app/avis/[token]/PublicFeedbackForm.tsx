@@ -75,7 +75,7 @@ export function PublicFeedbackForm({
   if (submitted) {
     return (
       <div className="py-6 text-center space-y-4">
-        <div className="w-16 h-16 rounded-2xl bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mx-auto">
+        <div className="w-16 h-16 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center mx-auto">
           <CheckCircle2 className="w-9 h-9" />
         </div>
 
@@ -117,7 +117,7 @@ export function PublicFeedbackForm({
       </div>
 
       {error && (
-        <div className="p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-rose-700 text-xs sm:text-sm font-medium flex items-start gap-2.5">
+        <div className="p-3.5 rounded-xl bg-rose-50 text-rose-700 text-xs sm:text-sm font-medium flex items-start gap-2.5">
           <AlertCircle className="w-4 h-4 text-rose-600 shrink-0 mt-0.5" />
           <span>{error}</span>
         </div>
@@ -139,7 +139,7 @@ export function PublicFeedbackForm({
           placeholder="Laissez vide pour rester anonyme"
           value={customerName}
           onChange={(e) => setCustomerName(e.target.value)}
-          className="w-full h-11 px-3.5 bg-white border border-[#DCE2EA] focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10 rounded-xl text-sm text-[#263445] placeholder:text-slate-400 transition-all"
+          className="w-full h-11 px-3.5 bg-[#F4F6F9] focus:bg-white focus:outline-none rounded-xl text-sm text-[#263445] placeholder:text-slate-400 transition-all"
         />
       </div>
 
@@ -157,10 +157,10 @@ export function PublicFeedbackForm({
                 key={option}
                 type="button"
                 onClick={() => setCategory(isSelected ? "" : option)}
-                className={`px-3.5 py-2 rounded-xl text-xs font-semibold border transition-all cursor-pointer touch-manipulation ${
+                className={`px-3.5 py-2 rounded-xl text-xs font-semibold transition-all cursor-pointer touch-manipulation ${
                   isSelected
-                    ? "bg-slate-900 text-white border-slate-900 shadow-xs"
-                    : "bg-white text-[#263445] border-[#DCE2EA] hover:bg-slate-50"
+                    ? "bg-slate-900 text-white shadow-xs"
+                    : "bg-[#F4F6F9] text-[#263445] hover:bg-slate-200/70"
                 }`}
               >
                 {option}
@@ -191,7 +191,7 @@ export function PublicFeedbackForm({
           placeholder="Décrivez votre expérience ou vos suggestions d'amélioration..."
           value={comment}
           onChange={(e) => setComment(e.target.value)}
-          className="w-full p-3.5 bg-white border border-[#DCE2EA] focus:border-slate-800 focus:outline-none focus:ring-2 focus:ring-slate-900/10 rounded-xl text-sm text-[#263445] placeholder:text-slate-400 transition-all resize-y"
+          className="w-full p-3.5 bg-[#F4F6F9] focus:bg-white focus:outline-none rounded-xl text-sm text-[#263445] placeholder:text-slate-400 transition-all resize-y"
         />
       </div>
 

@@ -94,18 +94,102 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!body.referenceNumber || !body.referenceNumber.trim()) {
+    if (
+      body.type === "WITHDRAWAL" &&
+      (!body.referenceNumber || !body.referenceNumber.trim())
+    ) {
       return NextResponse.json(
-        { error: "Le numéro de bordereau bancaire ou de référence est obligatoire." },
+        { error: "Le numéro de chèque ou de référence est obligatoire." },
         { status: 400 }
       );
     }
 
-    if (!body.authorMatricule || !body.authorMatricule.trim()) {
-      return NextResponse.json(
-        { error: "Le matricule / identifiant de l'auteur est obligatoire." },
-        { status: 400 }
-      );
+    let resolvedAuthorMatricule =
+      typeof body.authorMatricule === "string" ? body.authorMatricule.trim() : "";
+
+    if (!resolvedAuthorMatricule) {
+      const targetAuthorName =
+        typeof body.authorName === "string" && body.authorName.trim()
+          ? body.authorName.trim().toLowerCase()
+          : (user.name || "").trim().toLowerCase();
+      const targetEmail = (user.email || "").trim().toLowerCase();
+
+      // 1. Try Supabase employees lookup
+      try {
+        const { getSupabaseAdminClient } = await import("@/lib/supabase/server");
+        const supabase = getSupabaseAdminClient();
+        const { data: orgEmps } = await supabase
+          .from("employees")
+          .select("employee_number, email, first_name, last_name")
+          .eq("organization_id", organizationId);
+        if (Array.isArray(orgEmps)) {
+          const matchedByEmail = targetEmail
+            ? orgEmps.find(
+                (e: any) =>
+                  e.email && e.email.toLowerCase().trim() === targetEmail
+              )
+            : null;
+          const matchedByName = !matchedByEmail && targetAuthorName
+            ? orgEmps.find(
+                (e: any) =>
+                  `${e.first_name || ""} ${e.last_name || ""}`
+                    .trim()
+                    .toLowerCase() === targetAuthorName
+              )
+            : null;
+          const hit = matchedByEmail || matchedByName;
+          if (hit?.employee_number) {
+            resolvedAuthorMatricule = hit.employee_number;
+          }
+        }
+      } catch (_) {}
+
+      // 2. Fallback SQLite employees lookup
+      if (!resolvedAuthorMatricule) {
+        try {
+          const { getDb } = await import("@/lib/db/client");
+          const { employees } = await import("@/db/schema");
+          const { eq } = await import("drizzle-orm");
+          const db = getDb();
+          const orgEmps = await db
+            .select()
+            .from(employees)
+            .where(eq(employees.organizationId, organizationId));
+          const matchedByEmail = targetEmail
+            ? orgEmps.find(
+                (e) => e.email && e.email.toLowerCase().trim() === targetEmail
+              )
+            : null;
+          const matchedByName = !matchedByEmail && targetAuthorName
+            ? orgEmps.find(
+                (e) =>
+                  `${e.firstName || ""} ${e.lastName || ""}`
+                    .trim()
+                    .toLowerCase() === targetAuthorName
+              )
+            : null;
+          const hit = matchedByEmail || matchedByName;
+          if (hit?.employeeNumber) {
+            resolvedAuthorMatricule = hit.employeeNumber;
+          }
+        } catch (_) {}
+      }
+
+      // 3. Deterministic fallback identifier by role for admins/managers without employee fiche
+      if (!resolvedAuthorMatricule) {
+        const role = (user.role || "").toUpperCase();
+        if (role === "ORGANIZATION_ADMIN" || role === "SUPER_ADMIN") {
+          resolvedAuthorMatricule = "ADM-001";
+        } else if (role === "FINANCIAL_MANAGER") {
+          resolvedAuthorMatricule = "FIN-001";
+        } else if (role === "BRANCH_MANAGER") {
+          resolvedAuthorMatricule = "MGR-001";
+        } else if (role === "SECRETARY") {
+          resolvedAuthorMatricule = "SEC-001";
+        } else {
+          resolvedAuthorMatricule = "USR-001";
+        }
+      }
     }
 
     const transaction = await createBankTransaction(
@@ -114,7 +198,10 @@ export async function POST(req: NextRequest) {
         type: body.type,
         bankAccountId: body.bankAccountId,
         amount,
-        referenceNumber: body.referenceNumber,
+        referenceNumber:
+          typeof body.referenceNumber === "string"
+            ? body.referenceNumber.trim()
+            : "",
         date: body.date,
         reason: body.reason,
         delegateName:
@@ -128,7 +215,7 @@ export async function POST(req: NextRequest) {
       {
         id: body.authorId || user.id,
         name: body.authorName?.trim() || user.name || "Administrateur",
-        employeeNumber: body.authorMatricule?.trim() || undefined,
+        employeeNumber: resolvedAuthorMatricule || undefined,
         role: body.authorRole || user.role,
       }
     );

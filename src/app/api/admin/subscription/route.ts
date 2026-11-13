@@ -15,13 +15,15 @@ import {
 export async function GET(req: NextRequest) {
   try {
     const { user, organizationId } = await requireTenantUser();
-    const isAdmin = user.role === "ORGANIZATION_ADMIN";
-
-    if (!isAdmin) {
-      return NextResponse.json({
-        canManageSubscription: false,
-        message: "Gestion de l'abonnement réservée à l'administrateur de l'entreprise.",
-      });
+    if (user.role !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        {
+          canManageSubscription: false,
+          error: "Gestion des abonnements réservée à l'interface Super-Administration.",
+          message: "Gestion des abonnements réservée à l'interface Super-Administration.",
+        },
+        { status: 403 }
+      );
     }
 
     const overview = await getOrganizationSubscriptionOverview(organizationId);
@@ -40,6 +42,12 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const { user, organizationId } = await requireOrgAdmin();
+    if (user.role !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        { error: "Gestion des abonnements réservée à l'interface Super-Administration." },
+        { status: 403 }
+      );
+    }
     const body = await req.json();
     const origin = resolveAppOrigin(req.headers);
 
@@ -79,7 +87,13 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE() {
   try {
-    const { organizationId } = await requireOrgAdmin();
+    const { user, organizationId } = await requireOrgAdmin();
+    if (user.role !== "SUPER_ADMIN") {
+      return NextResponse.json(
+        { error: "Gestion des abonnements réservée à l'interface Super-Administration." },
+        { status: 403 }
+      );
+    }
     await cancelPendingSubscriptionReference(organizationId);
     const overview = await getOrganizationSubscriptionOverview(organizationId);
     return NextResponse.json({

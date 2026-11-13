@@ -390,7 +390,7 @@ export default function NewEmployeePage() {
       <div className="flex items-center gap-3">
         <Link
           href="/admin/employees"
-          className="p-2 bg-white border border-[#DCE2EA] rounded-xl hover:bg-slate-50 text-[#64748B] transition-colors"
+          className="p-2 bg-white shadow-xs rounded-xl hover:bg-[#F4F6F9] text-[#64748B] transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
         </Link>
@@ -405,9 +405,9 @@ export default function NewEmployeePage() {
       </div>
 
       {/* FORM CARD */}
-      <div className="bg-white rounded-2xl border border-[#DCE2EA] p-6 sm:p-8 lg:p-10 shadow-xs">
+      <div className="bg-white rounded-2xl p-6 sm:p-8 lg:p-10 shadow-xs">
         {error && (
-          <div className="mb-6 p-4 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-medium flex items-center gap-2">
+          <div className="mb-6 p-4 bg-rose-50 text-rose-800 rounded-xl text-xs font-medium flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
             {error}
           </div>
@@ -415,7 +415,7 @@ export default function NewEmployeePage() {
 
         <form onSubmit={handleSubmit} className="space-y-6 sm:space-y-8">
           {/* OPTION COMPTE UTILISATEUR */}
-          <div className="p-4 sm:p-5 bg-slate-50 border border-[#DCE2EA] rounded-xl space-y-4">
+          <div className="p-4 sm:p-5 bg-[#F4F6F9] rounded-xl space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <span className="text-xs font-bold text-[#062653] block">
@@ -438,7 +438,7 @@ export default function NewEmployeePage() {
             </div>
 
             {createAccount && (
-              <div className="pt-4 border-t border-[#DCE2EA]">
+              <div className="pt-4 border-t border-slate-200/70">
                 <label className="block text-xs font-semibold text-[#263445] mb-1.5">
                   Profil d'accès & Droits système <span className="text-rose-500">*</span>
                 </label>
@@ -446,7 +446,7 @@ export default function NewEmployeePage() {
                   <select
                     value={assignedRole}
                     onChange={(e) => setAssignedRole(e.target.value)}
-                    className="w-full h-11 px-3.5 bg-white border border-[#062653] rounded-xl text-xs font-semibold text-[#062653] focus:outline-none focus:ring-2 focus:ring-[#FF7900]/20 transition-all cursor-pointer shadow-xs"
+                    className="w-full h-11 px-3.5 bg-white rounded-xl text-xs font-semibold text-[#062653] focus:outline-hidden focus:ring-2 focus:ring-[#062653]/15 transition-all cursor-pointer shadow-2xs"
                   >
                     {ASSIGNED_ROLES.map((r) => (
                       <option key={r.value} value={r.value}>
@@ -485,7 +485,7 @@ export default function NewEmployeePage() {
                   value={formData.lastName}
                   onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
                   placeholder="Ex: Jean"
-                  className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                  className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                 />
               </div>
 
@@ -500,7 +500,7 @@ export default function NewEmployeePage() {
                   value={formData.firstName}
                   onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
                   placeholder="Ex: Pierre"
-                  className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                  className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                 />
               </div>
 
@@ -575,7 +575,7 @@ export default function NewEmployeePage() {
                   value={formData.employeeNumber}
                   onChange={(e) => setFormData({ ...formData, employeeNumber: e.target.value.toUpperCase() })}
                   placeholder="Ex: E-BIZNIS-001"
-                  className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#062653] font-bold focus:bg-white focus:border-[#FF7900] transition-colors font-mono"
+                  className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#062653] font-bold focus:bg-white transition-colors font-mono"
                 />
               </div>
 
@@ -592,7 +592,7 @@ export default function NewEmployeePage() {
                     value={formData.email}
                     onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     placeholder="employe@entreprise.com"
-                    className="w-full h-11 pl-10 pr-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#FF7900] transition-colors"
+                    className="w-full h-11 pl-10 pr-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white transition-colors"
                   />
                 </div>
                 <p className="text-[10px] text-[#64748B] mt-1">
@@ -624,7 +624,7 @@ export default function NewEmployeePage() {
                   value={formData.position}
                   onChange={(e) => setFormData({ ...formData, position: e.target.value })}
                   placeholder="Ex: Conseiller commercial, Mécanicien..."
-                  className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                  className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white"
                 />
                 <p className="text-[10px] text-[#64748B] mt-1">
                   Activité ou métier exercé au sein de l'entreprise.
@@ -641,7 +641,7 @@ export default function NewEmployeePage() {
                   value={formData.department}
                   onChange={(e) => setFormData({ ...formData, department: e.target.value })}
                   placeholder="Ex: Ventes, Comptabilité"
-                  className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                  className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white"
                 />
               </div>
 
@@ -679,7 +679,7 @@ export default function NewEmployeePage() {
                     Date de naissance
                   </label>
                   {calculateAge(formData.birthDate) !== null && (
-                    <span className="text-[11px] font-bold text-[#FF7900] bg-[#FFF4EB] px-2 py-0.5 rounded border border-[#FF7900]/20">
+                    <span className="text-[11px] font-bold text-[#FF7900] bg-[#FFF4EB] px-2 py-0.5 rounded">
                       Âge : {calculateAge(formData.birthDate)} ans
                     </span>
                   )}
@@ -688,7 +688,7 @@ export default function NewEmployeePage() {
                   type="date"
                   value={formData.birthDate}
                   onChange={(e) => setFormData({ ...formData, birthDate: e.target.value })}
-                  className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                  className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white"
                 />
               </div>
 
@@ -702,7 +702,7 @@ export default function NewEmployeePage() {
                   value={formData.studyDomain}
                   onChange={(e) => setFormData({ ...formData, studyDomain: e.target.value })}
                   placeholder="Ex: Informatique de Gestion, Comptabilité..."
-                  className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                  className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white"
                 />
               </div>
             </div>
@@ -726,7 +726,7 @@ export default function NewEmployeePage() {
                 <select
                   value={formData.bloodGroup}
                   onChange={(e) => setFormData({ ...formData, bloodGroup: e.target.value })}
-                  className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white font-medium"
+                  className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white font-medium"
                 >
                   <option value="">Non précisé / Inconnu</option>
                   <option value="A+">A+</option>
@@ -750,7 +750,7 @@ export default function NewEmployeePage() {
                   value={formData.medicalNotes}
                   onChange={(e) => setFormData({ ...formData, medicalNotes: e.target.value })}
                   placeholder="Ex: Asthme, Allergie pénicilline, Aucune..."
-                  className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                  className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white"
                 />
               </div>
             </div>
@@ -776,7 +776,7 @@ export default function NewEmployeePage() {
                   value={formData.emergencyContactName}
                   onChange={(e) => setFormData({ ...formData, emergencyContactName: e.target.value })}
                   placeholder="Ex: Marie Piton"
-                  className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                  className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white"
                 />
               </div>
 
@@ -790,7 +790,7 @@ export default function NewEmployeePage() {
                   value={formData.emergencyContactRelation}
                   onChange={(e) => setFormData({ ...formData, emergencyContactRelation: e.target.value })}
                   placeholder="Ex: Épouse, Mère, Frère, Proche..."
-                  className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white"
+                  className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white"
                 />
               </div>
 
@@ -804,7 +804,7 @@ export default function NewEmployeePage() {
                   value={formData.emergencyContactPhone}
                   onChange={(e) => setFormData({ ...formData, emergencyContactPhone: e.target.value })}
                   placeholder="Ex: +509 3800-1122"
-                  className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white font-mono"
+                  className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white font-mono"
                 />
               </div>
             </div>
@@ -827,7 +827,7 @@ export default function NewEmployeePage() {
             <div className="flex items-center gap-3 w-full sm:w-auto shrink-0">
               <Link
                 href="/admin/employees"
-                className="w-full sm:w-auto px-5 py-3 border border-[#DCE2EA] text-[#64748B] rounded-xl text-xs font-semibold hover:bg-slate-50 transition-colors text-center"
+                className="w-full sm:w-auto px-5 py-3 bg-[#F4F6F9] text-[#64748B] rounded-xl text-xs font-semibold hover:bg-slate-200/70 transition-colors text-center"
               >
                 Annuler
               </Link>
@@ -855,7 +855,7 @@ export default function NewEmployeePage() {
       {/* SUCCESS CONFIRMATION MODAL */}
       {mounted && successData && createPortal(
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[9999] flex items-center justify-center p-4 animate-fadeIn">
-          <div className="relative bg-white rounded-2xl border border-[#DCE2EA] shadow-2xl max-w-lg w-full p-6 sm:p-8 space-y-6 animate-scaleUp">
+          <div className="relative bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 sm:p-8 space-y-6 animate-scaleUp">
             {/* Close cross button (X) */}
             <button
               type="button"
@@ -905,10 +905,10 @@ export default function NewEmployeePage() {
             {/* EMAIL STATUS BANNER */}
             {successData.hasAccount && (
               <div
-                className={`p-3.5 rounded-xl border text-xs flex items-start gap-2.5 ${
+                className={`p-3.5 rounded-xl text-xs flex items-start gap-2.5 ${
                   successData.emailSent
-                    ? "bg-emerald-50/80 border-emerald-200 text-emerald-900"
-                    : "bg-amber-50/80 border-amber-200 text-amber-900"
+                    ? "bg-emerald-50/80 text-emerald-900"
+                    : "bg-amber-50/80 text-amber-900"
                 }`}
               >
                 {successData.emailSent ? (
@@ -950,7 +950,7 @@ export default function NewEmployeePage() {
                     type="text"
                     readOnly
                     value={successData.inviteLink}
-                    className="w-full h-11 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] select-all font-mono"
+                    className="w-full h-11 px-3 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] select-all font-mono"
                   />
                   <button
                     type="button"
@@ -984,7 +984,7 @@ export default function NewEmployeePage() {
               </div>
             ) : (
               <div className="space-y-3">
-                <div className="p-3.5 bg-slate-50 border border-[#DCE2EA] rounded-xl text-xs text-[#64748B]">
+                <div className="p-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#64748B]">
                   L'employé est désormais actif dans le registre RH. Vous pourrez créer son compte de connexion à tout moment ultérieurement si nécessaire.
                 </div>
                 <div className="flex gap-2">
@@ -997,7 +997,7 @@ export default function NewEmployeePage() {
                   <button
                     type="button"
                     onClick={handleResetForm}
-                    className="h-11 px-4 border border-[#DCE2EA] hover:bg-slate-50 text-[#263445] rounded-xl text-xs font-semibold transition-colors cursor-pointer"
+                    className="h-11 px-4 bg-[#F4F6F9] hover:bg-slate-200/70 text-[#263445] rounded-xl text-xs font-semibold transition-colors cursor-pointer"
                   >
                     Ajouter un autre
                   </button>

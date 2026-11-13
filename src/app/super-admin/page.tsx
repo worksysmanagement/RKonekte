@@ -366,14 +366,14 @@ export default function SuperAdminOverviewPage() {
             type="button"
             onClick={() => loadStats(true)}
             disabled={refreshing}
-            className="h-9 px-3.5 bg-white border border-[#DCE2EA] hover:bg-slate-50 text-xs font-semibold text-[#062653] rounded-xl shadow-2xs transition-colors inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer disabled:opacity-60"
+            className="h-9 px-3.5 bg-white hover:bg-slate-50 text-xs font-semibold text-[#062653] rounded-xl shadow-2xs transition-colors inline-flex items-center gap-1.5 whitespace-nowrap cursor-pointer disabled:opacity-60"
           >
             <RefreshCw className={`w-3.5 h-3.5 ${refreshing || loading ? "animate-spin" : ""}`} />
             <span>Actualiser</span>
           </button>
           <Link
             href="/super-admin/organizations"
-            className="h-9 px-3.5 bg-white border border-[#DCE2EA] hover:bg-slate-50 text-xs font-semibold text-[#263445] rounded-xl shadow-2xs transition-colors inline-flex items-center gap-2 whitespace-nowrap"
+            className="h-9 px-3.5 bg-white hover:bg-slate-50 text-xs font-semibold text-[#263445] rounded-xl shadow-2xs transition-colors inline-flex items-center gap-2 whitespace-nowrap"
           >
             <span>Entreprises clientes</span>
           </Link>
@@ -388,7 +388,7 @@ export default function SuperAdminOverviewPage() {
       </div>
 
       {/* 2. TEMPORAL FILTER BAR (ALL / DAY / MONTH / YEAR) */}
-      <div className="bg-white border border-[#DCE2EA] rounded-2xl p-4 shadow-xs flex flex-col xl:flex-row xl:items-center justify-between gap-3">
+      <div className="bg-white rounded-2xl p-4 shadow-xs flex flex-col xl:flex-row xl:items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="flex items-center gap-1.5 text-xs font-bold text-[#062653] mr-1">
             <Calendar className="w-4 h-4 text-[#FF7900]" />
@@ -431,12 +431,12 @@ export default function SuperAdminOverviewPage() {
                 aria-label="Sélectionner un jour"
                 value={selectedDate}
                 onChange={(e) => setSelectedDate(e.target.value)}
-                className="px-3 py-1.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-semibold text-[#062653] focus:border-[#062653] outline-none"
+                className="px-3 py-1.5 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs font-semibold text-[#062653] outline-none"
               />
               <button
                 type="button"
                 onClick={() => setSelectedDate(getHaitiDateParts(Date.now()).ymd)}
-                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-lg text-[11px] font-bold cursor-pointer"
+                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg text-[11px] font-bold cursor-pointer"
               >
                 Aujourd&apos;hui
               </button>
@@ -449,7 +449,7 @@ export default function SuperAdminOverviewPage() {
                 aria-label="Sélectionner un mois"
                 value={selectedMonthNum}
                 onChange={(e) => setSelectedMonthNum(e.target.value)}
-                className="px-3 py-1.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-semibold text-[#062653] focus:border-[#062653] outline-none"
+                className="px-3 py-1.5 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs font-semibold text-[#062653] outline-none"
               >
                 {FRENCH_MONTH_OPTIONS.map((m) => (
                   <option key={m.value} value={m.value}>
@@ -461,7 +461,7 @@ export default function SuperAdminOverviewPage() {
                 aria-label="Sélectionner une année"
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="px-3 py-1.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-semibold text-[#062653] focus:border-[#062653] outline-none"
+                className="px-3 py-1.5 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs font-semibold text-[#062653] outline-none"
               >
                 {yearOptions.map((y) => (
                   <option key={y} value={y}>
@@ -476,7 +476,7 @@ export default function SuperAdminOverviewPage() {
                   setSelectedMonthNum(nowParts.month);
                   setSelectedYear(nowParts.year);
                 }}
-                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-lg text-[11px] font-bold cursor-pointer"
+                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg text-[11px] font-bold cursor-pointer"
               >
                 Ce mois
               </button>
@@ -489,7 +489,7 @@ export default function SuperAdminOverviewPage() {
                 aria-label="Sélectionner une année"
                 value={selectedYear}
                 onChange={(e) => setSelectedYear(e.target.value)}
-                className="px-3 py-1.5 bg-white border border-[#DCE2EA] rounded-xl text-xs font-semibold text-[#062653] focus:border-[#062653] outline-none"
+                className="px-3 py-1.5 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs font-semibold text-[#062653] outline-none"
               >
                 {yearOptions.map((y) => (
                   <option key={y} value={y}>
@@ -500,7 +500,7 @@ export default function SuperAdminOverviewPage() {
               <button
                 type="button"
                 onClick={() => setSelectedYear(getHaitiDateParts(Date.now()).year)}
-                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 rounded-lg text-[11px] font-bold cursor-pointer"
+                className="px-2.5 py-1.5 bg-amber-50 hover:bg-amber-100 text-amber-900 rounded-lg text-[11px] font-bold cursor-pointer"
               >
                 Cette année
               </button>
@@ -509,7 +509,7 @@ export default function SuperAdminOverviewPage() {
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="px-3 py-1 rounded-full bg-[#F4F6F9] border border-[#DCE2EA] text-[11px] font-bold text-[#062653]">
+          <span className="px-3 py-1 rounded-full bg-[#F4F6F9] text-[11px] font-bold text-[#062653]">
             Période : {stats?.filter?.label || "Toutes les périodes"}
           </span>
           {periodMode !== "all" && (
@@ -527,7 +527,7 @@ export default function SuperAdminOverviewPage() {
       {/* 3. COMPLETE KPI CARDS WITH EYE BUTTONS */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
         {/* CARD 1: ENTREPRISES SANS MOT DE PASSE */}
-        <div className="xl:col-span-2 bg-white p-5 rounded-xl border border-[#DCE2EA] shadow-xs flex flex-col justify-between">
+        <div className="xl:col-span-2 bg-white p-5 rounded-xl shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
@@ -542,7 +542,7 @@ export default function SuperAdminOverviewPage() {
                 }}
                 aria-label="Voir les entreprises inscrites sans mot de passe"
                 title="Voir le détail des entreprises sans mot de passe"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#DCE2EA] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Voir</span>
@@ -572,7 +572,7 @@ export default function SuperAdminOverviewPage() {
         </div>
 
         {/* CARD 2: INSCRITS & CONNECTES + EN LIGNE MAINTENANT */}
-        <div className="xl:col-span-2 bg-white p-5 rounded-xl border border-[#DCE2EA] shadow-xs flex flex-col justify-between">
+        <div className="xl:col-span-2 bg-white p-5 rounded-xl shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
@@ -587,7 +587,7 @@ export default function SuperAdminOverviewPage() {
                 }}
                 aria-label="Voir les entreprises et comptes inscrits et connectés"
                 title="Voir les connexions et sessions en ligne"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#DCE2EA] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Voir</span>
@@ -618,7 +618,7 @@ export default function SuperAdminOverviewPage() {
         </div>
 
         {/* CARD 3: ABONNEMENTS FIN PROCHE DES J-7 */}
-        <div className="xl:col-span-2 bg-white p-5 rounded-xl border border-[#DCE2EA] shadow-xs flex flex-col justify-between">
+        <div className="xl:col-span-2 bg-white p-5 rounded-xl shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
@@ -633,7 +633,7 @@ export default function SuperAdminOverviewPage() {
                 }}
                 aria-label="Voir les entreprises dont l'abonnement arrive à échéance (J-7)"
                 title="Voir les entreprises J-7 et expirées"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#DCE2EA] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Voir</span>
@@ -672,7 +672,7 @@ export default function SuperAdminOverviewPage() {
         </div>
 
         {/* CARD 4: UTILISATEURS & EMPLOYES */}
-        <div className="xl:col-span-3 bg-white p-5 rounded-xl border border-[#DCE2EA] shadow-xs flex flex-col justify-between">
+        <div className="xl:col-span-3 bg-white p-5 rounded-xl shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
@@ -684,7 +684,7 @@ export default function SuperAdminOverviewPage() {
                 onClick={() => setKpiModal("USERS_EMPLOYEES")}
                 aria-label="Voir le nombre d'utilisateurs et d'employés par entreprise"
                 title="Voir les effectifs par entreprise"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#DCE2EA] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Voir</span>
@@ -723,7 +723,7 @@ export default function SuperAdminOverviewPage() {
         </div>
 
         {/* CARD 5: ENTREPRISES CLIENTES */}
-        <div className="md:col-span-2 xl:col-span-3 bg-white p-5 rounded-xl border border-[#DCE2EA] shadow-xs flex flex-col justify-between">
+        <div className="md:col-span-2 xl:col-span-3 bg-white p-5 rounded-xl shadow-xs flex flex-col justify-between">
           <div>
             <div className="flex items-center justify-between gap-2">
               <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
@@ -735,7 +735,7 @@ export default function SuperAdminOverviewPage() {
                 onClick={() => setKpiModal("ORGS")}
                 aria-label="Voir la liste des entreprises inscrites"
                 title="Voir les entreprises de la période"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border border-[#DCE2EA] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
               >
                 <Eye className="w-3.5 h-3.5" />
                 <span>Voir</span>
@@ -771,8 +771,8 @@ export default function SuperAdminOverviewPage() {
       </div>
 
       {/* 4. DETAILED PER-COMPANY OVERVIEW TABLE (USERS, EMPLOYEES, PASSWORD, LOGINS, J-7) */}
-      <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xs overflow-hidden">
-        <div className="p-5 border-b border-[#DCE2EA] space-y-4">
+      <div className="bg-white rounded-2xl shadow-xs overflow-hidden">
+        <div className="p-5 border-b border-slate-100 space-y-4">
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3">
             <div>
               <h2 className="text-base font-bold text-[#062653]">
@@ -788,10 +788,10 @@ export default function SuperAdminOverviewPage() {
                 <button
                   type="button"
                   onClick={() => setRestrictTableToPeriod(!restrictTableToPeriod)}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-colors cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors cursor-pointer ${
                     restrictTableToPeriod
-                      ? "bg-[#FFF4EB] border-[#FF7900] text-[#062653]"
-                      : "bg-white border-[#DCE2EA] text-[#64748B]"
+                      ? "bg-[#FFF4EB] ring-1 ring-[#FF7900] text-[#062653]"
+                      : "bg-[#F4F6F9] text-[#64748B]"
                   }`}
                 >
                   {restrictTableToPeriod
@@ -806,7 +806,7 @@ export default function SuperAdminOverviewPage() {
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Rechercher entreprise, email..."
-                  className="pl-8 pr-3 py-1.5 w-60 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:border-[#062653] outline-none"
+                  className="pl-8 pr-3 py-1.5 w-60 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white outline-none transition-colors"
                 />
               </div>
             </div>
@@ -1078,7 +1078,7 @@ export default function SuperAdminOverviewPage() {
                   {items.map((org) => (
                     <div
                       key={org.id}
-                      className="p-3.5 rounded-xl border border-[#DCE2EA] flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50"
+                      className="p-3.5 rounded-xl bg-[#F4F6F9]/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F4F6F9]"
                     >
                       <div>
                         <div className="flex items-center gap-2.5 flex-wrap">
@@ -1102,7 +1102,7 @@ export default function SuperAdminOverviewPage() {
                             setKpiModal(null);
                             handleOpenInspectOrg(org);
                           }}
-                          className="px-3 py-1.5 rounded-lg border border-[#DCE2EA] text-xs font-bold text-[#062653] hover:bg-slate-100 flex items-center gap-1 cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg bg-white shadow-2xs text-xs font-bold text-[#062653] hover:bg-slate-100 flex items-center gap-1 cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           Détails
@@ -1177,7 +1177,7 @@ export default function SuperAdminOverviewPage() {
                   {items.map((org) => (
                     <div
                       key={org.id}
-                      className="p-3.5 rounded-xl border border-[#DCE2EA] flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50"
+                      className="p-3.5 rounded-xl bg-[#F4F6F9]/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F4F6F9]"
                     >
                       <div>
                         <div className="flex items-center gap-2.5 flex-wrap">
@@ -1263,7 +1263,7 @@ export default function SuperAdminOverviewPage() {
                   {items.map((org) => (
                     <div
                       key={org.id}
-                      className="p-3.5 rounded-xl border border-[#DCE2EA] flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-slate-50"
+                      className="p-3.5 rounded-xl bg-[#F4F6F9]/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3 hover:bg-[#F4F6F9]"
                     >
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
@@ -1288,7 +1288,7 @@ export default function SuperAdminOverviewPage() {
                             setKpiModal(null);
                             handleOpenInspectOrg(org);
                           }}
-                          className="px-3 py-1.5 rounded-lg border border-[#DCE2EA] text-xs font-bold text-[#062653] hover:bg-slate-100 flex items-center gap-1 cursor-pointer"
+                          className="px-3 py-1.5 rounded-lg bg-white shadow-2xs text-xs font-bold text-[#062653] hover:bg-slate-100 flex items-center gap-1 cursor-pointer"
                         >
                           <Eye className="w-3.5 h-3.5" />
                           Détails
@@ -1318,7 +1318,7 @@ export default function SuperAdminOverviewPage() {
                 Aucune entreprise enregistrée.
               </div>
             ) : (
-              <div className="overflow-x-auto border border-[#DCE2EA] rounded-xl">
+              <div className="overflow-x-auto rounded-xl">
                 <table className="w-full text-left text-xs">
                   <thead className="bg-[#F4F6F9] text-[11px] uppercase font-bold text-[#64748B] border-b border-[#DCE2EA]">
                     <tr>
@@ -1390,7 +1390,7 @@ export default function SuperAdminOverviewPage() {
               (lists?.organizationsInPeriod || []).map((org) => (
                 <div
                   key={org.id}
-                  className="p-3.5 rounded-xl border border-[#DCE2EA] flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="p-3.5 rounded-xl bg-[#F4F6F9]/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                 >
                   <div>
                     <div className="flex items-center gap-2.5 flex-wrap">
@@ -1449,7 +1449,7 @@ export default function SuperAdminOverviewPage() {
         {inspectOrgSummary && (
           <div className="space-y-5">
             {/* Summary banner */}
-            <div className="p-4 rounded-xl bg-white border border-[#DCE2EA] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="p-4 rounded-xl bg-[#F4F6F9] flex flex-col sm:flex-row sm:items-center justify-between gap-3">
               <div>
                 <div className="flex items-center gap-2.5 flex-wrap">
                   <span className="text-base font-bold text-[#062653]">
@@ -1497,13 +1497,13 @@ export default function SuperAdminOverviewPage() {
 
             {/* 4 mini counters */}
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              <div className="p-3 rounded-xl border border-[#DCE2EA] bg-white">
+              <div className="p-3 rounded-xl bg-[#F4F6F9]">
                 <div className="text-[10px] font-bold uppercase text-[#64748B]">Utilisateurs</div>
                 <div className="text-xl font-bold text-[#062653] mt-1">
                   {inspectOrgSummary.userCount}
                 </div>
               </div>
-              <div className="p-3 rounded-xl border border-[#DCE2EA] bg-white">
+              <div className="p-3 rounded-xl bg-[#F4F6F9]">
                 <div className="text-[10px] font-bold uppercase text-[#64748B]">
                   Connectés / En ligne
                 </div>
@@ -1514,13 +1514,13 @@ export default function SuperAdminOverviewPage() {
                   </span>
                 </div>
               </div>
-              <div className="p-3 rounded-xl border border-[#DCE2EA] bg-white">
+              <div className="p-3 rounded-xl bg-[#F4F6F9]">
                 <div className="text-[10px] font-bold uppercase text-[#64748B]">Sans mot de passe</div>
                 <div className="text-xl font-bold text-amber-700 mt-1">
                   {inspectOrgSummary.noPasswordUserCount}
                 </div>
               </div>
-              <div className="p-3 rounded-xl border border-[#DCE2EA] bg-white">
+              <div className="p-3 rounded-xl bg-[#F4F6F9]">
                 <div className="text-[10px] font-bold uppercase text-[#64748B]">Employés</div>
                 <div className="text-xl font-bold text-[#062653] mt-1">
                   {inspectOrgSummary.employeeCount}
@@ -1529,7 +1529,7 @@ export default function SuperAdminOverviewPage() {
             </div>
 
             {/* Tabs + inline search */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-[#DCE2EA] pb-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-slate-100 pb-3">
               <div className="flex flex-wrap items-center gap-2">
                 <button
                   type="button"
@@ -1574,7 +1574,7 @@ export default function SuperAdminOverviewPage() {
                     value={inspectSearch}
                     onChange={(e) => setInspectSearch(e.target.value)}
                     placeholder="Filtrer dans cette liste..."
-                    className="pl-8 pr-3 py-1.5 w-full sm:w-52 bg-[#F4F6F9] border border-[#DCE2EA] rounded-lg text-xs outline-none focus:bg-white focus:border-[#062653]"
+                    className="pl-8 pr-3 py-1.5 w-full sm:w-52 bg-[#F4F6F9] rounded-lg text-xs outline-none focus:bg-white transition-colors"
                   />
                 </div>
               )}
@@ -1590,7 +1590,7 @@ export default function SuperAdminOverviewPage() {
                   Aucun utilisateur trouvé pour cette entreprise.
                 </div>
               ) : (
-                <div className="overflow-x-auto border border-[#DCE2EA] rounded-xl">
+                <div className="overflow-x-auto rounded-xl">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-[#F4F6F9] text-[10px] uppercase font-bold text-[#64748B] border-b border-[#DCE2EA]">
                       <tr>
@@ -1654,7 +1654,7 @@ export default function SuperAdminOverviewPage() {
                   Aucun employé enregistré pour cette entreprise.
                 </div>
               ) : (
-                <div className="overflow-x-auto border border-[#DCE2EA] rounded-xl">
+                <div className="overflow-x-auto rounded-xl">
                   <table className="w-full text-left text-xs">
                     <thead className="bg-[#F4F6F9] text-[10px] uppercase font-bold text-[#64748B] border-b border-[#DCE2EA]">
                       <tr>
@@ -1726,13 +1726,13 @@ export default function SuperAdminOverviewPage() {
               )
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                <div className="p-3.5 rounded-xl border border-[#DCE2EA]">
+                <div className="p-3.5 rounded-xl bg-[#F4F6F9]">
                   <span className="text-[11px] text-[#64748B] block">Date d&apos;inscription</span>
                   <strong className="text-sm text-[#062653]">
                     {formatFrDateTime(inspectOrgSummary.createdAt)}
                   </strong>
                 </div>
-                <div className="p-3.5 rounded-xl border border-[#DCE2EA]">
+                <div className="p-3.5 rounded-xl bg-[#F4F6F9]">
                   <span className="text-[11px] text-[#64748B] block">Date d&apos;activation</span>
                   <strong className="text-sm text-[#062653]">
                     {inspectOrgSummary.activatedAt
@@ -1740,7 +1740,7 @@ export default function SuperAdminOverviewPage() {
                       : "Non activée"}
                   </strong>
                 </div>
-                <div className="p-3.5 rounded-xl border border-[#DCE2EA]">
+                <div className="p-3.5 rounded-xl bg-[#F4F6F9]">
                   <span className="text-[11px] text-[#64748B] block">Dernier renouvellement</span>
                   <strong className="text-sm text-[#062653]">
                     {inspectOrgSummary.lastRenewedAt
@@ -1748,20 +1748,20 @@ export default function SuperAdminOverviewPage() {
                       : "Aucun (1er mois)"}
                   </strong>
                 </div>
-                <div className="p-3.5 rounded-xl border border-[#DCE2EA]">
+                <div className="p-3.5 rounded-xl bg-[#F4F6F9]">
                   <span className="text-[11px] text-[#64748B] block">Prochaine expiration</span>
                   <strong className="text-sm text-[#062653]">
                     {formatFrDate(inspectOrgSummary.subscriptionExpiresAt)} (
                     {inspectOrgSummary.subscriptionState.countdownLabel})
                   </strong>
                 </div>
-                <div className="p-3.5 rounded-xl border border-[#DCE2EA]">
+                <div className="p-3.5 rounded-xl bg-[#F4F6F9]">
                   <span className="text-[11px] text-[#64748B] block">Dernière connexion connue</span>
                   <strong className="text-sm text-[#062653]">
                     {formatFrDateTime(inspectOrgSummary.lastLoginAt)}
                   </strong>
                 </div>
-                <div className="p-3.5 rounded-xl border border-[#DCE2EA]">
+                <div className="p-3.5 rounded-xl bg-[#F4F6F9]">
                   <span className="text-[11px] text-[#64748B] block">Statut du compte &amp; service</span>
                   <strong className="text-sm text-[#062653]">
                     {inspectOrgSummary.subscriptionState.serviceStopped
@@ -1772,7 +1772,7 @@ export default function SuperAdminOverviewPage() {
                   </strong>
                 </div>
                 {inspectOrgSummary.pendingRenewal && (
-                  <div className="sm:col-span-2 p-3.5 rounded-xl bg-white border border-[#DCE2EA]">
+                  <div className="sm:col-span-2 p-3.5 rounded-xl bg-[#F4F6F9]">
                     <div className="font-bold text-[#062653]">
                       Référence de renouvellement en attente
                     </div>

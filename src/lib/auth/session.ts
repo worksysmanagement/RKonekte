@@ -11,6 +11,7 @@ export interface SessionUser {
   organizationSlug?: string;
   branchId?: string | null;
   branchName?: string;
+  employeeNumber?: string;
 }
 
 const COOKIE_NAME = "lm_session";

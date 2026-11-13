@@ -147,7 +147,7 @@ function ResetPasswordContent() {
 
   return (
     <div className="min-h-screen bg-white flex flex-col justify-center items-center px-4 sm:px-6 py-12">
-      <div className="max-w-md w-full bg-white rounded-3xl border border-[#DCE2EA] shadow-xl p-8 sm:p-10 text-center">
+      <div className="max-w-md w-full bg-white rounded-3xl shadow-xl p-8 sm:p-10 text-center">
         {/* Brand Logo Header */}
         <div className="mb-6 flex flex-col items-center justify-center text-center">
           <img
@@ -176,7 +176,7 @@ function ResetPasswordContent() {
         {/* ERROR STATE */}
         {!loading && error && (
           <div className="space-y-5 animate-fadeIn">
-            <div className="w-14 h-14 bg-rose-50 border border-rose-200 rounded-2xl flex items-center justify-center mx-auto text-rose-600">
+            <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center mx-auto text-rose-600">
               <AlertCircle className="w-7 h-7" />
             </div>
 
@@ -254,7 +254,7 @@ function ResetPasswordContent() {
             </div>
 
             {/* Account Summary */}
-            <div className="bg-transparent border border-[#DCE2EA] rounded-2xl p-4 text-xs space-y-1.5">
+            <div className="bg-[#F4F6F9] rounded-2xl p-4 text-xs space-y-1.5">
               <div className="flex justify-between">
                 <span className="text-slate-500 font-medium">Compte :</span>
                 <span className="font-semibold text-slate-800">{tokenData.email}</span>
@@ -268,7 +268,7 @@ function ResetPasswordContent() {
             </div>
 
             {formError && (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-700 flex items-center gap-2">
+              <div className="p-3 bg-rose-50 rounded-xl text-xs text-rose-700 flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
                 <span>{formError}</span>
               </div>
@@ -286,7 +286,7 @@ function ResetPasswordContent() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Min. 8 car., Maj, Min, Chiffre, Caractère spécial"
-                    className="w-full h-11 pl-3.5 pr-10 text-xs border border-slate-300 rounded-xl bg-slate-50 text-slate-900 focus:bg-white focus:outline-none focus:border-[#FF7900] transition-colors"
+                    className="w-full h-11 pl-3.5 pr-10 text-xs rounded-xl bg-[#F4F6F9] text-slate-900 focus:bg-white focus:outline-none transition-colors"
                   />
                   <button
                     type="button"
@@ -382,7 +382,7 @@ function ResetPasswordContent() {
                   value={confirmPassword}
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   placeholder="Répétez votre mot de passe"
-                  className="w-full h-11 px-3.5 text-xs border border-slate-300 rounded-xl bg-slate-50 text-slate-900 focus:bg-white focus:outline-none focus:border-[#FF7900] transition-colors"
+                  className="w-full h-11 px-3.5 text-xs rounded-xl bg-[#F4F6F9] text-slate-900 focus:bg-white focus:outline-none transition-colors"
                 />
                 {confirmPassword.length > 0 && password !== confirmPassword && (
                   <p className="text-[11px] text-rose-500 mt-1">Les mots de passe ne correspondent pas.</p>

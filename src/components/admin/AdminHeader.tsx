@@ -3,7 +3,7 @@
 import React, { useState, useRef, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { LogOut, Bell, Check, ExternalLink, ChevronDown } from "lucide-react";
+import { LogOut, Bell, Check, ExternalLink, ChevronDown, X } from "lucide-react";
 import { APP_CONFIG } from "@/config/app";
 import { useSidebar, MenuDotsIcon, CloseTicksIcon } from "./SidebarContext";
 import { LogoutConfirmModal } from "@/components/ui/LogoutConfirmModal";
@@ -57,6 +57,7 @@ export function AdminHeader({
   const [isBranchOpen, setIsBranchOpen] = useState(false);
   const branchRef = useRef<HTMLDivElement>(null);
   const [showNotifications, setShowNotifications] = useState(false);
+  const notifRef = useRef<HTMLDivElement>(null);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
 
@@ -131,9 +132,22 @@ export function AdminHeader({
       if (branchRef.current && !branchRef.current.contains(e.target as Node)) {
         setIsBranchOpen(false);
       }
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setShowNotifications(false);
+      }
+    };
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setIsBranchOpen(false);
+        setShowNotifications(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
   }, []);
 
   const currentBranch =
@@ -161,96 +175,147 @@ export function AdminHeader({
         if (isMounted) setNotificationsList([]);
         return;
       }
-      const isEmployeeRole =
-        role === "EMPLOYEE" ||
-        role === "COLLABORATEUR" ||
-        role === "CASHIER" ||
-        role === "CAISSIER" ||
-        role?.toLowerCase().includes("employ") ||
-        role?.toLowerCase().includes("collab") ||
-        role?.toLowerCase().includes("caissier") ||
-        role?.toLowerCase().includes("cashier") ||
-        role?.toLowerCase().includes("operat");
-
-      if (isEmployeeRole) {
-        try {
-          const evRes = await fetch("/api/admin/events");
-          if (evRes.ok && isMounted) {
-            const evData = await evRes.json();
-            const readIds = new Set<string>(
-              JSON.parse(localStorage.getItem("rkonekte_read_event_notifs") || "[]")
-            );
-            const alertEvents = (Array.isArray(evData?.events) ? evData.events : [])
-              .filter((ev: any) => !ev.isPersonal && ev.notifyImmediate !== false)
-              .slice(0, 6);
-            const mapped: HeaderNotification[] = alertEvents.map((ev: any) => ({
-              id: ev.id,
-              title: `Planification — ${ev.title}`,
-              time: ev.date || "À venir",
-              type: ev.audienceTargetName || "Administration",
-              link: "/admin/events",
-              unread: !readIds.has(ev.id),
-            }));
-            setNotificationsList(mapped);
-            return;
-          }
-        } catch (_) {}
-        if (isMounted) setNotificationsList([]);
-        return;
-      }
 
       try {
         const readIds = new Set<string>(
           JSON.parse(localStorage.getItem("rkonekte_read_event_notifs") || "[]")
         );
+        const dismissedIds = new Set<string>(
+          JSON.parse(localStorage.getItem("rkonekte_dismissed_notifications") || "[]")
+        );
 
-        const [reqRes, meRes] = await Promise.all([
-          fetch("/api/admin/requests?status=PENDING&limit=5"),
+        const [reqRes, txRes, evRes, meRes] = await Promise.all([
+          fetch("/api/admin/requests?limit=15"),
+          fetch("/api/admin/financial-operations/transactions?limit=15").catch(() => null),
+          fetch("/api/admin/events").catch(() => null),
           role === "ORGANIZATION_ADMIN"
-            ? fetch("/api/auth/me", { cache: "no-store" })
+            ? fetch("/api/auth/me", { cache: "no-store" }).catch(() => null)
             : Promise.resolve(null),
         ]);
 
         const combined: HeaderNotification[] = [];
 
+        // 1. Alertes d'abonnement (Compte à rebours J-7)
         if (meRes && meRes.ok) {
-          const meData = await meRes.json();
-          const summary = meData?.subscriptionSummary;
-          if (
-            summary?.shouldShowCountdownBanner &&
-            !summary?.isExpired &&
-            !summary?.isAccessBlocked
-          ) {
-            const notifId = `sub-alert-${summary.subscriptionExpiresAt ?? "exp"}-${summary.daysRemaining ?? "none"}`;
-            const title =
-              summary.daysRemaining === 0
-                ? "Votre plan se termine aujourd'hui (J-0)"
-                : `Votre plan se termine dans ${summary.daysRemaining} jour${summary.daysRemaining > 1 ? "s" : ""} (J-${summary.daysRemaining})`;
-            combined.push({
-              id: notifId,
-              title,
-              time: `J-${summary.daysRemaining ?? 0}`,
-              type: "Abonnement",
-              link: "/admin/subscription",
-              unread: !readIds.has(notifId),
-            });
-          }
+          try {
+            const meData = await meRes.json();
+            const summary = meData?.subscriptionSummary;
+            if (
+              summary?.shouldShowCountdownBanner &&
+              !summary?.isExpired &&
+              !summary?.isAccessBlocked
+            ) {
+              const notifId = `sub-alert-${summary.subscriptionExpiresAt ?? "exp"}-${summary.daysRemaining ?? "none"}`;
+              if (!dismissedIds.has(notifId)) {
+                const title =
+                  summary.daysRemaining === 0
+                    ? "Votre plan se termine aujourd'hui (J-0)"
+                    : `Votre plan se termine dans ${summary.daysRemaining} jour${summary.daysRemaining > 1 ? "s" : ""} (J-${summary.daysRemaining})`;
+                combined.push({
+                  id: notifId,
+                  title,
+                  time: `J-${summary.daysRemaining ?? 0}`,
+                  type: "Abonnement",
+                  link: "/admin/notifications",
+                  unread: !readIds.has(notifId),
+                });
+              }
+            }
+          } catch (_) {}
         }
 
-        if (reqRes.ok) {
-          const data = await reqRes.json();
-          if (data?.requests && Array.isArray(data.requests)) {
-            const mapped: HeaderNotification[] = data.requests.map((r: any) => ({
-              id: r.id,
-              title: `Demande de congé — ${r.employeeName || "Employé"}`,
-              time: r.createdAt ? new Date(r.createdAt).toLocaleDateString("fr-FR") : "Récent",
-              type: r.leaveType || "Congé",
-              link: "/admin/requests",
-              unread: true,
-            }));
-            combined.push(...mapped);
-          }
+        // 2. Demandes de congé (Nouvelles soumissions & suivi)
+        if (reqRes && reqRes.ok) {
+          try {
+            const data = await reqRes.json();
+            const rawRequests = Array.isArray(data?.items)
+              ? data.items
+              : Array.isArray(data?.requests)
+              ? data.requests
+              : [];
+
+            rawRequests
+              .filter((r: any) => !r.decisionComment?.includes("[ADMIN_ARCHIVED]"))
+              .slice(0, 8)
+              .forEach((r: any) => {
+                const empName =
+                  r.employeeName ||
+                  `${r.firstName || ""} ${r.lastName || ""}`.trim() ||
+                  "Employé";
+                const notifId = `leave-${r.id}`;
+                if (dismissedIds.has(notifId)) return;
+                const isPending = r.status === "PENDING";
+                combined.push({
+                  id: notifId,
+                  title: `Demande de congé — ${empName}`,
+                  time: r.createdAt
+                    ? new Date(r.createdAt).toLocaleDateString("fr-FR")
+                    : r.submittedAt
+                    ? new Date(r.submittedAt).toLocaleDateString("fr-FR")
+                    : "Récent",
+                  type: isPending ? "En attente" : r.status === "APPROVED" ? "Approuvée" : "Refusée",
+                  link: "/admin/requests",
+                  unread: isPending && !readIds.has(notifId),
+                });
+              });
+          } catch (_) {}
         }
+
+        // 3. Opérations Financières (Chaque dépôt et retrait effectué)
+        if (txRes && txRes.ok) {
+          try {
+            const txData = await txRes.json();
+            const txList = Array.isArray(txData?.transactions) ? txData.transactions : [];
+            txList.slice(0, 8).forEach((t: any) => {
+              const isDeposit = t.type === "DEPOSIT";
+              const sign = isDeposit ? "+" : "-";
+              const notifId = `tx-${t.id}`;
+              if (dismissedIds.has(notifId)) return;
+              const amountStr = `${sign}${Number(t.amount || 0).toLocaleString("fr-FR")} ${t.currency || "HTG"}`;
+              combined.push({
+                id: notifId,
+                title: `${isDeposit ? "Dépôt" : "Retrait"} effectué — ${amountStr}`,
+                time: t.date
+                  ? new Date(t.date).toLocaleDateString("fr-FR")
+                  : t.createdAt
+                  ? new Date(t.createdAt).toLocaleDateString("fr-FR")
+                  : "Récent",
+                type: isDeposit ? "Dépôt bancaire" : "Retrait bancaire",
+                link: "/admin/financial-operations",
+                unread: !readIds.has(notifId),
+              });
+            });
+          } catch (_) {}
+        }
+
+        // 4. Événements et planifications officielles
+        if (evRes && evRes.ok) {
+          try {
+            const evData = await evRes.json();
+            const alertEvents = (Array.isArray(evData?.events) ? evData.events : [])
+              .filter((ev: any) => !ev.isPersonal && ev.notifyImmediate !== false)
+              .slice(0, 5);
+
+            alertEvents.forEach((ev: any) => {
+              const notifId = `ev-${ev.id}`;
+              combined.push({
+                id: notifId,
+                title: `Planification — ${ev.title}`,
+                time: ev.date || "À venir",
+                type: ev.audienceTargetName || "Administration",
+                link: "/admin/events",
+                unread: !readIds.has(notifId),
+              });
+            });
+          } catch (_) {}
+        }
+
+        // Tri : Non lues en priorité
+        combined.sort((a, b) => {
+          if (a.unread && !b.unread) return -1;
+          if (!a.unread && b.unread) return 1;
+          return 0;
+        });
 
         if (isMounted) {
           setNotificationsList(combined);
@@ -259,9 +324,17 @@ export function AdminHeader({
         console.warn("Notifications fetch error:", err);
       }
     }
+
     fetchPendingNotifications();
+
+    const handleUpdate = () => {
+      fetchPendingNotifications();
+    };
+    window.addEventListener("rkonekte_notification_update", handleUpdate);
+
     return () => {
       isMounted = false;
+      window.removeEventListener("rkonekte_notification_update", handleUpdate);
     };
   }, [role]);
 
@@ -302,9 +375,9 @@ export function AdminHeader({
           onClick={toggleSidebar}
           title={isCollapsed ? "Ouvrir la barre latérale (Ctrl+B)" : "Fermer la barre latérale (Ctrl+B)"}
           aria-label={isCollapsed ? "Ouvrir la barre latérale" : "Fermer la barre latérale"}
-          className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-full bg-[#F4F6F9] hover:bg-slate-200/80 border border-[#DCE2EA] text-[#263445] transition-all shadow-2xs hover:shadow-xs active:scale-95 group cursor-pointer"
+          className="flex items-center gap-2 p-1 sm:px-2.5 sm:py-1.5 rounded-full bg-[#F4F6F9] hover:bg-slate-200/80 text-[#263445] transition-all shadow-2xs hover:shadow-xs active:scale-95 group cursor-pointer"
         >
-          <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center shadow-xs border border-slate-200/80 text-[#062653] group-hover:text-[#FF7900] transition-colors shrink-0">
+          <div className="w-7 h-7 rounded-full bg-white flex items-center justify-center shadow-xs text-[#062653] group-hover:text-[#FF7900] transition-colors shrink-0">
             {isCollapsed ? (
               <MenuDotsIcon className="w-3.5 h-3.5" />
             ) : (
@@ -314,7 +387,7 @@ export function AdminHeader({
           <span className="text-xs font-bold text-[#062653] hidden sm:inline">
             {isCollapsed ? "Menu" : "Fermer"}
           </span>
-          <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-bold text-slate-500 bg-white border border-slate-200 rounded-md shadow-2xs">
+          <kbd className="hidden md:inline-flex items-center px-1.5 py-0.5 text-[10px] font-mono font-bold text-slate-500 bg-white rounded-md shadow-2xs">
             Ctrl B
           </kbd>
         </button>
@@ -331,8 +404,8 @@ export function AdminHeader({
               <button
                 type="button"
                 onClick={() => setIsBranchOpen(!isBranchOpen)}
-                className={`h-9 px-3 bg-[#F4F6F9] hover:bg-slate-100 border rounded-xl text-xs font-semibold text-[#062653] flex items-center gap-2 transition-all cursor-pointer ${
-                  isBranchOpen ? "border-[#062653] ring-1 ring-[#062653]/30" : "border-[#DCE2EA]"
+                className={`h-9 px-3 bg-[#F4F6F9] hover:bg-slate-200/70 rounded-xl text-xs font-semibold text-[#062653] flex items-center gap-2 transition-all cursor-pointer ${
+                  isBranchOpen ? "ring-2 ring-[#062653]/15 bg-white shadow-xs" : ""
                 }`}
                 title="Changer la succursale active (réservé aux administrateurs)"
               >
@@ -343,7 +416,7 @@ export function AdminHeader({
               {isBranchOpen && (
                 <div
                   role="listbox"
-                  className="absolute top-full left-0 mt-1.5 w-64 bg-white border border-[#DCE2EA] rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-50 zoom-in-95 duration-150 overflow-hidden"
+                  className="absolute top-full left-0 mt-1.5 w-64 bg-white rounded-xl shadow-xl py-1.5 z-50 animate-in fade-in-50 zoom-in-95 duration-150 overflow-hidden"
                 >
                   {availableBranches.map((b) => {
                     const isSelected = selectedBranch === b.id;
@@ -380,7 +453,7 @@ export function AdminHeader({
             </div>
           ) : (
             <div
-              className="h-9 px-3 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs font-semibold text-[#062653] flex items-center gap-2 select-none cursor-default"
+              className="h-9 px-3 bg-[#F4F6F9] rounded-xl text-xs font-semibold text-[#062653] flex items-center gap-2 select-none cursor-default"
               title="Votre succursale d'affectation (seul un administrateur peut modifier votre affectation)"
             >
               <span>
@@ -399,10 +472,10 @@ export function AdminHeader({
       {/* 2. RIGHT SECTION: Notifications & User Profile */}
       <div className="flex items-center gap-4">
         {/* Notifications Button & Dropdown */}
-        <div className="relative">
+        <div className="relative" ref={notifRef}>
           <button
             onClick={() => setShowNotifications(!showNotifications)}
-            className="p-2 text-[#64748B] hover:text-[#062653] hover:bg-[#F4F6F9] rounded-lg transition-colors relative"
+            className="p-2 text-[#64748B] hover:text-[#062653] hover:bg-[#F4F6F9] rounded-lg transition-colors relative cursor-pointer"
             title="Notifications"
             aria-label="Notifications"
           >
@@ -414,19 +487,30 @@ export function AdminHeader({
 
           {/* Notifications Dropdown Panel */}
           {showNotifications && (
-            <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl border border-[#DCE2EA] p-4 z-50 animate-fadeIn">
-              <div className="flex items-center justify-between pb-3 border-b border-[#DCE2EA]">
+            <div className="absolute right-0 mt-2 w-80 bg-white rounded-xl shadow-xl p-4 z-50 animate-fadeIn border border-[#DCE2EA]">
+              <div className="flex items-center justify-between pb-3 border-b border-slate-100">
                 <div className="text-xs font-bold text-[#062653]">
                   Notifications {unreadCount > 0 ? `(${unreadCount} non lue${unreadCount > 1 ? "s" : ""})` : "(0)"}
                 </div>
-                {unreadCount > 0 && (
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={markAllAsRead}
+                      className="text-[11px] font-semibold text-[#FF7900] hover:underline cursor-pointer"
+                    >
+                      Tout marquer comme lu
+                    </button>
+                  )}
                   <button
-                    onClick={markAllAsRead}
-                    className="text-[11px] font-semibold text-[#FF7900] hover:underline"
+                    type="button"
+                    onClick={() => setShowNotifications(false)}
+                    className="p-1 text-slate-400 hover:text-[#062653] hover:bg-slate-100 rounded-md transition-colors cursor-pointer"
+                    title="Fermer (Échap)"
+                    aria-label="Fermer les notifications"
                   >
-                    Tout marquer comme lu
+                    <X className="w-3.5 h-3.5" />
                   </button>
-                )}
+                </div>
               </div>
 
               <div className="py-2 space-y-2 max-h-64 overflow-y-auto">
@@ -444,10 +528,10 @@ export function AdminHeader({
                       key={n.id}
                       href={n.link}
                       onClick={() => setShowNotifications(false)}
-                      className={`block p-2.5 rounded-lg border transition-colors ${
+                      className={`block p-2.5 rounded-lg transition-colors ${
                         n.unread
-                          ? "bg-[#FFF4EB] border-[#FF7900]/30 hover:bg-[#FFEADA]"
-                          : "bg-[#F4F6F9] border-transparent hover:bg-slate-100"
+                          ? "bg-[#FFF4EB] hover:bg-[#FFEADA]"
+                          : "bg-[#F4F6F9] hover:bg-slate-100"
                       }`}
                     >
                       <div className="flex items-center justify-between">

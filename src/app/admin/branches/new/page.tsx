@@ -57,7 +57,7 @@ export default function NewBranchPage() {
       <div className="flex items-center gap-3">
         <Link
           href="/admin/branches"
-          className="p-2 bg-white border border-[#DCE2EA] rounded-xl hover:bg-slate-50 text-[#64748B] transition-colors"
+          className="p-2 bg-white rounded-xl hover:bg-slate-100 text-[#64748B] shadow-xs transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
         </Link>
@@ -71,7 +71,7 @@ export default function NewBranchPage() {
         </div>
       </div>
 
-      <div className="bg-white rounded-2xl border border-[#DCE2EA] p-6 sm:p-8 lg:p-10 shadow-xs">
+      <div className="bg-white rounded-2xl p-6 sm:p-8 lg:p-10 shadow-xs">
         <form onSubmit={handleSubmit} className="space-y-5 text-xs">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 sm:gap-5">
             <div>
@@ -84,7 +84,7 @@ export default function NewBranchPage() {
                 value={formData.name}
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                 placeholder="Ex: Succursale Cayes"
-                className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:outline-hidden focus:border-[#062653]"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white focus:outline-hidden"
               />
             </div>
 
@@ -98,7 +98,7 @@ export default function NewBranchPage() {
                 value={formData.city}
                 onChange={(e) => setFormData({ ...formData, city: e.target.value })}
                 placeholder="Ex: Les Cayes"
-                className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:outline-hidden focus:border-[#062653]"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white focus:outline-hidden"
               />
             </div>
             <div>
@@ -111,7 +111,7 @@ export default function NewBranchPage() {
                 value={formData.phone}
                 onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                 placeholder="+509 2811-0005"
-                className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:outline-hidden focus:border-[#062653]"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white focus:outline-hidden"
               />
             </div>
 
@@ -125,7 +125,7 @@ export default function NewBranchPage() {
                 value={formData.address}
                 onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                 placeholder="Ex: Boulevard des 4 Chemins, Les Cayes"
-                className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:outline-hidden focus:border-[#062653]"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white focus:outline-hidden"
               />
             </div>
 
@@ -138,15 +138,15 @@ export default function NewBranchPage() {
                 value={formData.managerName}
                 onChange={(e) => setFormData({ ...formData, managerName: e.target.value })}
                 placeholder="Ex: Pierre Valmy (Facultatif)"
-                className="w-full h-11 px-3.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:bg-white focus:outline-hidden focus:border-[#062653]"
+                className="w-full h-11 px-3.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] focus:bg-white focus:outline-hidden"
               />
             </div>
           </div>
 
-          <div className="pt-5 border-t border-[#DCE2EA] flex items-center justify-end gap-3">
+          <div className="pt-5 border-t border-slate-100 flex items-center justify-end gap-3">
             <Link
               href="/admin/branches"
-              className="px-5 py-2.5 bg-white border border-[#DCE2EA] hover:bg-slate-50 text-xs font-semibold text-[#64748B] rounded-xl transition-colors"
+              className="px-5 py-2.5 bg-[#F4F6F9] hover:bg-slate-200/70 text-xs font-semibold text-[#64748B] rounded-xl transition-colors"
             >
               Annuler
             </Link>

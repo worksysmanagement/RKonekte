@@ -30,7 +30,14 @@ import { EmployeeSignatureAuthView, SAMPLE_PDF_DATA_URL } from "@/components/req
 import { WordDocumentEditor, WordDocumentEditorRef } from "@/components/requests/WordDocumentEditor";
 import { showSystemToast } from "@/components/ui/SystemToast";
 import { processTransparentImage } from "@/lib/utils/signature";
-import { printPdfDocument, openPdfFullscreen, downloadPdfDocument, dataUrlToPdfBlob } from "@/lib/utils/pdf";
+import {
+  printPdfDocument,
+  openPdfFullscreen,
+  downloadPdfDocument,
+  dataUrlToPdfBlob,
+  formatPdfDisplayTitle,
+  sanitizePdfFileName,
+} from "@/lib/utils/pdf";
 import { stampSignatureOnPdf } from "@/lib/utils/stamp-pdf";
 
 interface SignatureAuthRequest {
@@ -643,7 +650,7 @@ export default function SignatureAuthRequestsPage() {
             type="button"
             onClick={fetchRequests}
             disabled={loadingRequests}
-            className="px-3.5 py-2 text-xs font-bold rounded-xl border border-slate-300 bg-white hover:bg-slate-50 active:bg-slate-100 text-[#062653] shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
+            className="px-3.5 py-2 text-xs font-bold rounded-xl bg-white hover:bg-[#F4F6F9] active:bg-slate-100 text-[#062653] shadow-xs transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-60"
             title="Actualiser et synchroniser les demandes de signature"
           >
             <RotateCw className={`w-3.5 h-3.5 ${loadingRequests ? "animate-spin text-[#FF7900]" : "text-slate-600"}`} />
@@ -658,7 +665,7 @@ export default function SignatureAuthRequestsPage() {
               onClick={() => !isMasterAccount && setShowNewModal(true)}
               className={`px-4 py-2 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 ${
                 isMasterAccount
-                  ? "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed select-none"
+                  ? "bg-slate-200 text-slate-400 cursor-not-allowed select-none"
                   : "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
               }`}
             >
@@ -675,7 +682,7 @@ export default function SignatureAuthRequestsPage() {
       </div>
 
       {/* Filters & Search */}
-      <div className="bg-white p-4 rounded-xl border border-[#DCE2EA] shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
+      <div className="bg-white p-4 rounded-xl shadow-xs flex flex-col md:flex-row items-center justify-between gap-4">
         <div className="flex items-center gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
           {[
             { id: "ALL", label: "Toutes" },
@@ -704,13 +711,13 @@ export default function SignatureAuthRequestsPage() {
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             placeholder="Rechercher fichier, demandeur..."
-            className="w-full pl-9 pr-3 py-1.5 bg-[#F4F6F9] border border-[#DCE2EA] rounded-xl text-xs text-[#263445] placeholder:text-[#64748B] focus:bg-white focus:outline-hidden"
+            className="w-full pl-9 pr-3 py-1.5 bg-[#F4F6F9] rounded-xl text-xs text-[#263445] placeholder:text-[#64748B] focus:bg-white focus:outline-hidden"
           />
         </div>
       </div>
 
       {/* TABLE DES DEMANDES DE SIGNATURE */}
-      <div className="bg-white rounded-2xl border border-[#DCE2EA] shadow-xs overflow-hidden">
+      <div className="bg-white rounded-2xl shadow-xs overflow-hidden">
         {loadingRequests && requests.length === 0 ? (
           <div className="p-12 text-center text-[#64748B] text-xs space-y-2">
             <div className="w-6 h-6 border-2 border-slate-300 border-t-[#FF7900] rounded-full animate-spin mx-auto" />
@@ -727,7 +734,7 @@ export default function SignatureAuthRequestsPage() {
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs text-[#263445]">
-              <thead className="bg-[#F8FAFC] border-b border-[#DCE2EA] text-[#64748B] uppercase font-bold text-[10px] tracking-wider">
+              <thead className="bg-[#F8FAFC] border-b border-slate-200/70 text-[#64748B] uppercase font-bold text-[10px] tracking-wider">
                 <tr>
                   <th className="px-5 py-3.5">Réf. Dossier</th>
                   <th className="px-5 py-3.5">Demandeur</th>
@@ -738,7 +745,7 @@ export default function SignatureAuthRequestsPage() {
                   <th className="px-5 py-3.5 text-right">Actions</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-[#DCE2EA]">
+              <tbody className="divide-y divide-slate-100">
                 {filtered.map((req, idx) => (
                   <tr key={`${req.id}-${idx}`} className="hover:bg-slate-50/70 transition-colors">
                     {/* Réf Dossier */}
@@ -757,12 +764,15 @@ export default function SignatureAuthRequestsPage() {
                     {/* Document PDF */}
                     <td className="px-5 py-4">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-rose-50 border border-rose-200 text-rose-600 flex items-center justify-center shrink-0">
+                        <div className="w-7 h-7 rounded-lg bg-rose-50 text-rose-600 flex items-center justify-center shrink-0">
                           <FileText className="w-4 h-4" />
                         </div>
                         <div>
-                          <span className="font-bold text-slate-800 truncate block max-w-[200px]" title={req.pdfFileName}>
-                            {req.pdfFileName}
+                          <span
+                            className="font-bold text-slate-800 truncate block max-w-[200px]"
+                            title={formatPdfDisplayTitle(req.pdfFileName, req.description)}
+                          >
+                            {formatPdfDisplayTitle(req.pdfFileName, req.description)}
                           </span>
                           {req.pdfFileSize && (
                             <span className="text-[10px] text-slate-400 block font-mono">
@@ -789,8 +799,8 @@ export default function SignatureAuthRequestsPage() {
                     <td className="px-5 py-4 whitespace-nowrap">
                       {req.status === "APPROVED" ? (
                         <div>
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                             Signé & Autorisé
                           </span>
                           <div className="text-[10px] text-slate-500 mt-1 font-medium">
@@ -798,13 +808,13 @@ export default function SignatureAuthRequestsPage() {
                           </div>
                         </div>
                       ) : req.status === "REJECTED" ? (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-rose-100 text-rose-800 border border-rose-200">
-                          <XCircle className="w-3.5 h-3.5 text-rose-600" />
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-rose-600">
+                          <XCircle className="w-3.5 h-3.5 text-rose-600 shrink-0" />
                           Refusé
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[11px] font-bold bg-amber-100 text-amber-800 border border-amber-200">
-                          <Clock className="w-3.5 h-3.5 text-amber-600" />
+                        <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#FF7900]">
+                          <Clock className="w-3.5 h-3.5 text-[#FF7900] shrink-0" />
                           À signer
                         </span>
                       )}
@@ -873,12 +883,12 @@ export default function SignatureAuthRequestsPage() {
             onClick={(e) => e.stopPropagation()}
             className={`bg-white shadow-2xl flex flex-col overflow-hidden cursor-default transition-all duration-200 ${
               isModalMaximized
-                ? "fixed inset-0 w-full h-full rounded-none z-50 max-w-none max-h-none border-none"
-                : "rounded-2xl border border-[#DCE2EA] w-full max-w-5xl max-h-[90vh]"
+                ? "fixed inset-0 w-full h-full rounded-none z-50 max-w-none max-h-none"
+                : "rounded-2xl w-full max-w-5xl max-h-[90vh]"
             }`}
           >
             {/* Modal Top Bar */}
-            <div className="px-6 py-4 border-b border-[#DCE2EA] flex items-center justify-between bg-slate-50">
+            <div className="px-6 py-4 border-b border-slate-100 flex items-center justify-between bg-slate-50">
               <div className="flex items-center gap-3">
                 <span className="font-mono font-bold text-xs bg-slate-200 text-[#062653] px-2.5 py-1 rounded-md">
                   {selectedRequest.id}
@@ -930,8 +940,11 @@ export default function SignatureAuthRequestsPage() {
                 <div className="flex flex-wrap items-center justify-between gap-3 mb-2.5 pb-2 border-b border-slate-100">
                   <div className="flex items-center gap-2 min-w-0">
                     <FileText className="w-4 h-4 text-rose-600 shrink-0" />
-                    <span className="text-xs font-bold text-[#062653] truncate">
-                      Document PDF : {selectedRequest.pdfFileName}
+                    <span
+                      className="text-xs font-bold text-[#062653] truncate"
+                      title={formatPdfDisplayTitle(selectedRequest.pdfFileName, selectedRequest.description)}
+                    >
+                      Document PDF : {formatPdfDisplayTitle(selectedRequest.pdfFileName, selectedRequest.description)}
                     </span>
                     {selectedRequest.pdfFileSize && (
                       <span className="text-[11px] text-slate-400 font-mono shrink-0">
@@ -943,8 +956,13 @@ export default function SignatureAuthRequestsPage() {
                   <div className="flex items-center gap-2 shrink-0">
                     <button
                       type="button"
-                      onClick={() => openPdfFullscreen(selectedRequest.pdfUrl || SAMPLE_PDF_DATA_URL, selectedRequest.pdfFileName)}
-                      className="px-3 py-1.5 bg-white hover:bg-slate-100 border border-slate-300 text-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all"
+                      onClick={() =>
+                        openPdfFullscreen(
+                          selectedRequest.pdfUrl || SAMPLE_PDF_DATA_URL,
+                          formatPdfDisplayTitle(selectedRequest.pdfFileName, selectedRequest.description)
+                        )
+                      }
+                      className="px-3 py-1.5 bg-[#F4F6F9] hover:bg-slate-200/70 text-slate-700 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer transition-all"
                       title="Ouvrir le document PDF en plein écran dans un nouvel onglet"
                     >
                       <ExternalLink className="w-3.5 h-3.5 text-slate-600" />
@@ -952,8 +970,13 @@ export default function SignatureAuthRequestsPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => printPdfDocument(selectedRequest.pdfUrl || SAMPLE_PDF_DATA_URL, selectedRequest.pdfFileName)}
-                      className="px-3 py-1.5 bg-black hover:bg-zinc-800 active:bg-zinc-900 text-white border border-black text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all"
+                      onClick={() =>
+                        printPdfDocument(
+                          selectedRequest.pdfUrl || SAMPLE_PDF_DATA_URL,
+                          formatPdfDisplayTitle(selectedRequest.pdfFileName, selectedRequest.description)
+                        )
+                      }
+                      className="px-3 py-1.5 bg-black hover:bg-zinc-800 active:bg-zinc-900 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all"
                       title="Imprimer directement ce document"
                     >
                       <Printer className="w-3.5 h-3.5 text-white" />
@@ -961,8 +984,16 @@ export default function SignatureAuthRequestsPage() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => downloadPdfDocument(selectedRequest.pdfUrl || SAMPLE_PDF_DATA_URL, selectedRequest.pdfFileName)}
-                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer border border-red-600 transition-all"
+                      onClick={() =>
+                        downloadPdfDocument(
+                          selectedRequest.pdfUrl || SAMPLE_PDF_DATA_URL,
+                          sanitizePdfFileName(
+                            formatPdfDisplayTitle(selectedRequest.pdfFileName, selectedRequest.description),
+                            "pdf"
+                          )
+                        )
+                      }
+                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 active:bg-red-800 text-white text-xs font-bold rounded-lg flex items-center gap-1.5 shadow-2xs cursor-pointer transition-all"
                       title="Télécharger le fichier PDF"
                     >
                       <Download className="w-3.5 h-3.5 text-white" />
@@ -974,14 +1005,14 @@ export default function SignatureAuthRequestsPage() {
                 {/* ZONE DE VISUALISATION DU DOCUMENT PDF & PLACEMENT DE SIGNATURE */}
                 <div
                   ref={documentScrollContainerRef}
-                  className={`relative border border-slate-300 rounded-xl bg-slate-200/70 shadow-inner overflow-y-auto overflow-x-hidden p-3 sm:p-5 select-none transition-all ${
+                  className={`relative rounded-xl bg-slate-200/70 overflow-y-auto overflow-x-hidden p-3 sm:p-5 select-none transition-all ${
                     isModalMaximized ? "h-[74vh]" : "h-[58vh] sm:h-[62vh] max-h-[660px]"
                   }`}
                 >
                   <div
                     ref={documentContainerRef}
                     onClick={selectedRequest.status === "PENDING" ? handleSheetClick : undefined}
-                    className={`relative mx-auto bg-white rounded-xl shadow-xl border border-slate-300 w-full overflow-hidden transition-all ${
+                    className={`relative mx-auto bg-white rounded-xl shadow-xl w-full overflow-hidden transition-all ${
                       isModalMaximized ? "max-w-[860px]" : "max-w-[780px]"
                     }`}
                     style={{ aspectRatio: "210 / 297" }}
@@ -1035,9 +1066,9 @@ export default function SignatureAuthRequestsPage() {
               </div>
 
               {/* 3. Cadre d'apposition de la signature officielle ("et d'y placer sa signature") */}
-              <div className="border-t border-slate-200 pt-4">
+              <div className="border-t border-slate-100 pt-4">
                 {selectedRequest.status === "PENDING" ? (
-                  <div className="bg-emerald-50/50 p-5 rounded-2xl border-2 border-emerald-500/40 space-y-4">
+                  <div className="bg-emerald-50/70 p-5 rounded-2xl space-y-4">
                     <div className="flex items-start justify-between gap-4">
                       <div>
                         <div className="flex items-center gap-2 text-emerald-900 font-bold text-sm">
@@ -1052,11 +1083,11 @@ export default function SignatureAuthRequestsPage() {
                       </div>
 
                       {adminSignature ? (
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-800 bg-emerald-100 border border-emerald-200 px-2.5 py-1 rounded-md shrink-0">
+                        <span className="text-xs font-bold uppercase tracking-wider text-emerald-600 shrink-0">
                           Prêt à signer
                         </span>
                       ) : (
-                        <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-md shrink-0">
+                        <span className="text-xs font-bold uppercase tracking-wider text-[#FF7900] shrink-0">
                           Signature requise
                         </span>
                       )}
@@ -1072,7 +1103,7 @@ export default function SignatureAuthRequestsPage() {
                     />
 
                     {/* Aperçu du visa et spécimen de signature qui sera apposé */}
-                    <div className="bg-white p-4 rounded-xl border border-emerald-300 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="bg-white p-4 rounded-xl shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                       <div className="space-y-1">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500 block">
                           Spécimen officiel du signataire habilité :
@@ -1088,7 +1119,7 @@ export default function SignatureAuthRequestsPage() {
                       {/* Zone Signature */}
                       {adminSignature ? (
                         <div className="flex items-center gap-3">
-                          <div className="p-2 bg-slate-50/80 rounded-lg border border-slate-200 flex flex-col items-center justify-center min-w-[170px] min-h-[70px]">
+                          <div className="p-2 bg-[#F4F6F9] rounded-lg flex flex-col items-center justify-center min-w-[170px] min-h-[70px]">
                             <img
                               src={adminSignature}
                               alt="Signature Direction"
@@ -1105,7 +1136,7 @@ export default function SignatureAuthRequestsPage() {
                                 setSignaturePosition(DEFAULT_SIGNATURE_POSITION);
                                 showSystemToast("Signature recentrée dans le cadre officiel de l'Administration.");
                               }}
-                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-lg transition-all cursor-pointer border border-emerald-200 flex items-center gap-1 shadow-2xs"
+                              className="px-2.5 py-1 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 text-xs font-semibold rounded-lg transition-all cursor-pointer flex items-center gap-1"
                               title="Recentrer automatiquement la signature au milieu exact du cadre officiel"
                             >
                               <RotateCcw className="w-3 h-3 text-emerald-700" />
@@ -1137,7 +1168,7 @@ export default function SignatureAuthRequestsPage() {
                           <button
                             type="button"
                             onClick={() => signatureInputRef.current?.click()}
-                            className="px-4 py-3 border-2 border-dashed border-emerald-400 hover:border-emerald-600 rounded-xl bg-emerald-50/40 hover:bg-emerald-50 text-emerald-900 transition-all flex items-center gap-2.5 cursor-pointer shadow-xs hover:shadow-sm"
+                            className="px-4 py-3 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-900 transition-all flex items-center gap-2.5 cursor-pointer"
                           >
                             <UploadCloud className="w-5 h-5 text-emerald-700 shrink-0" />
                             <div className="text-left">
@@ -1157,12 +1188,12 @@ export default function SignatureAuthRequestsPage() {
                     <div className="pt-2 flex flex-col sm:flex-row items-center justify-between gap-3">
                       <div className="text-xs">
                         {!adminSignature ? (
-                          <span className="text-amber-800 font-semibold flex items-center gap-1.5 bg-amber-50 px-3 py-1.5 rounded-lg border border-amber-200">
+                          <span className="text-amber-800 font-semibold flex items-center gap-1.5 bg-amber-50 px-3 py-1.5 rounded-lg">
                             <Clock className="w-3.5 h-3.5 shrink-0 text-amber-600" />
                             <span>Bouton d'approbation verrouillé : téléversez votre signature ci-dessus pour l'activer.</span>
                           </span>
                         ) : (
-                          <span className="text-emerald-800 font-semibold flex items-center gap-1.5 bg-emerald-50 px-3 py-1.5 rounded-lg border border-emerald-200">
+                          <span className="text-emerald-800 font-semibold flex items-center gap-1.5 bg-white px-3 py-1.5 rounded-lg shadow-2xs">
                             <CheckCircle2 className="w-3.5 h-3.5 shrink-0 text-emerald-600" />
                             <span>Signature automatiquement placée dans le cadre. Cliquez ci-contre pour approuver !</span>
                           </span>
@@ -1185,7 +1216,7 @@ export default function SignatureAuthRequestsPage() {
                           className={`px-6 py-2.5 text-xs font-bold rounded-xl transition-all flex items-center gap-2 select-none ${
                             adminSignature
                               ? "bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white shadow-lg shadow-emerald-600/20 cursor-pointer active:scale-95"
-                              : "bg-slate-200 text-slate-400 border border-slate-300 cursor-not-allowed opacity-50 shadow-none pointer-events-none"
+                              : "bg-slate-200 text-slate-400 cursor-not-allowed opacity-50 shadow-none pointer-events-none"
                           }`}
                           title={
                             adminSignature
@@ -1200,15 +1231,14 @@ export default function SignatureAuthRequestsPage() {
                     </div>
                   </div>
                 ) : selectedRequest.status === "APPROVED" ? (
-                  <div className="bg-emerald-50 p-5 rounded-2xl border-2 border-emerald-300 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="bg-emerald-50 p-5 rounded-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                     <div className="space-y-1">
                       <div className="flex items-center gap-2 text-emerald-900 font-bold text-sm">
                         <CheckCircle2 className="w-5 h-5 text-emerald-600" />
                         <span>Document Officiellement Autorisé et Signé</span>
                       </div>
                       <p className="text-xs text-emerald-800">
-                        Signé par <strong>{selectedRequest.authorizedBy || "la Direction"}</strong>
-                        {selectedRequest.authorizedRole ? ` (${selectedRequest.authorizedRole})` : ""}
+                        Signé par <strong>{selectedRequest.authorizedBy || "la Direction"}</strong>{" "}
                         le {selectedRequest.authorizedAt || selectedRequest.submittedAt}.
                       </p>
                       <span className="inline-block text-[10px] font-mono text-emerald-700 font-bold uppercase tracking-wider">
@@ -1217,7 +1247,7 @@ export default function SignatureAuthRequestsPage() {
                     </div>
 
                     {selectedRequest.signatureUrl && (
-                      <div className="bg-white p-3 rounded-xl border border-emerald-300 shadow-2xs flex flex-col items-center shrink-0">
+                      <div className="bg-white p-3 rounded-xl shadow-2xs flex flex-col items-center shrink-0">
                         <img
                           src={selectedRequest.signatureUrl}
                           alt="Signature Direction"
@@ -1230,7 +1260,7 @@ export default function SignatureAuthRequestsPage() {
                     )}
                   </div>
                 ) : (
-                  <div className="bg-rose-50 p-4 rounded-xl border border-rose-200 text-rose-800 text-xs flex items-center gap-3">
+                  <div className="bg-rose-50 p-4 rounded-xl text-rose-800 text-xs flex items-center gap-3">
                     <XCircle className="w-5 h-5 text-rose-600 shrink-0" />
                     <div>
                       <strong className="block text-sm">Demande d'autorisation refusée</strong>
@@ -1252,9 +1282,9 @@ export default function SignatureAuthRequestsPage() {
         >
           <div
             onClick={(e) => e.stopPropagation()}
-            className="bg-white rounded-2xl border border-[#DCE2EA] shadow-2xl max-w-4xl w-full p-6 space-y-5 cursor-default my-auto max-h-[92vh] overflow-y-auto"
+            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-6 space-y-5 cursor-default my-auto max-h-[92vh] overflow-y-auto"
           >
-            <div className="flex items-center justify-between pb-3 border-b border-[#DCE2EA]">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
               <div>
                 <h2 className="text-base font-bold text-[#062653]">
                   Nouvelle demande de signature
@@ -1266,7 +1296,7 @@ export default function SignatureAuthRequestsPage() {
 
               <div className="flex items-center gap-3">
                 {/* Sélecteur de source */}
-                <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl border border-slate-200">
+                <div className="flex items-center gap-1 p-1 bg-[#F4F6F9] rounded-xl">
                   <button
                     type="button"
                     onClick={() => setAdminDocumentSource("editor")}
@@ -1356,7 +1386,7 @@ export default function SignatureAuthRequestsPage() {
                     <button
                       type="button"
                       onClick={() => adminFileInputRef.current?.click()}
-                      className="w-full p-8 border-2 border-dashed border-slate-300 hover:border-[#062653] rounded-xl bg-slate-50 hover:bg-slate-100/50 text-center transition-all cursor-pointer"
+                      className="w-full p-8 rounded-xl bg-[#F4F6F9] hover:bg-slate-200/70 text-center transition-all cursor-pointer"
                     >
                       <UploadCloud className="w-8 h-8 text-slate-400 mx-auto mb-1.5" />
                       <span className="text-xs font-bold text-[#062653] block">
@@ -1367,7 +1397,7 @@ export default function SignatureAuthRequestsPage() {
                       </span>
                     </button>
                   ) : (
-                    <div className="p-3 rounded-xl border border-emerald-300 bg-emerald-50/30 flex items-center justify-between gap-3">
+                    <div className="p-3 rounded-xl bg-emerald-50 flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2 truncate">
                         <FileText className="w-5 h-5 text-rose-600 shrink-0" />
                         <span className="text-xs font-bold text-slate-800 truncate">
@@ -1417,11 +1447,11 @@ export default function SignatureAuthRequestsPage() {
                   value={adminDescription}
                   onChange={(e) => setAdminDescription(e.target.value)}
                   placeholder="Précisez le contexte, la justification et les détails de l'autorisation demandée..."
-                  className="w-full p-3 bg-white border border-[#DCE2EA] rounded-xl text-xs text-[#263445] focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-600 outline-hidden"
+                  className="w-full p-3 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs text-[#263445] focus:ring-2 focus:ring-[#062653]/15 outline-hidden"
                 />
               </div>
 
-              <div className="pt-2 flex items-center justify-between gap-3 border-t border-[#DCE2EA]">
+              <div className="pt-2 flex items-center justify-between gap-3 border-t border-slate-100">
                 <div className="text-xs text-slate-500 font-medium">
                   Source : {adminDocumentSource === "upload" && adminUploadedPdf ? `Fichier PDF (${adminUploadedPdf.name})` : "Document rédigé en ligne (Style Word)"}
                 </div>
@@ -1430,7 +1460,7 @@ export default function SignatureAuthRequestsPage() {
                   <button
                     type="button"
                     onClick={() => setShowNewModal(false)}
-                    className="px-4 py-2 bg-white border border-[#DCE2EA] text-[#64748B] hover:bg-slate-50 text-xs font-semibold rounded-xl cursor-pointer"
+                    className="px-4 py-2 bg-[#F4F6F9] text-[#64748B] hover:bg-slate-200/70 text-xs font-semibold rounded-xl cursor-pointer"
                   >
                     Annuler
                   </button>
