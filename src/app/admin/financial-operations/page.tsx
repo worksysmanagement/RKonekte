@@ -32,6 +32,7 @@ import {
   Wifi,
   Copy,
   Lock,
+  Loader2,
 } from "lucide-react";
 import { showSystemToast } from "@/components/ui/SystemToast";
 import { SlideOver } from "@/components/ui/SlideOver";
@@ -635,11 +636,6 @@ export default function FinancialOperationsPage() {
     const amt = Number(txFormAmount);
     if (!amt || amt <= 0) {
       showSystemToast("Le montant doit être un nombre valide supérieur à 0.", "info");
-      return;
-    }
-
-    if (type === "WITHDRAWAL" && !txFormRef.trim()) {
-      showSystemToast("Veuillez renseigner le N° de référence / chèque.", "info");
       return;
     }
 
@@ -1457,11 +1453,11 @@ export default function FinancialOperationsPage() {
 
                   <div>
                     <label className="block text-xs font-semibold text-[#263445] mb-1.5">
-                      N° de Chèque / Réf <span className="text-rose-500">*</span>
+                      N° de Chèque / Réf{" "}
+                      <span className="text-slate-400 font-normal">(Facultatif)</span>
                     </label>
                     <input
                       type="text"
-                      required
                       value={txFormRef}
                       onChange={(e) => setTxFormRef(e.target.value)}
                       placeholder="Ex: CHQ-002491"
@@ -1705,8 +1701,47 @@ export default function FinancialOperationsPage() {
               </div>
 
               {/* Grille de cartes des comptes - Style Cartes Bancaires Électroniques Dégradé Gris */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
-                {accounts.map((acc) => {
+              {loading && accounts.length === 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                  {[1, 2, 3].map((idx) => (
+                    <div
+                      key={idx}
+                      className="relative overflow-hidden rounded-xl p-3.5 sm:p-4 bg-gradient-to-br from-slate-100 to-slate-200/70 border border-slate-200/80 shadow-xs min-h-[175px] flex flex-col justify-between animate-pulse"
+                    >
+                      {/* Haut de la fausse carte */}
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="space-y-1.5 w-3/4">
+                          <div className="h-4 bg-slate-300/70 rounded w-2/3" />
+                          <div className="h-2.5 bg-slate-300/50 rounded w-1/2" />
+                        </div>
+                        <div className="w-4 h-4 bg-slate-300/50 rounded-full" />
+                      </div>
+
+                      {/* Milieu : puce et numéro masqué */}
+                      <div className="my-2 flex items-center justify-between gap-2">
+                        <div className="w-8 h-6 bg-slate-300/70 rounded-sm" />
+                        <div className="h-3 bg-slate-300/60 rounded w-28" />
+                      </div>
+
+                      {/* Bas : solde et boutons */}
+                      <div>
+                        <div className="h-2 bg-slate-300/50 rounded w-14 mb-1" />
+                        <div className="h-5 bg-slate-300/70 rounded w-32" />
+                        <div className="mt-2.5 pt-2 border-t border-slate-300/60 flex items-center justify-between">
+                          <div className="h-2.5 bg-slate-300/50 rounded w-16" />
+                          <div className="flex gap-1.5">
+                            <div className="h-5 w-10 bg-slate-300/70 rounded-md" />
+                            <div className="h-5 w-12 bg-slate-300/70 rounded-md" />
+                            <div className="h-5 w-12 bg-slate-300/70 rounded-md" />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : accounts.length > 0 ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3.5">
+                  {accounts.map((acc) => {
                   const theme = getBankCardTheme(acc.bankName);
 
                   return (
@@ -1838,9 +1873,8 @@ export default function FinancialOperationsPage() {
                   );
                 })}
               </div>
-
-              {/* Message si aucun compte */}
-              {accounts.length === 0 && (
+              ) : (
+                /* Message si aucun compte */
                 <div className="bg-white rounded-2xl shadow-xs p-12 text-center space-y-3">
                   <div className="w-12 h-12 rounded-2xl bg-[#F4F6F9] flex items-center justify-center mx-auto text-[#64748B]">
                     <Landmark className="w-6 h-6" />
@@ -2057,12 +2091,14 @@ export default function FinancialOperationsPage() {
                 )}
               </div>
               <span className="text-[11px] font-medium text-white/75 block mt-3">
-                {totalAccountBalances.activeCount > 1
+                {loading && accounts.length === 0
+                  ? "Chargement des comptes..."
+                  : totalAccountBalances.activeCount > 1
                   ? `${totalAccountBalances.activeCount} comptes bancaires actifs`
                   : totalAccountBalances.activeCount === 1
                   ? "1 compte bancaire actif"
                   : "Aucun compte actif"}
-                {totalAccountBalances.inactiveCount > 0
+                {!loading && totalAccountBalances.inactiveCount > 0
                   ? ` (${totalAccountBalances.inactiveCount} inactif${totalAccountBalances.inactiveCount > 1 ? "s" : ""})`
                   : ""}
               </span>
@@ -2222,7 +2258,16 @@ export default function FinancialOperationsPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#DCE2EA]">
-                  {filteredTransactions.length === 0 ? (
+                  {loading && transactions.length === 0 ? (
+                    <tr>
+                      <td colSpan={9} className="px-4 py-12 text-center text-[#64748B]">
+                        <div className="flex items-center justify-center gap-2">
+                          <Loader2 className="w-4 h-4 animate-spin text-[#FF7900]" />
+                          <span>Chargement des transactions...</span>
+                        </div>
+                      </td>
+                    </tr>
+                  ) : filteredTransactions.length === 0 ? (
                     <tr>
                       <td colSpan={9} className="px-4 py-12 text-center text-[#64748B]">
                         Aucune transaction trouvée pour ces filtres.
@@ -2242,16 +2287,16 @@ export default function FinancialOperationsPage() {
 
                           <td className="px-4 py-3">
                             <span
-                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase ${
+                              className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-md text-[10px] font-bold uppercase shadow-2xs ${
                                 isDeposit
-                                  ? "bg-emerald-50 text-emerald-700"
-                                  : "bg-amber-50 text-amber-700"
+                                  ? "bg-emerald-600 text-white"
+                                  : "bg-amber-600 text-white"
                               }`}
                             >
                               {isDeposit ? (
-                                <ArrowDownLeft className="w-3 h-3 text-emerald-600" />
+                                <ArrowDownLeft className="w-3 h-3 text-white shrink-0" />
                               ) : (
-                                <ArrowUpRight className="w-3 h-3 text-amber-600" />
+                                <ArrowUpRight className="w-3 h-3 text-white shrink-0" />
                               )}
                               {isDeposit ? "Dépôt" : "Retrait"}
                             </span>
@@ -2306,10 +2351,10 @@ export default function FinancialOperationsPage() {
                               <button
                                 type="button"
                                 onClick={() => setViewReceiptUrl(tx.receiptDataUrl!)}
-                                className="inline-flex items-center gap-1 text-[10px] text-blue-700 hover:text-blue-800 font-bold bg-blue-50 px-2 py-0.5 rounded cursor-pointer"
+                                className="w-8 h-8 mx-auto rounded-lg bg-[#FF7900] hover:bg-[#E66D00] text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
+                                title="Voir le justificatif"
                               >
-                                <Eye className="w-3 h-3" />
-                                <span>Aperçu</span>
+                                <Eye className="w-4 h-4 text-white shrink-0" />
                               </button>
                             ) : (
                               <span className="text-[10px] text-slate-400 italic">Aucun</span>
@@ -2320,10 +2365,10 @@ export default function FinancialOperationsPage() {
                             <button
                               type="button"
                               onClick={() => setDeletingTx(tx)}
-                              className="p-1.5 rounded-lg bg-rose-50 text-rose-600 hover:bg-rose-100 transition cursor-pointer"
+                              className="w-8 h-8 ml-auto rounded-lg bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
                               title="Supprimer la transaction"
                             >
-                              <Trash2 className="w-3.5 h-3.5" />
+                              <Trash2 className="w-4 h-4 text-white shrink-0" />
                             </button>
                           </td>
                         </tr>
@@ -2665,9 +2710,9 @@ export default function FinancialOperationsPage() {
                     setViewingAccount(null);
                     setDeletingAccount(accToDelete);
                   }}
-                  className="px-3 py-1.5 text-xs font-bold text-rose-600 bg-rose-50 rounded-xl hover:bg-rose-100 flex items-center gap-1.5 cursor-pointer transition"
+                  className="px-3 py-1.5 text-xs font-bold text-white bg-red-500 rounded-xl hover:bg-red-600 flex items-center gap-1.5 cursor-pointer transition shadow-xs"
                 >
-                  <Trash2 className="w-3.5 h-3.5" />
+                  <Trash2 className="w-3.5 h-3.5 text-white" />
                   <span>Supprimer</span>
                 </button>
               </div>

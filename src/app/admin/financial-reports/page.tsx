@@ -1952,10 +1952,10 @@ export default function FinancialReportsPage() {
                     <button
                       type="button"
                       onClick={() => handleDeleteRubrique(rub.id, rub.name)}
-                      className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 cursor-pointer transition-colors"
+                      className="w-8 h-8 rounded-lg bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
                       title="Supprimer"
                     >
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 text-white shrink-0" />
                     </button>
                   </div>
                 </div>

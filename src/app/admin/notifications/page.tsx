@@ -628,8 +628,8 @@ export default function AdminNotificationsPage() {
                           ? "bg-[#062653] text-white"
                           : n.category === "FINANCIAL"
                           ? n.title.startsWith("Dépôt")
-                            ? "bg-emerald-50 text-emerald-800"
-                            : "bg-rose-50 text-rose-800"
+                            ? "bg-emerald-600 text-white"
+                            : "bg-amber-600 text-white"
                           : n.category === "SALARY_RAISE"
                           ? "bg-[#FFF4EB] text-[#FF7900]"
                           : n.category === "SIGNATURE"

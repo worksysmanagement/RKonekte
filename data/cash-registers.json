@@ -179,6 +179,16 @@
       "isActive": true,
       "createdAt": 1794401917838,
       "updatedAt": 1794401917838
+    },
+    {
+      "id": "rub-d8ec9fcc",
+      "organizationId": "org-e-biznis-3541",
+      "name": "Fiche",
+      "currency": "HTG",
+      "orderIndex": 12,
+      "isActive": true,
+      "createdAt": 1794600609964,
+      "updatedAt": 1794600609964
     }
   ],
   "entries": [
@@ -234,6 +244,33 @@
       "notes": null,
       "createdAt": 1793221854117,
       "updatedAt": 1793221854117
+    },
+    {
+      "id": "entry-dd7a71dc",
+      "organizationId": "org-e-biznis-3541",
+      "branchId": null,
+      "cashierId": "usr-243541",
+      "cashierName": "Rodjensky Emmanuel Piton",
+      "cashierMatricule": "EB-JEREMIE-884",
+      "entryDate": "2026-11-13",
+      "amounts": {
+        "rub-preset-1-0b20b4": 5000,
+        "rub-preset-4-ebe3f6": 567,
+        "rub-preset-6-0d449b": 987,
+        "rub-preset-8-f185a6": 5567,
+        "rub-7b54a9db": 456,
+        "rub-preset-2-654398": 4562,
+        "rub-preset-3-111790": 345,
+        "rub-preset-5-5e85a1": 456,
+        "rub-preset-7-58a7f5": 345,
+        "rub-preset-9-7768e2": 567,
+        "rub-preset-10-94ffd8": 7655
+      },
+      "totalHtg": 12577,
+      "totalUsd": 13930,
+      "notes": null,
+      "createdAt": 1794600516174,
+      "updatedAt": 1794600516174
     }
   ]
 }

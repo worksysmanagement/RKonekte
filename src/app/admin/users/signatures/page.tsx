@@ -438,9 +438,9 @@ export default function SignaturesPage() {
                           type="button"
                           onClick={() => handleRevokeSigner(s)}
                           title="Révoquer les droits de signature"
-                          className="p-1 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
+                          className="w-8 h-8 rounded-lg bg-red-500 hover:bg-red-600 text-white flex items-center justify-center transition-all shadow-xs cursor-pointer"
                         >
-                          <Trash2 className="w-3.5 h-3.5" />
+                          <Trash2 className="w-4 h-4 text-white shrink-0" />
                         </button>
                       </div>
                     </td>

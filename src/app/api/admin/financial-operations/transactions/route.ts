@@ -94,16 +94,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (
-      body.type === "WITHDRAWAL" &&
-      (!body.referenceNumber || !body.referenceNumber.trim())
-    ) {
-      return NextResponse.json(
-        { error: "Le numéro de chèque ou de référence est obligatoire." },
-        { status: 400 }
-      );
-    }
-
     let resolvedAuthorMatricule =
       typeof body.authorMatricule === "string" ? body.authorMatricule.trim() : "";
 
