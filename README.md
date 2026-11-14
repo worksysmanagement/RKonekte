@@ -311,7 +311,7 @@ Un compte Super Administrateur est configuré par défaut dans le jeu d'essai :
 
 ## 9. Validation et Contrôle Qualit
 
-### Exécution des Tests Automatisés
+### Exécution des Tests Automatisé
 La suite de tests unitaires et d'intégration valide les flux d'approbation, l'étanchéité multi-tenant et la robustesse de sécurité :
 ```bash
 npm test
