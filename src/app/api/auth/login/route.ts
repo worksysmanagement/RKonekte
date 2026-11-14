@@ -49,46 +49,99 @@ export async function POST(req: NextRequest) {
     }
 
     let user: any = null;
+    let anyUserWithEmail: any = null;
+
     try {
       const supabase = (await import("@/lib/supabase/server")).getSupabaseAdminClient();
-      const { data: dbUsers } = await supabase.from("users").select("*");
+      const { data: dbUsers, error: sbErr } = await supabase.from("users").select("*");
+      if (sbErr) {
+        console.error("Supabase select users error:", sbErr);
+      }
       if (dbUsers && dbUsers.length > 0) {
         const found = dbUsers.find(
-          (u) => emailVariations.includes(u.email.toLowerCase()) && u.status === "ACTIVE"
+          (u) => emailVariations.includes((u.email || "").toLowerCase().trim())
         );
         if (found) {
           const { mapUser } = await import("@/lib/supabase/db");
-          user = mapUser(found);
+          anyUserWithEmail = mapUser(found);
+          if (found.status === "ACTIVE") {
+            user = anyUserWithEmail;
+          }
         }
       }
-    } catch (_) {}
 
-    // Fallback if not found in Supabase
-    if (!user) {
-      const db = getDb();
-      const allUsers = await db.select().from(users);
-      user = allUsers.find(
-        (u) => emailVariations.includes(u.email.toLowerCase()) && u.status === "ACTIVE"
-      );
+      // If not found in list, try direct search by email
+      if (!anyUserWithEmail) {
+        for (const candidateEmail of emailVariations) {
+          const { data: directUsers } = await supabase
+            .from("users")
+            .select("*")
+            .ilike("email", candidateEmail)
+            .limit(1);
+          if (directUsers && directUsers.length > 0) {
+            const { mapUser } = await import("@/lib/supabase/db");
+            anyUserWithEmail = mapUser(directUsers[0]);
+            if (directUsers[0].status === "ACTIVE") {
+              user = anyUserWithEmail;
+            }
+            break;
+          }
+        }
+      }
+    } catch (sbErr) {
+      console.error("Supabase login lookup error:", sbErr);
     }
 
-    if (!user) {
+    // Fallback SQLite (local dev only)
+    if (!anyUserWithEmail) {
+      try {
+        const db = getDb();
+        if (db) {
+          const allUsers = await db.select().from(users);
+          const found = allUsers.find(
+            (u) => emailVariations.includes((u.email || "").toLowerCase().trim())
+          );
+          if (found) {
+            anyUserWithEmail = found;
+            if (found.status === "ACTIVE") {
+              user = found;
+            }
+          }
+        }
+      } catch (sqliteErr) {
+        console.warn("SQLite fallback unavailable:", sqliteErr);
+      }
+    }
+
+    // 1. Si le compte n'existe pas dans la base de données
+    if (!anyUserWithEmail) {
       return NextResponse.json(
-        { error: "Identifiants invalides ou compte introuvable" },
+        { error: "Ce compte n'existe pas." },
         { status: 401 }
       );
     }
 
-    // 2. Verify password hash BEFORE exposing any organization subscription status
-    const isValid = await verifyPassword(password, user.passwordHash);
+    // 2. Si le mot de passe n'est pas correct
+    const isValid = await verifyPassword(password, anyUserWithEmail.passwordHash);
     if (!isValid) {
       return NextResponse.json(
-        { error: "Identifiants invalides" },
+        { error: "L'adresse e-mail ou le mot de passe n'est pas correct." },
         { status: 401 }
       );
     }
 
-    // 3. If organization user, load organization and verify activation / service status
+    // 3. Si le compte existe et le mot de passe est correct, mais le compte n'est pas actif
+    if (!user || anyUserWithEmail.status !== "ACTIVE") {
+      return NextResponse.json(
+        {
+          error:
+            "Votre compte n'est pas encore activé. Veuillez vérifier vos e-mails pour finaliser votre inscription.",
+        },
+        { status: 403 }
+      );
+    }
+
+    // 4. If organization user, load organization and verify activation / service status
     let organizationName: string | undefined;
     let organizationSlug: string | undefined;
 
@@ -108,13 +161,15 @@ export async function POST(req: NextRequest) {
       } catch (_) {}
 
       if (!org) {
-        const db = getDb();
-        const [dbOrg] = await db
-          .select()
-          .from(organizations)
-          .where(eq(organizations.id, user.organizationId))
-          .limit(1);
-        org = dbOrg;
+        try {
+          const db = getDb();
+          const [dbOrg] = await db
+            .select()
+            .from(organizations)
+            .where(eq(organizations.id, user.organizationId))
+            .limit(1);
+          org = dbOrg;
+        } catch (_) {}
       }
 
       if (!org) {
@@ -241,7 +296,7 @@ export async function POST(req: NextRequest) {
   } catch (err: any) {
     console.error("Login API error:", err);
     return NextResponse.json(
-      { error: `Erreur de connexion: ${err?.message || "Veuillez réessayer"}` },
+      { error: "Une erreur est survenue lors de la connexion. Veuillez réessayer." },
       { status: 500 }
     );
   }
