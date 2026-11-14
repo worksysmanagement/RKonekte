@@ -240,29 +240,38 @@ export async function sendEmail({
   const transactionalHeaders = {
     "X-Entity-Ref-ID": entityRefId,
     "X-Auto-Response-Suppress": "OOF, AutoReply",
+    "Auto-Submitted": "auto-generated",
   };
 
   const resendApiKey = process.env.RESEND_API_KEY?.trim();
   const hasResend = Boolean(resendApiKey && resendApiKey !== "dummy-resend-key-for-dev");
-  const senderUsesCustomDomain = isCustomSenderDomain(sender.address);
-  const preferResend =
-    hasResend &&
-    !hasExplicitSmtpConfig &&
-    !matchedTenantSmtp &&
-    (!hasEnvSmtp || senderUsesCustomDomain);
+  const resendFromEnv = process.env.RESEND_FROM?.trim();
+  let resendSender = resendFromEnv ? formatSender(resendFromEnv, "onboarding@resend.dev") : sender;
+  if (!isCustomSenderDomain(resendSender.address)) {
+    resendSender = {
+      name: resendSender.name || "RKonekte",
+      address: "onboarding@resend.dev",
+    };
+  }
+
+  const preferResend = hasResend && !hasExplicitSmtpConfig && !matchedTenantSmtp;
 
   const sendViaResend = async (): Promise<{ success: boolean; id?: string; error?: string }> => {
     try {
+      const cleanSenderName = (resendSender.name || "").replace(/["'\\]/g, "").trim();
       const resendPayload: Record<string, any> = {
-        from: `"${sender.name}" <${sender.address}>`,
+        from: cleanSenderName ? `${cleanSenderName} <${resendSender.address}>` : resendSender.address,
         to: [to],
         subject,
         html,
         text: plainText,
         headers: transactionalHeaders,
       };
-      if (replyTo && replyTo.trim()) {
-        resendPayload.reply_to = replyTo.trim();
+      const effectiveReplyTo =
+        replyTo?.trim() ||
+        (sender.address && sender.address !== resendSender.address ? sender.address : undefined);
+      if (effectiveReplyTo) {
+        resendPayload.reply_to = effectiveReplyTo;
       }
 
       const res = await fetch("https://api.resend.com/emails", {
@@ -279,14 +288,14 @@ export async function sendEmail({
         return { success: false, error: data?.message || "Erreur d'envoi Resend" };
       }
 
-      console.log(`[RESEND EMAIL SENT] From: "${sender.name}" <${sender.address}> -> To: ${to} | ID: ${data.id}`);
+      console.log(`[RESEND EMAIL SENT] From: "${resendSender.name}" <${resendSender.address}> -> To: ${to} | ID: ${data.id}`);
       return { success: true, id: data.id };
     } catch (err: any) {
       return { success: false, error: err?.message || "Erreur réseau Resend" };
     }
   };
 
-  // 1. Prefer Resend API when configured with a custom domain or when no explicit SMTP env is configured
+  // 1. Prefer Resend API when configured
   if (preferResend) {
     const resendResult = await sendViaResend();
     if (resendResult.success) {
@@ -296,6 +305,7 @@ export async function sendEmail({
     if (!hasEnvSmtp) {
       return resendResult;
     }
+    console.log("[SMTP FALLBACK] Falling back to SMTP because Resend failed...");
   }
 
   // 2. Send via direct SMTP if credentials exist
@@ -370,7 +380,7 @@ export async function sendEmail({
         }
       }
 
-      if (hasResend && !preferResend && senderUsesCustomDomain) {
+      if (hasResend && !preferResend) {
         const resendFallback = await sendViaResend();
         if (resendFallback.success) {
           return resendFallback;
@@ -969,11 +979,6 @@ function renderTransactionalEmailLayout(params: {
       <td style="padding: 28px; font-size: 14px; line-height: 1.65; color: #334155;">
         ${params.bodyHtml}
         ${ctaSection}
-        ${params.closingNoteHtml || ""}
-      </td>
-    </tr>
-          <a href="${safeUrl}" target="_blank" style="color: #062653; text-decoration: underline;">${safeUrl}</a>
-        </p>
         ${params.closingNoteHtml || ""}
       </td>
     </tr>

@@ -489,7 +489,7 @@ function AuthContent() {
           <span className="text-white font-medium">© 2026 RKonekte</span>
           <a
             href="mailto:rkonekte509@gmail.com?subject=Contact%20RKonekte"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-white/10 hover:bg-white/20 active:scale-95 text-white text-xs font-semibold transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-white hover:text-white/80 hover:underline active:scale-95 text-xs font-semibold transition-all cursor-pointer"
           >
             <Mail className="w-3.5 h-3.5 text-[#FF7900]" />
             <span>Nous contacter</span>
