@@ -485,11 +485,27 @@ function AuthContent() {
         </div>
 
         {/* --- Bottom Footer Info --- */}
-        <div className="relative z-10 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-white">
-          <span className="text-white font-medium">© 2026 RKonekte</span>
+        <div className="relative z-10 pt-3 border-t border-white/10 flex items-center justify-between text-xs text-white gap-2">
+          <span className="text-white font-medium whitespace-nowrap">© 2026 RKonekte</span>
+          <span className="text-slate-300 text-center font-normal whitespace-nowrap inline-flex items-center gap-1.5">
+            <span>Powered by</span>
+            <a
+              href="https://www.technozi-ht.com/"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 text-white hover:text-white/80 font-semibold hover:underline transition-colors"
+            >
+              <img
+                src="/logo-technozi.png"
+                alt="Logo Technozi"
+                className="w-4 h-4 object-contain shrink-0"
+              />
+              <span>Technozi Haiti</span>
+            </a>
+          </span>
           <a
             href="mailto:rkonekte509@gmail.com?subject=Contact%20RKonekte"
-            className="inline-flex items-center gap-1.5 text-white hover:text-white/80 hover:underline active:scale-95 text-xs font-semibold transition-all cursor-pointer"
+            className="inline-flex items-center gap-1.5 text-white hover:text-white/80 hover:underline active:scale-95 text-xs font-semibold transition-all cursor-pointer whitespace-nowrap"
           >
             <Mail className="w-3.5 h-3.5 text-[#FF7900]" />
             <span>Nous contacter</span>
@@ -1701,15 +1717,33 @@ function AuthContent() {
             </div>
           )}
 
-          {/* Lien mobile "Nous contacter" */}
-          <div className="lg:hidden mt-8 text-center">
-            <a
-              href="mailto:rkonekte509@gmail.com?subject=Contact%20RKonekte"
-              className="inline-flex items-center gap-1.5 text-xs text-[#64748B] hover:text-[#062653] font-semibold transition-colors"
-            >
-              <Mail className="w-3.5 h-3.5 text-[#FF7900]" />
-              <span>Nous contacter : rkonekte509@gmail.com</span>
-            </a>
+          {/* Lien mobile "Nous contacter" & attribution */}
+          <div className="lg:hidden mt-8 text-center space-y-2">
+            <div>
+              <a
+                href="mailto:rkonekte509@gmail.com?subject=Contact%20RKonekte"
+                className="inline-flex items-center gap-1.5 text-xs text-[#64748B] hover:text-[#062653] font-semibold transition-colors"
+              >
+                <Mail className="w-3.5 h-3.5 text-[#FF7900]" />
+                <span>Nous contacter : rkonekte509@gmail.com</span>
+              </a>
+            </div>
+            <p className="text-[11px] text-slate-500 inline-flex items-center justify-center gap-1.5">
+              <span>Powered by</span>
+              <a
+                href="https://www.technozi-ht.com/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1 text-[#062653] hover:underline font-semibold"
+              >
+                <img
+                  src="/logo-technozi.png"
+                  alt="Logo Technozi"
+                  className="w-3.5 h-3.5 object-contain shrink-0"
+                />
+                <span>Technozi</span>
+              </a>
+            </p>
           </div>
         </div>
       </div>

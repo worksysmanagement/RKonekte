@@ -58,6 +58,16 @@ export function SuperAdminSidebar() {
               Ajouter une entreprise
             </Link>
             <Link
+              href="/super-admin/admins"
+              className={`block px-3 py-2 text-xs transition-colors rounded-lg ${
+                isLinkActive("/super-admin/admins")
+                  ? "bg-white/10 text-white font-bold"
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Super Administrateurs
+            </Link>
+            <Link
               href="/super-admin/subscription-settings"
               className={`block px-3 py-2 text-xs transition-colors rounded-lg ${
                 isLinkActive("/super-admin/subscription-settings")
@@ -66,6 +76,16 @@ export function SuperAdminSidebar() {
               }`}
             >
               Tarifs & Comptes
+            </Link>
+            <Link
+              href="/super-admin/revenue-sharing"
+              className={`block px-3 py-2 text-xs transition-colors rounded-lg ${
+                isLinkActive("/super-admin/revenue-sharing")
+                  ? "bg-white/10 text-white font-bold"
+                  : "text-slate-300 hover:text-white hover:bg-white/5"
+              }`}
+            >
+              Partage des revenus
             </Link>
           </div>
         </div>

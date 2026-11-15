@@ -532,6 +532,12 @@ export const subscriptionRenewals = sqliteTable(
     reviewedByName: text("reviewed_by_name"),
     reviewedAt: integer("reviewed_at"),
     rejectionReason: text("rejection_reason"),
+    // Snapshots immuables du partage des revenus au moment de l'encaissement
+    revenueTechnoziPct: real("revenue_technozi_pct"),
+    revenueDeveloperPct: real("revenue_developer_pct"),
+    revenueTechnoziAmount: real("revenue_technozi_amount"),
+    revenueDeveloperAmount: real("revenue_developer_amount"),
+    revenueCalculatedAt: integer("revenue_calculated_at"),
     createdAt: integer("created_at").notNull(),
     updatedAt: integer("updated_at").notNull(),
   },
@@ -543,3 +549,61 @@ export const subscriptionRenewals = sqliteTable(
 
 export type SubscriptionRenewal = typeof subscriptionRenewals.$inferSelect;
 export type InsertSubscriptionRenewal = typeof subscriptionRenewals.$inferInsert;
+
+// ----------------------------------------------------
+// REVENUE SHARING CONFIGURATION (Clé de répartition TECHNOZI / Développeur)
+// ----------------------------------------------------
+export const revenueSharingConfigs = sqliteTable("revenue_sharing_configs", {
+  id: text("id").primaryKey(), // "default"
+  technoziPct: real("technozi_pct").notNull().default(60),
+  developerPct: real("developer_pct").notNull().default(40),
+  directorEmail: text("director_email"), // E-mail du Directeur Général TECHNOZI
+  directorName: text("director_name"),
+  developerEmail: text("developer_email"), // E-mail du Développeur
+  developerName: text("developer_name"),
+  effectiveFrom: integer("effective_from").notNull(),
+  updatedAt: integer("updated_at").notNull(),
+  updatedByUserId: text("updated_by_user_id"),
+  updatedByName: text("updated_by_name"),
+});
+
+export type RevenueSharingConfig = typeof revenueSharingConfigs.$inferSelect;
+export type InsertRevenueSharingConfig = typeof revenueSharingConfigs.$inferInsert;
+
+// ----------------------------------------------------
+// REVENUE SHARING PROPOSALS (Propositions avec validation croisée)
+// ----------------------------------------------------
+export const revenueSharingProposals = sqliteTable(
+  "revenue_sharing_proposals",
+  {
+    id: text("id").primaryKey(),
+    previousTechnoziPct: real("previous_technozi_pct").notNull(),
+    previousDeveloperPct: real("previous_developer_pct").notNull(),
+    proposedTechnoziPct: real("proposed_technozi_pct").notNull(),
+    proposedDeveloperPct: real("proposed_developer_pct").notNull(),
+    status: text("status", { enum: ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] })
+      .notNull()
+      .default("PENDING"),
+    proposedByUserId: text("proposed_by_user_id").notNull(),
+    proposedByName: text("proposed_by_name").notNull(),
+    proposedByEmail: text("proposed_by_email").notNull(),
+    targetEmail: text("target_email").notNull(),
+    targetName: text("target_name"),
+    validationToken: text("validation_token").notNull(),
+    note: text("note"),
+    validatedByUserId: text("validated_by_user_id"),
+    validatedByName: text("validated_by_name"),
+    validatedByEmail: text("validated_by_email"),
+    validatedAt: integer("validated_at"),
+    rejectionReason: text("rejection_reason"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("rev_proposals_status_idx").on(table.status),
+    index("rev_proposals_created_idx").on(table.createdAt),
+  ]
+);
+
+export type RevenueSharingProposal = typeof revenueSharingProposals.$inferSelect;
+export type InsertRevenueSharingProposal = typeof revenueSharingProposals.$inferInsert;

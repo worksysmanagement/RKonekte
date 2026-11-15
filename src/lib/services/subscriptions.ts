@@ -24,6 +24,7 @@ import {
   PlatformSubscriptionSettingsData,
   SubscriptionRenewalItem,
 } from "@/lib/utils/subscription";
+import { snapshotRevenueForRenewal } from "./revenue-sharing";
 import {
   generateSubscriptionDecisionEmail,
   generateSubscriptionReminderEmail,
@@ -675,6 +676,13 @@ export async function approveSubscriptionRenewal(
       await db.insert(subscriptionRenewals).values(row);
       savedRenewal = mapSqliteRenewal(row);
     }
+  }
+
+  // Sceller le snapshot immuable de la répartition des revenus au moment exact de la validation
+  try {
+    await snapshotRevenueForRenewal(savedRenewal.id, plan.price, dbInstance);
+  } catch (err) {
+    console.error("Erreur lors du snapshot de répartition des revenus:", err);
   }
 
   // Update organization dates & lift service stop

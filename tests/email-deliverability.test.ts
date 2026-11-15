@@ -152,7 +152,7 @@ describe("Email Deliverability & Password Setup Templates", () => {
     const [url, init] = fetchMock.mock.calls[0];
     expect(url).toBe("https://api.resend.com/emails");
     const payload = JSON.parse(init.body);
-    expect(payload.from).toBe('"RKonekte" <noreply@rkonekte.com>');
+    expect(payload.from).toBe('RKonekte <noreply@rkonekte.com>');
     expect(payload.text).toBe("Test plain");
     expect(payload.headers["X-Entity-Ref-ID"]).toBeTruthy();
     expect(payload.headers["X-Auto-Response-Suppress"]).toBe("OOF, AutoReply");

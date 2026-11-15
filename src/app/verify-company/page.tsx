@@ -12,7 +12,6 @@ import {
   Eye,
   EyeOff,
   Building2,
-  ShieldCheck,
   Check,
   FileText,
 } from "lucide-react";
@@ -249,10 +248,7 @@ function VerifyCompanyContent() {
         {!loading && !error && !activated && tokenData && (
           <div className="space-y-5 text-left animate-fadeIn">
             <div className="text-center">
-              <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-700 inline-block mb-1">
-                Activation du compte administrateur
-              </span>
-              <h1 className="text-xl font-bold text-[#062653] mt-2">
+              <h1 className="text-xl font-bold text-[#062653]">
                 Définissez votre mot de passe
               </h1>
             </div>
@@ -267,8 +263,7 @@ function VerifyCompanyContent() {
                 <span className="text-slate-500 font-medium">Email administrateur :</span>
                 <span className="font-semibold text-slate-800">{tokenData.companyEmail}</span>
               </div>
-              <div className="pt-1 text-[11px] text-emerald-700 flex items-center gap-1.5 font-semibold">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+              <div className="pt-1 text-[11px] text-slate-900 font-semibold">
                 <span>Accès complet aux opérations de l'entreprise</span>
               </div>
             </div>
@@ -396,13 +391,7 @@ function VerifyCompanyContent() {
               </div>
 
               {/* CONFIRMATION D'ACCEPTATION DU SYSTÈME (BOUTON RADIO OBLIGATOIRE) */}
-              <div
-                className={`p-3.5 rounded-2xl border transition-all ${
-                  acceptedTerms
-                    ? "border-emerald-300"
-                    : "border-slate-200"
-                }`}
-              >
+              <div className="p-3.5 rounded-2xl border border-slate-200 transition-all">
                 <label className="flex items-start gap-3 cursor-pointer select-none">
                   <input
                     type="radio"
@@ -410,7 +399,7 @@ function VerifyCompanyContent() {
                     id="acceptConditions"
                     checked={acceptedTerms}
                     onChange={() => setAcceptedTerms(true)}
-                    className="mt-0.5 w-4 h-4 accent-[#FF7900] cursor-pointer shrink-0"
+                    className="mt-0.5 w-4 h-4 accent-black cursor-pointer shrink-0"
                   />
                   <div className="space-y-1">
                     <span className="text-xs font-bold text-[#062653] leading-snug block">
@@ -430,7 +419,7 @@ function VerifyCompanyContent() {
                     Consulter la charte d'utilisation &amp; les tarifs →
                   </button>
                   {acceptedTerms && (
-                    <span className="text-[11px] font-bold text-emerald-700 flex items-center gap-1">
+                    <span className="text-[11px] font-bold text-slate-800 flex items-center gap-1">
                       ✓ Conditions acceptées
                     </span>
                   )}
@@ -444,14 +433,11 @@ function VerifyCompanyContent() {
               >
                 {submitting ? (
                   <>
-                    <Loader2 className="w-4 h-4 animate-spin text-[#FF7900]" />
+                    <Loader2 className="w-4 h-4 animate-spin text-white" />
                     <span>Enregistrement du mot de passe...</span>
                   </>
                 ) : (
-                  <>
-                    <span>Définir mon mot de passe et activer mon compte</span>
-                    <ArrowRight className="w-4 h-4 text-[#FF7900]" />
-                  </>
+                  <span>Définir mon mot de passe et activer mon compte</span>
                 )}
               </button>
             </form>

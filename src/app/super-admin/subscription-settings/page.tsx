@@ -203,6 +203,28 @@ export default function SuperAdminSubscriptionSettingsPage() {
         </button>
       </div>
 
+      {/* BANDEAU PARTAGE DES REVENUS (TECHNOZI / DÉVELOPPEUR) */}
+      <div className="bg-gradient-to-r from-[#062653] to-[#0a356e] rounded-2xl p-5 text-white shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7900] block mb-1">
+            Gouvernance financière
+          </span>
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <span>Partage des Revenus : TECHNOZI & Développeur</span>
+          </h3>
+          <p className="text-xs text-slate-300 mt-1 max-w-xl">
+            Gérez dynamiquement la clé de répartition des encaissements d&apos;abonnements avec validation bilatérale croisée par e-mail et protection des anciennes transactions.
+          </p>
+        </div>
+        <Link
+          href="/super-admin/revenue-sharing"
+          className="h-9 px-4 bg-[#FF7900] hover:bg-[#E66D00] text-white text-xs font-bold rounded-xl shadow-xs transition-colors inline-flex items-center gap-1.5 shrink-0 whitespace-nowrap self-start sm:self-center"
+        >
+          <span>Accéder au Partage des Revenus</span>
+          <ArrowLeft className="w-3.5 h-3.5 rotate-180" />
+        </Link>
+      </div>
+
       {/* SECTION 1: ESSAI & DEVISE & ALERTE SUPERADMIN */}
       <div className="bg-white rounded-2xl p-5 shadow-xs space-y-4">
         <div className="flex items-center gap-2 text-sm font-bold text-[#062653]">

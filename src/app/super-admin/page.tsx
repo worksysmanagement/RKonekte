@@ -18,6 +18,8 @@ import {
   RefreshCw,
   RotateCw,
   Search,
+  Shield,
+  Sliders,
   UserCheck,
   Users,
   Wifi,
@@ -372,6 +374,20 @@ export default function SuperAdminOverviewPage() {
             <span>Actualiser</span>
           </button>
           <Link
+            href="/super-admin/admins"
+            className="h-9 px-3.5 bg-white hover:bg-slate-50 text-xs font-semibold text-[#062653] rounded-xl shadow-2xs transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <Shield className="w-3.5 h-3.5 text-[#FF7900]" />
+            <span>SuperAdmins</span>
+          </Link>
+          <Link
+            href="/super-admin/revenue-sharing"
+            className="h-9 px-3.5 bg-white hover:bg-slate-50 text-xs font-semibold text-[#062653] rounded-xl shadow-2xs transition-colors inline-flex items-center gap-1.5 whitespace-nowrap"
+          >
+            <Sliders className="w-3.5 h-3.5 text-[#0284C7]" />
+            <span>Partage revenus</span>
+          </Link>
+          <Link
             href="/super-admin/organizations"
             className="h-9 px-3.5 bg-white hover:bg-slate-50 text-xs font-semibold text-[#263445] rounded-xl shadow-2xs transition-colors inline-flex items-center gap-2 whitespace-nowrap"
           >
@@ -527,244 +543,149 @@ export default function SuperAdminOverviewPage() {
       {/* 3. COMPLETE KPI CARDS WITH EYE BUTTONS */}
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-6 gap-4">
         {/* CARD 1: ENTREPRISES SANS MOT DE PASSE */}
-        <div className="xl:col-span-2 bg-white p-5 rounded-xl shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
-                <KeyRound className="w-3.5 h-3.5 text-[#FF7900]" />
-                Inscrites sans mot de passe
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setNoPwdModalTab(periodMode === "all" ? "ALL" : "PERIOD");
-                  setKpiModal("NO_PASSWORD");
-                }}
-                aria-label="Voir les entreprises inscrites sans mot de passe"
-                title="Voir le détail des entreprises sans mot de passe"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Voir</span>
-              </button>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2.5">
-              <span className="text-3xl font-bold text-[#062653]">
-                {loading ? "..." : kpis?.withoutPasswordOrgsCount ?? 0}
-              </span>
-              <span className="text-xs font-semibold text-[#64748B]">
-                entreprise{(kpis?.withoutPasswordOrgsCount ?? 0) > 1 ? "s" : ""}
-              </span>
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs text-[#64748B] flex flex-wrap items-center justify-between gap-1">
-            <span>
-              {periodMode !== "all"
-                ? `Total en attente : ${kpis?.withoutPasswordOrgsAllCount ?? 0}`
-                : "En attente de configuration"}
+        <div className="xl:col-span-2 bg-white p-5 rounded-2xl shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
+              <KeyRound className="w-3.5 h-3.5 text-[#FF7900]" />
+              Inscrites sans mot de passe
             </span>
-            {(kpis?.usersWithoutPasswordAllCount ?? 0) > 0 && (
-              <span className="text-amber-700 font-semibold">
-                {kpis?.usersWithoutPasswordAllCount} compte(s) sans MDP
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* CARD 2: INSCRITS & CONNECTES + EN LIGNE MAINTENANT */}
-        <div className="xl:col-span-2 bg-white p-5 rounded-xl shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
-                <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
-                Inscrits &amp; connectés
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setConnectedModalTab("CONNECTED");
-                  setKpiModal("CONNECTED");
-                }}
-                aria-label="Voir les entreprises et comptes inscrits et connectés"
-                title="Voir les connexions et sessions en ligne"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Voir</span>
-              </button>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2.5 flex-wrap">
-              <span className="text-3xl font-bold text-[#062653]">
-                {loading ? "..." : kpis?.connectedOrgsCount ?? 0}
-              </span>
-              <span className="text-xs font-semibold text-[#64748B]">
-                entreprise{(kpis?.connectedOrgsCount ?? 0) > 1 ? "s" : ""} •{" "}
-                <strong className="text-[#062653]">{kpis?.connectedUsersCount ?? 0}</strong> compte
-                {(kpis?.connectedUsersCount ?? 0) > 1 ? "s" : ""}
-              </span>
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs flex flex-wrap items-center justify-between gap-2">
-            <span className="inline-flex items-center gap-1.5 text-emerald-700 font-bold">
-              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              {kpis?.onlineUsersNowCount ?? 0} en ligne maintenant (5 min)
-            </span>
-            {periodMode !== "all" && (
-              <span className="text-[#64748B]">
-                Déjà connectées : {kpis?.connectedOrgsAllCount ?? 0}
-              </span>
-            )}
-          </div>
-        </div>
-
-        {/* CARD 3: ABONNEMENTS FIN PROCHE DES J-7 */}
-        <div className="xl:col-span-2 bg-white p-5 rounded-xl shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
-                <Clock className="w-3.5 h-3.5 text-[#FF7900]" />
-                Fin d&apos;abonnement (J-7)
-              </span>
-              <button
-                type="button"
-                onClick={() => {
-                  setExpiryModalTab("J7");
-                  setKpiModal("EXPIRING_J7");
-                }}
-                aria-label="Voir les entreprises dont l'abonnement arrive à échéance (J-7)"
-                title="Voir les entreprises J-7 et expirées"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Voir</span>
-              </button>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2.5">
-              <span className="text-3xl font-bold text-[#062653]">
-                {loading ? "..." : kpis?.expiringSoonOrgsCount ?? 0}
-              </span>
-              <span className="text-xs font-semibold text-[#64748B]">
-                entreprise{(kpis?.expiringSoonOrgsCount ?? 0) > 1 ? "s" : ""} (J-7 à J-0)
-              </span>
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs flex flex-wrap items-center justify-between gap-1">
-            <span
-              className={
-                (kpis?.expiredOrStoppedOrgsCount ?? 0) > 0
-                  ? "text-rose-700 font-bold"
-                  : "text-[#64748B]"
-              }
+            <button
+              type="button"
+              onClick={() => {
+                setNoPwdModalTab(periodMode === "all" ? "ALL" : "PERIOD");
+                setKpiModal("NO_PASSWORD");
+              }}
+              aria-label="Voir les détails des entreprises sans mot de passe"
+              title="Voir les détails"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
             >
-              {kpis?.expiredOrStoppedOrgsCount ?? 0} expirée(s) / arrêtée(s)
+              <Eye className="w-3.5 h-3.5" />
+              <span>Voir</span>
+            </button>
+          </div>
+          <div className="mt-3">
+            <span className="text-3xl font-extrabold text-[#062653]">
+              {loading ? "..." : kpis?.withoutPasswordOrgsCount ?? 0}
             </span>
-            {(kpis?.pendingRenewalsCount ?? 0) > 0 && (
-              <span className="text-[#FF7900] font-bold">
-                {kpis?.pendingRenewalsCount} preuve(s) à valider
-              </span>
-            )}
-            {periodMode !== "all" && (
-              <span className="text-[#062653] font-semibold">
-                {kpis?.expiringSoonInPeriodCount ?? 0} échéance(s) sur la période
-              </span>
-            )}
+          </div>
+        </div>
+
+        {/* CARD 2: INSCRITS & CONNECTES */}
+        <div className="xl:col-span-2 bg-white p-5 rounded-2xl shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
+              <UserCheck className="w-3.5 h-3.5 text-emerald-600" />
+              Inscrits &amp; connectés
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setConnectedModalTab("CONNECTED");
+                setKpiModal("CONNECTED");
+              }}
+              aria-label="Voir les détails des connexions"
+              title="Voir les détails"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Voir</span>
+            </button>
+          </div>
+          <div className="mt-3">
+            <span className="text-3xl font-extrabold text-[#062653]">
+              {loading ? "..." : kpis?.connectedOrgsCount ?? 0}
+            </span>
+          </div>
+        </div>
+
+        {/* CARD 3: FIN D'ABONNEMENT (J-7) */}
+        <div className="xl:col-span-2 bg-white p-5 rounded-2xl shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-[#FF7900]" />
+              Fin d&apos;abonnement (J-7)
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                setExpiryModalTab("J7");
+                setKpiModal("EXPIRING_J7");
+              }}
+              aria-label="Voir les détails des échéances"
+              title="Voir les détails"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Voir</span>
+            </button>
+          </div>
+          <div className="mt-3">
+            <span className="text-3xl font-extrabold text-[#062653]">
+              {loading ? "..." : kpis?.expiringSoonOrgsCount ?? 0}
+            </span>
           </div>
         </div>
 
         {/* CARD 4: UTILISATEURS & EMPLOYES */}
-        <div className="xl:col-span-3 bg-white p-5 rounded-xl shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
-                <Users className="w-3.5 h-3.5 text-[#062653]" />
-                Utilisateurs &amp; Employés
-              </span>
-              <button
-                type="button"
-                onClick={() => setKpiModal("USERS_EMPLOYEES")}
-                aria-label="Voir le nombre d'utilisateurs et d'employés par entreprise"
-                title="Voir les effectifs par entreprise"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Voir</span>
-              </button>
-            </div>
-            <div className="mt-3 flex items-baseline gap-4 flex-wrap">
-              <div>
-                <span className="text-3xl font-bold text-[#062653]">
-                  {loading ? "..." : kpis?.totalUsersAll ?? 0}
-                </span>
-                <span className="text-xs font-semibold text-[#64748B] ml-1.5">
-                  utilisateurs
-                </span>
-              </div>
-              <span className="text-slate-300">•</span>
-              <div>
-                <span className="text-3xl font-bold text-[#062653]">
-                  {loading ? "..." : kpis?.totalEmployeesAll ?? 0}
-                </span>
-                <span className="text-xs font-semibold text-[#64748B] ml-1.5">
-                  employés
-                </span>
-              </div>
-            </div>
-          </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs text-[#64748B] flex flex-wrap items-center justify-between gap-1">
-            <span>
-              {kpis?.activeEmployeesAll ?? 0} employés actifs
+        <div className="xl:col-span-3 bg-white p-5 rounded-2xl shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
+              <Users className="w-3.5 h-3.5 text-[#062653]" />
+              Utilisateurs &amp; Employés
             </span>
-            {periodMode !== "all" && (
-              <span className="text-[#062653] font-semibold">
-                +{kpis?.usersInPeriodCount ?? 0} util. / +{kpis?.employeesInPeriodCount ?? 0} empl. (période)
+            <button
+              type="button"
+              onClick={() => setKpiModal("USERS_EMPLOYEES")}
+              aria-label="Voir les détails des effectifs"
+              title="Voir les détails"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Voir</span>
+            </button>
+          </div>
+          <div className="mt-3 flex items-baseline gap-4">
+            <div>
+              <span className="text-3xl font-extrabold text-[#062653]">
+                {loading ? "..." : kpis?.totalUsersAll ?? 0}
               </span>
-            )}
+              <span className="text-xs font-semibold text-[#64748B] ml-1.5">
+                utilisateurs
+              </span>
+            </div>
+            <span className="text-slate-300">•</span>
+            <div>
+              <span className="text-3xl font-extrabold text-[#062653]">
+                {loading ? "..." : kpis?.totalEmployeesAll ?? 0}
+              </span>
+              <span className="text-xs font-semibold text-[#64748B] ml-1.5">
+                employés
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* CARD 5: ENTREPRISES CLIENTES */}
-        <div className="md:col-span-2 xl:col-span-3 bg-white p-5 rounded-xl shadow-xs flex flex-col justify-between">
-          <div>
-            <div className="flex items-center justify-between gap-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
-                <Building2 className="w-3.5 h-3.5 text-[#062653]" />
-                Entreprises inscrites
-              </span>
-              <button
-                type="button"
-                onClick={() => setKpiModal("ORGS")}
-                aria-label="Voir la liste des entreprises inscrites"
-                title="Voir les entreprises de la période"
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
-              >
-                <Eye className="w-3.5 h-3.5" />
-                <span>Voir</span>
-              </button>
-            </div>
-            <div className="mt-3 flex items-baseline gap-2.5">
-              <span className="text-3xl font-bold text-[#062653]">
-                {loading ? "..." : kpis?.totalOrganizations ?? 0}
-              </span>
-              {periodMode !== "all" && (
-                <span className="text-xs text-[#64748B]">
-                  / {kpis?.totalOrganizationsAll ?? 0} au total
-                </span>
-              )}
-            </div>
+        {/* CARD 5: ENTREPRISES INSCRITES */}
+        <div className="md:col-span-2 xl:col-span-3 bg-white p-5 rounded-2xl shadow-xs flex flex-col justify-between">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-xs font-semibold uppercase tracking-wider text-[#64748B] flex items-center gap-1.5">
+              <Building2 className="w-3.5 h-3.5 text-[#062653]" />
+              Entreprises inscrites
+            </span>
+            <button
+              type="button"
+              onClick={() => setKpiModal("ORGS")}
+              aria-label="Voir la liste des entreprises"
+              title="Voir les détails"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-[#F4F6F9] text-[11px] font-bold text-[#062653] hover:bg-[#062653] hover:text-white transition-colors cursor-pointer"
+            >
+              <Eye className="w-3.5 h-3.5" />
+              <span>Voir</span>
+            </button>
           </div>
-          <div className="mt-3 pt-2.5 border-t border-slate-100 text-xs flex flex-wrap items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <span className="text-emerald-700 font-semibold">
-                {kpis?.activeOrganizations ?? 0} actives
-              </span>
-              <span>•</span>
-              <span className="text-[#64748B]">
-                {kpis?.disabledOrganizations ?? 0} en attente
-              </span>
-            </div>
-            <span className="inline-flex items-center gap-1.5 text-emerald-700 font-semibold">
-              <span className="w-2 h-2 bg-emerald-500 rounded-full" />
-              Système opérationnel
+          <div className="mt-3">
+            <span className="text-3xl font-extrabold text-[#062653]">
+              {loading ? "..." : kpis?.totalOrganizations ?? 0}
             </span>
           </div>
         </div>

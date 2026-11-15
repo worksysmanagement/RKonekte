@@ -1,12 +1,24 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
+import dynamic from "next/dynamic";
 import { usePathname } from "next/navigation";
 import { Clock } from "lucide-react";
 import { SidebarProvider } from "./SidebarContext";
-import { AdminSidebar } from "./AdminSidebar";
 import { AdminHeader } from "./AdminHeader";
 import { formatFrDate, SubscriptionStateSummary } from "@/lib/utils/subscription";
+
+// Dynamically import AdminSidebar with ssr: false to prevent hydration mismatches
+// from server-cached AST/HMR chunks or dynamic permission states.
+const AdminSidebar = dynamic(
+  () => import("./AdminSidebar").then((m) => m.AdminSidebar),
+  {
+    ssr: false,
+    loading: () => (
+      <aside className="w-64 bg-[#062653] text-[#F4F6F9] font-['Poppins',sans-serif] flex flex-col shrink-0 border-r border-[#031B3A] h-screen sticky top-0 overflow-hidden select-none" />
+    ),
+  }
+);
 
 interface AdminShellProps {
   role?: "SUPER_ADMIN" | "ORGANIZATION_ADMIN" | "SECRETARY" | "FINANCIAL_MANAGER" | "BRANCH_MANAGER" | "EMPLOYEE" | string;

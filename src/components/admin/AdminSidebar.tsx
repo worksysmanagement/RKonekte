@@ -24,6 +24,7 @@ import {
   Building2,
   PlusCircle,
   CreditCard,
+  Sliders,
 } from "lucide-react";
 import { useSidebar } from "./SidebarContext";
 import { ModuleKey, TabPermission } from "@/lib/types/roles";
@@ -315,12 +316,28 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
         pathname.startsWith("/super-admin/organizations/new/"),
     },
     {
+      href: "/super-admin/admins",
+      label: "Super Administrateurs",
+      icon: Shield,
+      active:
+        pathname === "/super-admin/admins" ||
+        pathname.startsWith("/super-admin/admins/"),
+    },
+    {
       href: "/super-admin/subscription-settings",
       label: "Tarifs & Comptes",
       icon: CreditCard,
       active:
         pathname === "/super-admin/subscription-settings" ||
         pathname.startsWith("/super-admin/subscription-settings/"),
+    },
+    {
+      href: "/super-admin/revenue-sharing",
+      label: "Partage des revenus",
+      icon: Sliders,
+      active:
+        pathname === "/super-admin/revenue-sharing" ||
+        pathname.startsWith("/super-admin/revenue-sharing/"),
     },
     {
       href: "/super-admin/broadcast",
@@ -406,6 +423,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
 
   return (
     <aside
+      suppressHydrationWarning
       className={`bg-[#062653] text-[#F4F6F9] font-['Poppins',sans-serif] flex flex-col shrink-0 border-r border-[#031B3A] h-screen sticky top-0 overflow-hidden select-none transition-[width] duration-300 ease-in-out print:hidden ${
         isCollapsed ? "w-[72px]" : "w-64 sm:w-[270px]"
       }`}

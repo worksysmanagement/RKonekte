@@ -6,6 +6,8 @@ export async function runMigrations(dbInstance?: any) {
   console.log("Creating database tables and indexes...");
 
   // Drop old tables to rebuild clean schemas
+  await db.run(sql`DROP TABLE IF EXISTS revenue_sharing_proposals`);
+  await db.run(sql`DROP TABLE IF EXISTS revenue_sharing_configs`);
   await db.run(sql`DROP TABLE IF EXISTS subscription_renewals`);
   await db.run(sql`DROP TABLE IF EXISTS platform_subscription_settings`);
   await db.run(sql`DROP TABLE IF EXISTS company_events`);
@@ -300,12 +302,74 @@ export async function runMigrations(dbInstance?: any) {
       reviewed_by_name TEXT,
       reviewed_at INTEGER,
       rejection_reason TEXT,
+      revenue_technozi_pct REAL,
+      revenue_developer_pct REAL,
+      revenue_technozi_amount REAL,
+      revenue_developer_amount REAL,
+      revenue_calculated_at INTEGER,
       created_at INTEGER NOT NULL,
       updated_at INTEGER NOT NULL
     )
   `);
   await db.run(sql`CREATE INDEX IF NOT EXISTS sub_renewals_org_idx ON subscription_renewals(organization_id)`);
   await db.run(sql`CREATE INDEX IF NOT EXISTS sub_renewals_status_idx ON subscription_renewals(organization_id, status)`);
+
+  for (const alterSql of [
+    sql`ALTER TABLE subscription_renewals ADD COLUMN revenue_technozi_pct REAL`,
+    sql`ALTER TABLE subscription_renewals ADD COLUMN revenue_developer_pct REAL`,
+    sql`ALTER TABLE subscription_renewals ADD COLUMN revenue_technozi_amount REAL`,
+    sql`ALTER TABLE subscription_renewals ADD COLUMN revenue_developer_amount REAL`,
+    sql`ALTER TABLE subscription_renewals ADD COLUMN revenue_calculated_at INTEGER`,
+  ]) {
+    try {
+      await db.run(alterSql);
+    } catch (_) {}
+  }
+
+  // Revenue Sharing Configs Table
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS revenue_sharing_configs (
+      id TEXT PRIMARY KEY,
+      technozi_pct REAL NOT NULL DEFAULT 60,
+      developer_pct REAL NOT NULL DEFAULT 40,
+      director_email TEXT,
+      director_name TEXT,
+      developer_email TEXT,
+      developer_name TEXT,
+      effective_from INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL,
+      updated_by_user_id TEXT,
+      updated_by_name TEXT
+    )
+  `);
+
+  // Revenue Sharing Proposals Table
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS revenue_sharing_proposals (
+      id TEXT PRIMARY KEY,
+      previous_technozi_pct REAL NOT NULL,
+      previous_developer_pct REAL NOT NULL,
+      proposed_technozi_pct REAL NOT NULL,
+      proposed_developer_pct REAL NOT NULL,
+      status TEXT NOT NULL DEFAULT 'PENDING',
+      proposed_by_user_id TEXT NOT NULL,
+      proposed_by_name TEXT NOT NULL,
+      proposed_by_email TEXT NOT NULL,
+      target_email TEXT NOT NULL,
+      target_name TEXT,
+      validation_token TEXT NOT NULL,
+      note TEXT,
+      validated_by_user_id TEXT,
+      validated_by_name TEXT,
+      validated_by_email TEXT,
+      validated_at INTEGER,
+      rejection_reason TEXT,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS rev_proposals_status_idx ON revenue_sharing_proposals(status)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS rev_proposals_created_idx ON revenue_sharing_proposals(created_at)`);
 
   console.log("Migrations applied successfully.");
 }

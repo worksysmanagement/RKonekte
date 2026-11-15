@@ -1321,11 +1321,13 @@ function renderPaymentAccountsEmailBlock(accounts: PaymentAccountConfig[]): {
   html: string;
   text: string[];
 } {
-  const activeAccounts = accounts.filter((a) => a.enabled);
+  const activeAccounts = (accounts || []).filter(
+    (a) => a.enabled && a.accountNumber && !a.accountNumber.toLowerCase().includes("à configurer")
+  );
   if (activeAccounts.length === 0) {
     return {
-      html: `<p style="margin: 0 0 14px 0; font-size: 13px; color: #475569;">Veuillez contacter le support RKonekte pour obtenir les coordonnées de paiement.</p>`,
-      text: ["Veuillez contacter le support RKonekte pour obtenir les coordonnées de paiement."],
+      html: "",
+      text: [],
     };
   }
 
@@ -1421,7 +1423,6 @@ export function generateSubscriptionWelcomeEmail(params: {
     params.trialMonths > 1 ? `${params.trialMonths} mois gratuits` : "1er mois gratuit";
 
   const plansBlock = renderPlansEmailBlock(params.plans);
-  const accountsBlock = renderPaymentAccountsEmailBlock(params.paymentAccounts);
   const customNoteHtml = params.autoMessageBody
     ? `<p style="margin: 0 0 14px 0; font-size: 13px; color: #475569;">${escapeEmailHtml(params.autoMessageBody).replace(/\r?\n/g, "<br/>")}</p>`
     : "";
@@ -1439,8 +1440,6 @@ export function generateSubscriptionWelcomeEmail(params: {
       ${customNoteHtml}
       <p style="margin: 0 0 8px 0; font-weight: 700; color: #062653; font-size: 13px;">Tarifs de renouvellement après la période gratuite :</p>
       ${plansBlock.html}
-      <p style="margin: 0 0 8px 0; font-weight: 700; color: #062653; font-size: 13px;">Comptes disponibles pour vos règlements :</p>
-      ${accountsBlock.html}
     `,
     ctaLabel: "Consulter mon abonnement",
     ctaUrl: params.subscriptionUrl,
@@ -1455,9 +1454,6 @@ export function generateSubscriptionWelcomeEmail(params: {
     ...(params.autoMessageBody ? [params.autoMessageBody, ""] : []),
     "Tarifs après la période gratuite :",
     ...plansBlock.text,
-    "",
-    "Comptes disponibles pour vos règlements :",
-    ...accountsBlock.text,
     "",
     `Gérer votre abonnement : ${params.subscriptionUrl}`,
     "",
@@ -1515,8 +1511,7 @@ export function generateSubscriptionReminderEmail(params: {
       </div>
       <p style="margin: 0 0 8px 0; font-weight: 700; color: #062653; font-size: 13px;">Durées et tarifs disponibles :</p>
       ${plansBlock.html}
-      <p style="margin: 0 0 8px 0; font-weight: 700; color: #062653; font-size: 13px;">Comptes disponibles pour le paiement :</p>
-      ${accountsBlock.html}
+      ${accountsBlock.html ? `<p style="margin: 0 0 8px 0; font-weight: 700; color: #062653; font-size: 13px;">Comptes disponibles pour le paiement :</p>${accountsBlock.html}` : ""}
     `,
     ctaLabel: "Choisir ma durée & envoyer ma référence",
     ctaUrl: params.subscriptionUrl,
@@ -1534,9 +1529,7 @@ export function generateSubscriptionReminderEmail(params: {
     "Durées et tarifs disponibles :",
     ...plansBlock.text,
     "",
-    "Comptes disponibles pour le paiement :",
-    ...accountsBlock.text,
-    "",
+    ...(accountsBlock.text.length > 0 ? ["Comptes disponibles pour le paiement :", ...accountsBlock.text, ""] : []),
     `Soumettre votre référence : ${params.subscriptionUrl}`,
     "",
     "--",
@@ -1777,4 +1770,174 @@ export function generateSuperAdminBroadcastEmail(params: {
     html,
     text: textLines.join("\n"),
   };
+}
+
+export function generateRevenueSharingProposalEmail(params: {
+  recipientName?: string;
+  proposerName: string;
+  proposerEmail: string;
+  currentTechnoziPct: number;
+  currentDeveloperPct: number;
+  proposedTechnoziPct: number;
+  proposedDeveloperPct: number;
+  validationUrl: string;
+  note?: string;
+}): { subject: string; html: string; text: string } {
+  const recipient = (params.recipientName || "Partenaire").trim();
+  const safeRecipient = escapeEmailHtml(recipient);
+  const safeProposer = escapeEmailHtml(params.proposerName);
+  const safeProposerEmail = escapeEmailHtml(params.proposerEmail);
+  const subject = `Proposition de révision du partage des revenus (${params.proposedTechnoziPct}% / ${params.proposedDeveloperPct}%)`;
+
+  const safeNote = params.note
+    ? `<div style="background-color: #f8fafc; border-left: 3px solid #ff7900; padding: 12px 14px; margin: 16px 0; border-radius: 4px;">
+        <span style="font-size: 11px; font-weight: 700; color: #475569; text-transform: uppercase; display: block; margin-bottom: 4px;">Note ou motif :</span>
+        <p style="margin: 0; font-size: 13px; color: #1e293b; font-style: italic;">« ${escapeEmailHtml(params.note)} »</p>
+      </div>`
+    : "";
+
+  const bodyHtml = `
+    <div style="margin-bottom: 16px;">
+      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #ff7900; letter-spacing: 0.5px; display: block; margin-bottom: 2px;">
+        SuperAdmin • Consensus de Répartition
+      </span>
+      <h3 style="margin: 0; color: #062653; font-size: 18px; font-weight: 700;">
+        Proposition de modification de la clé de répartition
+      </h3>
+    </div>
+
+    <p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #0f172a;">
+      Bonjour <strong>${safeRecipient}</strong>,
+    </p>
+
+    <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #334155;">
+      <strong>${safeProposer}</strong> (${safeProposerEmail}) vient de soumettre une proposition de révision du partage des revenus entre <strong>TECHNOZI</strong> et le <strong>Développeur</strong>.
+    </p>
+
+    <div style="background-color: #f1f5f9; border-radius: 12px; padding: 16px 18px; margin: 18px 0; border: 1px solid #e2e8f0;">
+      <table style="width: 100%; border-collapse: collapse; font-size: 13px;">
+        <thead>
+          <tr style="border-bottom: 1px solid #cbd5e1; text-align: left; color: #64748b;">
+            <th style="padding-bottom: 8px; font-weight: 600;">Partie</th>
+            <th style="padding-bottom: 8px; font-weight: 600;">Répartition actuelle</th>
+            <th style="padding-bottom: 8px; font-weight: 700; color: #062653;">Nouvelle proposition</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr style="border-bottom: 1px solid #e2e8f0;">
+            <td style="padding: 10px 0; font-weight: 600; color: #062653;">TECHNOZI</td>
+            <td style="padding: 10px 0; color: #64748b;">${params.currentTechnoziPct}%</td>
+            <td style="padding: 10px 0; font-weight: 700; color: #0284c7; font-size: 15px;">${params.proposedTechnoziPct}%</td>
+          </tr>
+          <tr>
+            <td style="padding: 10px 0; font-weight: 600; color: #062653;">Développeur</td>
+            <td style="padding: 10px 0; color: #64748b;">${params.currentDeveloperPct}%</td>
+            <td style="padding: 10px 0; font-weight: 700; color: #ea580c; font-size: 15px;">${params.proposedDeveloperPct}%</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    ${safeNote}
+
+    <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #334155;">
+      Conformément aux règles de gestion de la plateforme, cette nouvelle répartition n'entrera en vigueur pour les futurs paiements que lorsque vous aurez cliqué sur <strong>Valider</strong> sur l'espace SuperAdmin.
+    </p>
+
+    <div style="background-color: #ecfdf5; border-left: 3px solid #10b981; padding: 10px 14px; margin: 16px 0; border-radius: 4px; font-size: 12px; color: #065f46;">
+      <strong>Sécurité & Non-rétroactivité :</strong> Les commissions sur les transactions déjà encaissées restent inchangées.
+    </div>
+  `;
+
+  const html = renderTransactionalEmailLayout({
+    title: subject,
+    preheader: `Proposition de répartition : TECHNOZI ${params.proposedTechnoziPct}% / Développeur ${params.proposedDeveloperPct}%`,
+    bodyHtml,
+    ctaLabel: "Accéder et Valider la répartition",
+    ctaUrl: params.validationUrl,
+    footerText: "Notification de sécurité RKonekte • Gestion du partage des revenus.",
+  });
+
+  const text = [
+    "PROPOSITION DE RÉVISION DU PARTAGE DES REVENUS RKONEKTE",
+    "",
+    `Bonjour ${recipient},`,
+    "",
+    `${params.proposerName} (${params.proposerEmail}) a proposé une modification de la clé de répartition des revenus :`,
+    `- Actuel : TECHNOZI ${params.currentTechnoziPct}% / Développeur ${params.currentDeveloperPct}%`,
+    `- Proposé : TECHNOZI ${params.proposedTechnoziPct}% / Développeur ${params.proposedDeveloperPct}%`,
+    ...(params.note ? [`Note : ${params.note}`] : []),
+    "",
+    `Pour examiner et valider cette modification, ouvrez ce lien :`,
+    params.validationUrl,
+    "",
+    "Note de sécurité : Les transactions passées restent inchangées. La nouvelle clé s'appliquera uniquement aux prochains abonnements validés.",
+  ].join("\n");
+
+  return { subject, html, text };
+}
+
+export function generateRevenueSharingApprovedEmail(params: {
+  validatorName: string;
+  validatorEmail: string;
+  newTechnoziPct: number;
+  newDeveloperPct: number;
+  dashboardUrl: string;
+}): { subject: string; html: string; text: string } {
+  const subject = `Confirmation : Nouvelle clé de répartition activée (${params.newTechnoziPct}% TECHNOZI / ${params.newDeveloperPct}% Développeur)`;
+
+  const bodyHtml = `
+    <div style="margin-bottom: 16px;">
+      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #10b981; letter-spacing: 0.5px; display: block; margin-bottom: 2px;">
+        Partage des Revenus • Activé
+      </span>
+      <h3 style="margin: 0; color: #062653; font-size: 18px; font-weight: 700;">
+        Nouvelle clé de répartition validée avec succès
+      </h3>
+    </div>
+
+    <p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #0f172a;">
+      Bonjour,
+    </p>
+
+    <p style="margin: 0 0 16px 0; font-size: 14px; line-height: 1.6; color: #334155;">
+      La proposition de révision du partage des revenus a été formellement validée par <strong>${escapeEmailHtml(params.validatorName)}</strong> (${escapeEmailHtml(params.validatorEmail)}).
+    </p>
+
+    <div style="background-color: #f0fdf4; border-radius: 12px; padding: 16px 18px; margin: 18px 0; border: 1px solid #bbf7d0; text-align: center;">
+      <div style="font-size: 12px; font-weight: 700; color: #166534; text-transform: uppercase; margin-bottom: 8px;">
+        Nouvelle Clé Active
+      </div>
+      <div style="font-size: 24px; font-weight: 800; color: #062653;">
+        TECHNOZI : <span style="color: #0284c7;">${params.newTechnoziPct}%</span> &nbsp;|&nbsp; Développeur : <span style="color: #ea580c;">${params.newDeveloperPct}%</span>
+      </div>
+    </div>
+
+    <p style="margin: 0 0 14px 0; font-size: 13px; line-height: 1.6; color: #475569;">
+      Cette clé est immédiatement prise en compte pour tous les nouveaux paiements confirmés sur la plateforme.
+    </p>
+  `;
+
+  const html = renderTransactionalEmailLayout({
+    title: subject,
+    preheader: subject,
+    bodyHtml,
+    ctaLabel: "Ouvrir le Tableau de Bord SuperAdmin",
+    ctaUrl: params.dashboardUrl,
+    footerText: "Notification de sécurité RKonekte • Gestion du partage des revenus.",
+  });
+
+  const text = [
+    "CONFIRMATION : NOUVELLE CLÉ DE RÉPARTITION ACTIVÉE",
+    "",
+    `La proposition a été validée par ${params.validatorName} (${params.validatorEmail}).`,
+    "",
+    `Nouvelle répartition active :`,
+    `- TECHNOZI : ${params.newTechnoziPct}%`,
+    `- Développeur : ${params.newDeveloperPct}%`,
+    "",
+    `Accéder au tableau de bord : ${params.dashboardUrl}`,
+  ].join("\n");
+
+  return { subject, html, text };
 }
