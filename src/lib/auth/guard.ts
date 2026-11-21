@@ -41,7 +41,7 @@ export async function requireSuperAdmin(): Promise<SessionUser> {
 }
 
 /**
- * Ensures user belongs to an organization (ORGANIZATION_ADMIN or SECRETARY).
+ * Ensures user belongs to an organization (ORGANIZATION_ADMIN or EMPLOYEE).
  * Returns the session and the verified organizationId.
  * NEVER trust an organizationId passed in request payload!
  */
@@ -165,7 +165,7 @@ export async function requireOrgAdmin(): Promise<{
 
 /**
  * Ensures user is authorized to approve or reject requests.
- * Standard employees / collaborateurs cannot approve or reject.
+ * Only ORGANIZATION_ADMIN can approve or reject (employees cannot).
  */
 export async function requireRequestApprover(): Promise<{
   user: SessionUser;
@@ -173,15 +173,8 @@ export async function requireRequestApprover(): Promise<{
   branchId?: string | null;
 }> {
   const tenantContext = await requireTenantUser();
-  const role = tenantContext.user.role;
-  const isEmployee =
-    role === "EMPLOYEE" ||
-    role === "COLLABORATEUR" ||
-    role === "CASHIER" ||
-    role === "CAISSIER";
-
-  if (isEmployee) {
-    throw new AuthError("Action non autorisée : les collaborateurs et caissiers ne peuvent pas valider ni rejeter de demandes.", 403);
+  if (tenantContext.user.role !== "ORGANIZATION_ADMIN") {
+    throw new AuthError("Action non autorisée : seuls les administrateurs de l'entreprise peuvent valider ou rejeter les demandes.", 403);
   }
 
   return tenantContext;

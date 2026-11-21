@@ -366,6 +366,108 @@ const ADMIN_MODULES_MANUAL: TabManual[] = [
     ],
   },
   {
+    id: "exchanges",
+    name: "Échanges administratifs",
+    href: "/admin/exchanges",
+    iconSrc: "/icons/sidebar/exchanges.png",
+    category: "Opérations",
+    summary:
+      "Coffre-fort numérique et centre documentaire interne pour la transmission, la réception et la traçabilité des pièces administratives officielles entre administrateurs de l'entreprise (sans chat ni commentaires superflus).",
+    targetRoles: [
+      "Président Directeur Général (PDG)",
+      "Administrateur d'Entreprise",
+      "Membres de la Direction",
+    ],
+    features: [
+      {
+        title: "Transmettre un document administratif officiel",
+        description:
+          "Partagez des rapports, contrats, fichiers PDF, Word, Excel, PowerPoint ou images avec un ou plusieurs collègues administrateurs.",
+        steps: [
+          "Accédez au module 'Échanges administratifs' depuis le menu latéral.",
+          "Dans l'onglet 'Transmettre un document', cochez le ou les administrateurs destinataires (les comptes employés ordinaires sont automatiquement exclus).",
+          "Glissez-déposez vos fichiers depuis votre ordinateur ou parcourez vos dossiers (formats acceptés : PDF, DOC, DOCX, XLS, XLSX, PPT, PPTX, PNG, JPG, JPEG jusqu'à 25 Mo).",
+          "Vérifiez la liste des pièces prêtes à l'envoi et retirez-en si nécessaire.",
+          "Cliquez sur 'Confirmer la transmission' : vos destinataires reçoivent instantanément une notification e-mail sécurisée et une alerte sur leur cloche de notification RKonekte.",
+        ],
+      },
+      {
+        title: "Documents reçus, Liseuse plein écran & Téléchargement",
+        description:
+          "Consultez l'ensemble des documents administratifs qui vous ont été transmis, prévisualisez-les confortablement ou téléchargez-les.",
+        steps: [
+          "Ouvrez l'onglet 'Documents reçus' : les nouveaux documents non encore ouverts portent l'indicateur épuré 'Nouveau • Non consulté'.",
+          "Filtrez instantanément vos documents par nom, expéditeur ou date précise de réception grâce au sélecteur de date intégré.",
+          "Cliquez sur l'icône d'œil (Prévisualiser) pour ouvrir la liseuse intégrée (PDF et images).",
+          "Utilisez le bouton Maximiser / Plein écran (icône à côté de la croix) pour agrandir la liseuse sur 100% de votre écran ou cliquez sur 'Nouvel onglet'.",
+          "Dès l'ouverture ou le téléchargement effectif, le statut passe automatiquement à 'Consulté'.",
+        ],
+      },
+      {
+        title: "Suivi des transmissions & Accusés de réception (Coches WhatsApp)",
+        description:
+          "Suivez en temps réel l'ouverture de vos documents grâce à l'organisation par destinataire et date, avec le système visuel des doubles coches WhatsApp.",
+        steps: [
+          "Accédez à l'onglet 'Documents transmis' : le tableau présente directement vos transmissions organisées par Destinataire (1ère colonne) et par date de partage.",
+          "Filtrez instantanément vos transmissions en temps réel dès la première lettre saisie par nom de destinataire ou de document, ou ciblez un jour précis via le sélecteur de date.",
+          "Pour chaque destinataire et date, un bouton indique le nombre de pièces partagées (ex: '2 documents') : cliquez dessus pour déplier la liste complète.",
+          "Chaque document déplié affiche son format, sa taille, son heure exacte de transmission (ex: 09:27, 18:45), son statut d'ouverture individuel, avec boutons de prévisualisation directe et de téléchargement.",
+          "Deux coches grises indiquent que le document est disponible dans l'espace de votre destinataire ; deux coches vertes confirment qu'il l'a effectivement ouvert et consulté.",
+          "Si un document n'a pas encore été ouvert, cliquez sur 'Renvoyer l'alerte' pour lui notifier un rappel sécurisé par e-mail.",
+          "La pagination en bas de tableau limite l'affichage à 15 lignes maximum par page avec navigation fluide (1 – 15 sur X).",
+        ],
+      },
+    ],
+    tips: [
+      "Les fichiers ne sont jamais joints directement dans les e-mails : ils restent hébergés et protégés dans votre coffre-fort sécurisé RKonekte pour préserver la confidentialité.",
+      "Le passage aux deux coches vertes confirme une consultation technique réelle après authentification de l'administrateur, et non un simple clic sur un lien externe.",
+      "La cloche de notification en haut de l'écran vous avertit immédiatement dès qu'un nouveau document administratif vous est transmis.",
+    ],
+    rules: [
+      "Ce module est exclusivement réservé aux comptes possédant le rôle Administrateur ou Direction.",
+      "Chaque administrateur bénéficie d'une étanchéité absolue de sa messagerie : aucun autre administrateur non destinataire ne peut accéder à ses documents.",
+      "Seul le partage de documents professionnels est autorisé : aucun chat, messagerie textuelle ou zone de commentaire n'est présent afin de garantir la pureté documentaire.",
+    ],
+  },
+  {
+    id: "customer-feedback",
+    name: "Espace Client & Avis",
+    href: "/admin/espace-client",
+    iconSrc: "/icons/sidebar/employees.png",
+    category: "Opérations",
+    summary:
+      "Dispositif de collecte et de suivi de la satisfaction client par QR Codes uniques par succursale ou caissier, avec tableau de bord des retours d'expérience.",
+    targetRoles: [
+      "PDG",
+      "Administrateur d'Entreprise",
+      "Responsable de Succursale",
+    ],
+    features: [
+      {
+        title: "Génération et gestion des QR Codes clients",
+        description:
+          "Créez des QR Codes personnalisés pour vos points de vente, comptoirs ou caisses afin de permettre à vos clients d'évaluer le service.",
+        steps: [
+          "Dans 'Espace Client', créez un nouveau QR Code en lui attribuant un libellé (ex: Caisse Principale Delmas).",
+          "Téléchargez le QR Code au format image pour l'imprimer et l'afficher sur votre comptoir.",
+          "Activez ou désactivez le QR Code selon vos besoins opérationnels.",
+        ],
+      },
+      {
+        title: "Suivi des avis et notation de satisfaction",
+        description:
+          "Analysez les notes attribuées (étoiles), les commentaires clients et les tendances de satisfaction par succursale.",
+      },
+    ],
+    tips: [
+      "Imprimez vos QR Codes en format visible sur vos comptoirs de caisse pour maximiser les retours clients.",
+      "Un filtre anti-spam intégré protège vos statistiques contre les soumissions répétitives abusives.",
+    ],
+    rules: [
+      "Seuls les administrateurs peuvent générer de nouveaux QR Codes ou modifier leur état.",
+    ],
+  },
+  {
     id: "users",
     name: "Gestion des Accès & Sécurité",
     href: "/admin/users",

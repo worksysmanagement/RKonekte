@@ -56,9 +56,9 @@ describe("Cashier (Caissier(e)) Role Specifications", () => {
     expect(DEFAULT_RUBRIQUES_PRESET[6].currency).toBe("USD");
   });
 
-  it("should define sub-tabs across all 11 modules with exact sub-tab definitions for financial reports", () => {
+  it("should define sub-tabs across all modules with exact sub-tab definitions for financial reports", () => {
     const moduleKeys = Object.keys(MODULE_LABELS) as ModuleKey[];
-    expect(moduleKeys).toHaveLength(11);
+    expect(moduleKeys).toHaveLength(12);
 
     for (const key of moduleKeys) {
       expect(MODULE_SUB_TABS[key]).toBeDefined();

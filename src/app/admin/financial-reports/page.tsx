@@ -154,30 +154,41 @@ export default function FinancialReportsPage() {
     initPage();
   }, []);
 
-  const isCashier = useMemo(() => {
+  const isEmployee = useMemo(() => {
     if (!currentUser) return false;
-    const role = currentUser.role || "";
+    const role = (currentUser.role || "").toUpperCase();
     return (
+      role === "EMPLOYEE" ||
+      role === "COLLABORATEUR" ||
       role === "CASHIER" ||
       role === "CAISSIER" ||
-      role.toLowerCase().includes("caissier") ||
-      role.toLowerCase().includes("cashier")
+      role.includes("EMPLOY") ||
+      role.includes("COLLAB") ||
+      role.includes("CAISSIER") ||
+      role.includes("CASHIER") ||
+      (!role.includes("ADMIN") && !role.includes("PDG") && role !== "SUPER_ADMIN" && role !== "ORGANIZATION_ADMIN")
     );
   }, [currentUser]);
 
-  const isAdmin = !isCashier;
+  const isAdmin = useMemo(() => {
+    if (!currentUser) return false;
+    const role = (currentUser.role || "").toUpperCase();
+    return !isEmployee && (role === "ORGANIZATION_ADMIN" || role === "SUPER_ADMIN");
+  }, [currentUser, isEmployee]);
+
+  const isCashier = isEmployee;
 
   // Synchronize activeTab with URL tab parameter (from sidebar sub-tabs) or cashier enforcement
   useEffect(() => {
     const tabParam = searchParams.get("tab");
-    if (isCashier) {
+    if (!isAdmin) {
       setActiveTab("entry");
     } else if (tabParam === "entry") {
       setActiveTab("entry");
     } else {
       setActiveTab("reports");
     }
-  }, [searchParams, isCashier]);
+  }, [searchParams, isAdmin]);
 
   // Listen to global branch change event from AdminHeader
   useEffect(() => {
@@ -1286,7 +1297,7 @@ export default function FinancialReportsPage() {
       {/* ========================================================================= */}
       {/* VIEW B: ADMIN CONSOLIDATED REPORTS & FILTERS                              */}
       {/* ========================================================================= */}
-      {activeTab === "reports" && (
+      {activeTab === "reports" && isAdmin && (
         <div className="space-y-6">
           {/* PERIOD TABS */}
           <div className="bg-white p-3 rounded-2xl shadow-xs flex items-center justify-between flex-wrap gap-2 print:hidden">

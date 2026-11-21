@@ -6,6 +6,8 @@ export async function runMigrations(dbInstance?: any) {
   console.log("Creating database tables and indexes...");
 
   // Drop old tables to rebuild clean schemas
+  await db.run(sql`DROP TABLE IF EXISTS administrative_document_recipients`);
+  await db.run(sql`DROP TABLE IF EXISTS administrative_documents`);
   await db.run(sql`DROP TABLE IF EXISTS revenue_sharing_proposals`);
   await db.run(sql`DROP TABLE IF EXISTS revenue_sharing_configs`);
   await db.run(sql`DROP TABLE IF EXISTS subscription_renewals`);
@@ -93,6 +95,7 @@ export async function runMigrations(dbInstance?: any) {
       password_hash TEXT NOT NULL,
       role TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'ACTIVE',
+      permissions TEXT,
       last_login_at INTEGER,
       last_seen_at INTEGER,
       created_at INTEGER NOT NULL,
@@ -370,6 +373,58 @@ export async function runMigrations(dbInstance?: any) {
   `);
   await db.run(sql`CREATE INDEX IF NOT EXISTS rev_proposals_status_idx ON revenue_sharing_proposals(status)`);
   await db.run(sql`CREATE INDEX IF NOT EXISTS rev_proposals_created_idx ON revenue_sharing_proposals(created_at)`);
+
+  // Administrative Documents Table
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS administrative_documents (
+      id TEXT PRIMARY KEY,
+      organization_id TEXT NOT NULL,
+      sender_user_id TEXT NOT NULL,
+      sender_name TEXT NOT NULL,
+      sender_email TEXT NOT NULL,
+      file_name TEXT NOT NULL,
+      file_type TEXT NOT NULL,
+      file_extension TEXT NOT NULL,
+      file_size INTEGER NOT NULL,
+      file_hash TEXT,
+      storage_path TEXT NOT NULL,
+      storage_provider TEXT NOT NULL DEFAULT 'local',
+      batch_id TEXT,
+      is_archived INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS admin_docs_org_idx ON administrative_documents(organization_id)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS admin_docs_sender_idx ON administrative_documents(sender_user_id)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS admin_docs_created_idx ON administrative_documents(created_at)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS admin_docs_batch_idx ON administrative_documents(batch_id)`);
+
+  // Administrative Document Recipients Table
+  await db.run(sql`
+    CREATE TABLE IF NOT EXISTS administrative_document_recipients (
+      id TEXT PRIMARY KEY,
+      document_id TEXT NOT NULL REFERENCES administrative_documents(id),
+      organization_id TEXT NOT NULL,
+      recipient_user_id TEXT NOT NULL,
+      recipient_name TEXT NOT NULL,
+      recipient_email TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'DELIVERED',
+      delivered_at INTEGER NOT NULL,
+      viewed_at INTEGER,
+      notification_email_sent INTEGER NOT NULL DEFAULT 0,
+      notification_email_sent_at INTEGER,
+      notification_email_error TEXT,
+      is_archived INTEGER NOT NULL DEFAULT 0,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    )
+  `);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS admin_doc_recp_doc_idx ON administrative_document_recipients(document_id)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS admin_doc_recp_org_idx ON administrative_document_recipients(organization_id)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS admin_doc_recp_user_idx ON administrative_document_recipients(recipient_user_id)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS admin_doc_recp_status_idx ON administrative_document_recipients(status)`);
+  await db.run(sql`CREATE INDEX IF NOT EXISTS admin_doc_recp_created_idx ON administrative_document_recipients(created_at)`);
 
   console.log("Migrations applied successfully.");
 }

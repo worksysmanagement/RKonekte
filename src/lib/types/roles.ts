@@ -24,7 +24,8 @@ export type ModuleKey =
   | "customer_space"
   | "users"
   | "notifications"
-  | "configuration";
+  | "configuration"
+  | "broadcast";
 
 export type HierarchyLevel =
   | "DIRECTION"
@@ -57,6 +58,7 @@ export const MODULE_LABELS: Record<ModuleKey, string> = {
   users: "Gestion des Accès & Sécurité",
   notifications: "Centre de Notifications",
   configuration: "Configurations & Paramètres",
+  broadcast: "Échanges administratifs",
 };
 
 export const MODULE_SUB_TABS: Record<ModuleKey, SubTabItem[]> = {
@@ -102,6 +104,9 @@ export const MODULE_SUB_TABS: Record<ModuleKey, SubTabItem[]> = {
     { id: "profile", name: "Profil Entreprise", scope: "Identité et logo de l'organisation", href: "/admin/configuration" },
     { id: "security", name: "Sécurité", scope: "Politiques d'accès et mots de passe", href: "/admin/configuration/security" },
   ],
+  broadcast: [
+    { id: "exchanges", name: "Échanges administratifs", scope: "Transmission et suivi des documents entre administrateurs", href: "/admin/exchanges" },
+  ],
 };
 
 export const HIERARCHY_LABELS: Record<HierarchyLevel, { label: string; badge: string; color: string }> = {
@@ -139,4 +144,5 @@ export const ALL_ALLOWED_PERMS: Record<ModuleKey, TabPermission> = {
   users: { view: true, create: true, edit: true, delete: true },
   notifications: { view: true, create: true, edit: true, delete: true },
   configuration: { view: true, create: true, edit: true, delete: true },
+  broadcast: { view: true, create: true, edit: true, delete: true },
 };

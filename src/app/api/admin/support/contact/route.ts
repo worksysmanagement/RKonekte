@@ -4,20 +4,15 @@ import { sendEmail } from "@/lib/notifications/email";
 
 function formatUserRole(role?: string): string {
   switch (role?.toUpperCase()) {
-    case "CASHIER":
-      return "Caissier";
-    case "SECRETARY":
-      return "Secrétaire / RH";
-    case "FINANCIAL_MANAGER":
-      return "Directeur Financier";
-    case "ORGANIZATION_ADMIN":
-      return "Administrateur / Direction";
-    case "BRANCH_MANAGER":
-      return "Responsable de Succursale";
     case "SUPER_ADMIN":
       return "Super Administrateur";
+    case "ORGANIZATION_ADMIN":
+      return "Administrateur";
     case "EMPLOYEE":
-      return "Employé";
+    case "COLLABORATEUR":
+    case "CASHIER":
+    case "SECRETARY":
+      return "Employé / Collaborateur";
     default:
       return role || "Utilisateur";
   }

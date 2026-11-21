@@ -81,7 +81,24 @@ const DATA_FILE = path.join(DATA_DIR, "signature-authorizations.json");
 
 let memoryCache: SignatureAuthRequest[] | null = null;
 
+function safeWriteFileSync(filePath: string, data: string) {
+  for (let attempt = 0; attempt < 4; attempt++) {
+    try {
+      fs.writeFileSync(filePath, data, "utf-8");
+      return;
+    } catch (err: any) {
+      if (attempt === 3) throw err;
+      const end = Date.now() + 30;
+      while (Date.now() < end) {}
+    }
+  }
+}
+
 function ensureFileInitialized(): SignatureAuthRequest[] {
+  if (memoryCache !== null) {
+    return memoryCache;
+  }
+
   try {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
@@ -91,7 +108,7 @@ function ensureFileInitialized(): SignatureAuthRequest[] {
       const raw = fs.readFileSync(DATA_FILE, "utf-8");
       if (raw && raw.trim()) {
         const parsed: SignatureAuthRequest[] = JSON.parse(raw);
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           memoryCache = parsed;
           return parsed;
         }
@@ -99,7 +116,7 @@ function ensureFileInitialized(): SignatureAuthRequest[] {
     }
 
     // Write initial defaults ONLY when the file does not exist or is empty
-    fs.writeFileSync(DATA_FILE, JSON.stringify(DEFAULT_SIGNATURE_REQUESTS, null, 2), "utf-8");
+    safeWriteFileSync(DATA_FILE, JSON.stringify(DEFAULT_SIGNATURE_REQUESTS, null, 2));
     memoryCache = [...DEFAULT_SIGNATURE_REQUESTS];
     return memoryCache;
   } catch (err) {
@@ -117,7 +134,7 @@ function persistToFile(items: SignatureAuthRequest[]) {
     if (!fs.existsSync(DATA_DIR)) {
       fs.mkdirSync(DATA_DIR, { recursive: true });
     }
-    fs.writeFileSync(DATA_FILE, JSON.stringify(items, null, 2), "utf-8");
+    safeWriteFileSync(DATA_FILE, JSON.stringify(items, null, 2));
   } catch (err) {
     console.error("Error persisting signature requests to disk:", err);
   }
@@ -143,12 +160,18 @@ export async function listSignatureAuthRequests(
     filtered = filtered.filter((r) => r.status === filter.status);
   }
 
-  if (filter?.employeeNumber) {
-    filtered = filtered.filter(
-      (r) =>
-        r.employeeNumber === filter.employeeNumber ||
-        (filter.applicantName && r.applicantName.toLowerCase() === filter.applicantName.toLowerCase())
-    );
+  if (filter?.employeeNumber || filter?.applicantName) {
+    const filterNum = (filter.employeeNumber || "").toLowerCase().trim();
+    const filterName = (filter.applicantName || "").toLowerCase().trim();
+
+    filtered = filtered.filter((r) => {
+      const rNum = (r.employeeNumber || "").toLowerCase().trim();
+      const rName = (r.applicantName || "").toLowerCase().trim();
+
+      if (filterNum && rNum && rNum === filterNum) return true;
+      if (filterName && rName && (rName.includes(filterName) || filterName.includes(rName))) return true;
+      return false;
+    });
   }
 
   return filtered;

@@ -51,6 +51,7 @@ export const users = sqliteTable(
     passwordHash: text("password_hash").notNull(),
     role: text("role").notNull(),
     status: text("status", { enum: ["ACTIVE", "DISABLED"] }).notNull().default("ACTIVE"),
+    permissions: text("permissions"),
     lastLoginAt: integer("last_login_at"),
     lastSeenAt: integer("last_seen_at"),
     createdAt: integer("created_at").notNull(),
@@ -607,3 +608,73 @@ export const revenueSharingProposals = sqliteTable(
 
 export type RevenueSharingProposal = typeof revenueSharingProposals.$inferSelect;
 export type InsertRevenueSharingProposal = typeof revenueSharingProposals.$inferInsert;
+
+// ----------------------------------------------------
+// ADMINISTRATIVE DOCUMENTS (Échanges Administratifs)
+// ----------------------------------------------------
+export const administrativeDocuments = sqliteTable(
+  "administrative_documents",
+  {
+    id: text("id").primaryKey(),
+    organizationId: text("organization_id").notNull(),
+    senderUserId: text("sender_user_id").notNull(),
+    senderName: text("sender_name").notNull(),
+    senderEmail: text("sender_email").notNull(),
+    fileName: text("file_name").notNull(),
+    fileType: text("file_type").notNull(),
+    fileExtension: text("file_extension").notNull(),
+    fileSize: integer("file_size").notNull(),
+    fileHash: text("file_hash"),
+    storagePath: text("storage_path").notNull(),
+    storageProvider: text("storage_provider").notNull().default("local"),
+    batchId: text("batch_id"),
+    isArchived: integer("is_archived", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("admin_docs_org_idx").on(table.organizationId),
+    index("admin_docs_sender_idx").on(table.senderUserId),
+    index("admin_docs_created_idx").on(table.createdAt),
+    index("admin_docs_batch_idx").on(table.batchId),
+  ]
+);
+
+export type AdministrativeDocument = typeof administrativeDocuments.$inferSelect;
+export type InsertAdministrativeDocument = typeof administrativeDocuments.$inferInsert;
+
+// ----------------------------------------------------
+// ADMINISTRATIVE DOCUMENT RECIPIENTS (Destinataires & Accusés de Réception)
+// ----------------------------------------------------
+export const administrativeDocumentRecipients = sqliteTable(
+  "administrative_document_recipients",
+  {
+    id: text("id").primaryKey(),
+    documentId: text("document_id").notNull().references(() => administrativeDocuments.id),
+    organizationId: text("organization_id").notNull(),
+    recipientUserId: text("recipient_user_id").notNull(),
+    recipientName: text("recipient_name").notNull(),
+    recipientEmail: text("recipient_email").notNull(),
+    status: text("status", { enum: ["TRANSMITTED", "DELIVERED", "VIEWED"] })
+      .notNull()
+      .default("DELIVERED"),
+    deliveredAt: integer("delivered_at").notNull(),
+    viewedAt: integer("viewed_at"),
+    notificationEmailSent: integer("notification_email_sent", { mode: "boolean" }).notNull().default(false),
+    notificationEmailSentAt: integer("notification_email_sent_at"),
+    notificationEmailError: text("notification_email_error"),
+    isArchived: integer("is_archived", { mode: "boolean" }).notNull().default(false),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (table) => [
+    index("admin_doc_recp_doc_idx").on(table.documentId),
+    index("admin_doc_recp_org_idx").on(table.organizationId),
+    index("admin_doc_recp_user_idx").on(table.recipientUserId),
+    index("admin_doc_recp_status_idx").on(table.status),
+    index("admin_doc_recp_created_idx").on(table.createdAt),
+  ]
+);
+
+export type AdministrativeDocumentRecipient = typeof administrativeDocumentRecipients.$inferSelect;
+export type InsertAdministrativeDocumentRecipient = typeof administrativeDocumentRecipients.$inferInsert;

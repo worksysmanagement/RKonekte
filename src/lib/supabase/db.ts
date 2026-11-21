@@ -121,6 +121,7 @@ export function mapUser(row: any): User {
     passwordHash: row.password_hash,
     role: row.role,
     status: row.status,
+    permissions: row.permissions ?? null,
     lastLoginAt: row.last_login_at != null ? Number(row.last_login_at) : null,
     lastSeenAt: row.last_seen_at != null ? Number(row.last_seen_at) : null,
     createdAt: Number(row.created_at),
@@ -792,7 +793,7 @@ export const supabaseDb = {
       const supabase = getSupabaseAdminClient();
       let res: any = await supabase
         .from("users")
-        .select("id, organization_id, branch_id, name, email, role, status, last_login_at, last_seen_at, created_at, updated_at")
+        .select("id, organization_id, branch_id, name, email, role, status, permissions, last_login_at, last_seen_at, created_at, updated_at")
         .eq("organization_id", organizationId)
         .order("created_at", { ascending: false });
 
@@ -821,6 +822,7 @@ export const supabaseDb = {
         email: row.email,
         role: row.role,
         status: row.status,
+        permissions: row.permissions ?? null,
         lastLoginAt: row.last_login_at != null ? Number(row.last_login_at) : null,
         lastSeenAt: row.last_seen_at != null ? Number(row.last_seen_at) : null,
         createdAt: Number(row.created_at),
@@ -907,6 +909,7 @@ export const supabaseDb = {
         email: input.email.toLowerCase().trim(),
         role: input.role,
         status: "ACTIVE",
+        permissions: null,
         lastLoginAt: null,
         lastSeenAt: null,
         createdAt: now,
@@ -927,7 +930,8 @@ export const supabaseDb = {
     async updateRole(
       organizationId: string,
       userId: string,
-      role: string
+      role: string,
+      permissions?: string | null
     ): Promise<Omit<User, "passwordHash">> {
       const cleanRole = role.trim();
       if (!cleanRole) {
@@ -972,21 +976,26 @@ export const supabaseDb = {
       }
 
       const now = Date.now();
+      const updateData: any = { role: cleanRole, updated_at: now };
+      if (permissions !== undefined) {
+        updateData.permissions = permissions;
+      }
+
       let res: any = await supabase
         .from("users")
-        .update({ role: cleanRole, updated_at: now })
+        .update(updateData)
         .eq("id", userId)
         .eq("organization_id", organizationId)
-        .select("id, organization_id, branch_id, name, email, role, status, last_login_at, last_seen_at, created_at, updated_at")
+        .select("id, organization_id, branch_id, name, email, role, status, permissions, last_login_at, last_seen_at, created_at, updated_at")
         .single();
 
       if (res.error && (res.error.message?.includes("branch_id") || res.error.message?.includes("last_login_at") || res.error.message?.includes("last_seen_at"))) {
         res = await supabase
           .from("users")
-          .update({ role: cleanRole, updated_at: now })
+          .update(updateData)
           .eq("id", userId)
           .eq("organization_id", organizationId)
-          .select("id, organization_id, name, email, role, status, created_at, updated_at")
+          .select("id, organization_id, name, email, role, status, permissions, created_at, updated_at")
           .single();
       }
 
@@ -1002,6 +1011,7 @@ export const supabaseDb = {
         email: res.data.email,
         role: res.data.role,
         status: res.data.status,
+        permissions: res.data.permissions ?? null,
         lastLoginAt: res.data.last_login_at != null ? Number(res.data.last_login_at) : null,
         lastSeenAt: res.data.last_seen_at != null ? Number(res.data.last_seen_at) : null,
         createdAt: Number(res.data.created_at),

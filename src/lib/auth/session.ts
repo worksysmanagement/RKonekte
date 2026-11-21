@@ -5,7 +5,7 @@ export interface SessionUser {
   id: string;
   name: string;
   email: string;
-  role: "SUPER_ADMIN" | "ORGANIZATION_ADMIN" | "SECRETARY" | "FINANCIAL_MANAGER" | "BRANCH_MANAGER" | "EMPLOYEE" | string;
+  role: "SUPER_ADMIN" | "ORGANIZATION_ADMIN" | "EMPLOYEE" | string;
   organizationId: string | null;
   organizationName?: string;
   organizationSlug?: string;

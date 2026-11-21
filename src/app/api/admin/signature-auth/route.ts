@@ -35,15 +35,28 @@ export async function GET(req: NextRequest) {
     if (scope === "mine" || (isEmployee && !searchParams.has("all"))) {
       if (employeeNumber) {
         filter.employeeNumber = employeeNumber;
+      } else if (user.employeeNumber) {
+        filter.employeeNumber = user.employeeNumber;
       }
       if (applicantName) {
         filter.applicantName = applicantName;
+      } else if (user.name) {
+        filter.applicantName = user.name;
       }
     }
 
     const requests = await listSignatureAuthRequests(organizationId, filter);
 
-    return NextResponse.json({ success: true, requests });
+    return NextResponse.json(
+      { success: true, requests },
+      {
+        headers: {
+          "Cache-Control": "no-store, no-cache, must-revalidate, proxy-revalidate",
+          Pragma: "no-cache",
+          Expires: "0",
+        },
+      }
+    );
   } catch (err) {
     return handleApiError(err);
   }

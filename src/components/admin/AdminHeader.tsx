@@ -99,6 +99,11 @@ export function AdminHeader({
                 setSelectedBranch(saved);
               } else {
                 setSelectedBranch("all");
+                if (typeof window !== "undefined") {
+                  localStorage.setItem("rk_active_branch", "all");
+                  document.cookie = "rk_active_branch=all; path=/; max-age=31536000";
+                  window.dispatchEvent(new CustomEvent("branchChange", { detail: { branchId: "all" } }));
+                }
               }
             } else if (userBranchId) {
               // Non-admins are strictly locked to their assigned branch
@@ -184,16 +189,63 @@ export function AdminHeader({
           JSON.parse(localStorage.getItem("rkonekte_dismissed_notifications") || "[]")
         );
 
-        const [reqRes, txRes, evRes, meRes] = await Promise.all([
+        const [reqRes, txRes, evRes, meRes, exchRes] = await Promise.all([
           fetch("/api/admin/requests?limit=15"),
           fetch("/api/admin/financial-operations/transactions?limit=15").catch(() => null),
           fetch("/api/admin/events").catch(() => null),
-          role === "ORGANIZATION_ADMIN"
-            ? fetch("/api/auth/me", { cache: "no-store" }).catch(() => null)
-            : Promise.resolve(null),
+          fetch("/api/auth/me", { cache: "no-store" }).catch(() => null),
+          fetch("/api/admin/exchanges/received?limit=15").catch(() => null),
         ]);
 
         const combined: HeaderNotification[] = [];
+
+        // Profil de l'utilisateur connecté pour exclure ses propres requêtes de ses notifications
+        let currentUserId = "";
+        let currentEmail = (userEmail || "").trim().toLowerCase();
+        let currentFullName = (userName || "").trim().toLowerCase();
+        let currentEmpNum = "";
+
+        if (meRes && meRes.ok) {
+          try {
+            const meData = await meRes.clone().json();
+            if (meData?.user) {
+              if (meData.user.id) currentUserId = String(meData.user.id).toLowerCase();
+              if (meData.user.email) currentEmail = String(meData.user.email).trim().toLowerCase();
+              if (meData.user.name) currentFullName = String(meData.user.name).trim().toLowerCase();
+              if (meData.user.employeeNumber) currentEmpNum = String(meData.user.employeeNumber).trim().toLowerCase();
+            }
+          } catch (_) {}
+        }
+
+        const isMyRequest = (r: any): boolean => {
+          // 0. Vérification par identifiant
+          if (currentUserId) {
+            if (r.employeeId && String(r.employeeId).toLowerCase() === currentUserId) return true;
+            if (r.userId && String(r.userId).toLowerCase() === currentUserId) return true;
+          }
+
+          // 1. Vérification par email (identifiant principal entre comptes)
+          const rEmail = (r.contactEmail || "").trim().toLowerCase();
+          if (rEmail && currentEmail) {
+            return rEmail === currentEmail;
+          }
+
+          // 2. Vérification par matricule employé
+          const rEmpNum = (r.employeeNumber || "").trim().toLowerCase();
+          if (rEmpNum && currentEmpNum) {
+            return rEmpNum === currentEmpNum;
+          }
+
+          // 3. Fallback uniquement si email et matricule sont absents
+          const rFullName = `${r.firstName || ""} ${r.lastName || ""}`.trim().toLowerCase();
+          const rEmpName = (r.employeeName || "").trim().toLowerCase();
+          if (currentFullName) {
+            if (rFullName && rFullName === currentFullName) return true;
+            if (rEmpName && rEmpName === currentFullName) return true;
+          }
+
+          return false;
+        };
 
         // 1. Alertes d'abonnement (Compte à rebours J-7)
         if (meRes && meRes.ok) {
@@ -201,6 +253,7 @@ export function AdminHeader({
             const meData = await meRes.json();
             const summary = meData?.subscriptionSummary;
             if (
+              role === "ORGANIZATION_ADMIN" &&
               summary?.shouldShowCountdownBanner &&
               !summary?.isExpired &&
               !summary?.isAccessBlocked
@@ -235,7 +288,12 @@ export function AdminHeader({
               : [];
 
             rawRequests
-              .filter((r: any) => !r.decisionComment?.includes("[ADMIN_ARCHIVED]"))
+              .filter((r: any) => {
+                if (r.decisionComment?.includes("[ADMIN_ARCHIVED]")) return false;
+                // Exclure les requêtes effectuées par le compte de l'utilisateur connecté
+                if (isMyRequest(r)) return false;
+                return true;
+              })
               .slice(0, 8)
               .forEach((r: any) => {
                 const empName =
@@ -305,6 +363,35 @@ export function AdminHeader({
                 type: ev.audienceTargetName || "Administration",
                 link: "/admin/events",
                 unread: !readIds.has(notifId),
+              });
+            });
+          } catch (_) {}
+        }
+
+        // 5. Échanges administratifs (Documents reçus)
+        if (exchRes && exchRes.ok) {
+          try {
+            const exchData = await exchRes.json();
+            const docs = Array.isArray(exchData?.documents) ? exchData.documents : [];
+            docs.slice(0, 8).forEach((d: any) => {
+              const notifId = `exch-${d.recipientRecordId}`;
+              if (dismissedIds.has(notifId)) return;
+              const formattedDate = d.createdAt
+                ? new Date(d.createdAt).toLocaleDateString("fr-FR", {
+                    day: "2-digit",
+                    month: "short",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })
+                : "Récent";
+              const isUnread = d.status !== "VIEWED";
+              combined.push({
+                id: notifId,
+                title: `Document reçu — ${d.fileName}`,
+                time: formattedDate,
+                type: isUnread ? "Nouveau document" : "Échanges administratifs",
+                link: `/admin/exchanges?docId=${d.documentId}`,
+                unread: isUnread && !readIds.has(notifId),
               });
             });
           } catch (_) {}

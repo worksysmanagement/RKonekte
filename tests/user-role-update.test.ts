@@ -117,29 +117,31 @@ describe("User System Role Update Test Suite", () => {
 
   it("Prevents demoting the last active ORGANIZATION_ADMIN but allows demotion when another active PDG exists", async () => {
     await expect(
-      updateUserRole("org-alpha", "usr-alpha-pdg", "ADMINISTRATEUR", db)
+      updateUserRole("org-alpha", "usr-alpha-pdg", "EMPLOYEE", db)
     ).rejects.toThrow("Impossible de rétrograder le seul PDG / Propriétaire actif");
 
     // Promote second user to ORGANIZATION_ADMIN first
     await updateUserRole("org-alpha", "usr-alpha-cashier", "ORGANIZATION_ADMIN", db);
 
-    // Now the original PDG can be changed to ADMINISTRATEUR
-    const demoted = await updateUserRole("org-alpha", "usr-alpha-pdg", "ADMINISTRATEUR", db);
-    expect(demoted.role).toBe("ADMINISTRATEUR");
+    // Now the original PDG can be changed to EMPLOYEE
+    const demoted = await updateUserRole("org-alpha", "usr-alpha-pdg", "EMPLOYEE", db);
+    expect(demoted.role).toBe("EMPLOYEE");
   });
 
   it("Validates updateUserRoleSchema strictly allows only { role }", () => {
-    expect(updateUserRoleSchema.safeParse({ role: "FINANCIAL_MANAGER" }).success).toBe(true);
+    expect(updateUserRoleSchema.safeParse({ role: "EMPLOYEE" }).success).toBe(true);
+    expect(updateUserRoleSchema.safeParse({ role: "ORGANIZATION_ADMIN" }).success).toBe(true);
+    expect(updateUserRoleSchema.safeParse({ role: "FINANCIAL_MANAGER" }).success).toBe(false);
     expect(updateUserRoleSchema.safeParse({ role: "  " }).success).toBe(false);
     expect(
       updateUserRoleSchema.safeParse({
-        role: "FINANCIAL_MANAGER",
+        role: "EMPLOYEE",
         name: "Hacked Name",
       }).success
     ).toBe(false);
     expect(
       updateUserRoleSchema.safeParse({
-        role: "FINANCIAL_MANAGER",
+        role: "EMPLOYEE",
         email: "other@evil.com",
       }).success
     ).toBe(false);

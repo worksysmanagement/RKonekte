@@ -26,7 +26,8 @@ interface NotificationItem {
     | "SIGNATURE"
     | "SYSTEM"
     | "ADMIN_ANNOUNCEMENT"
-    | "HR_DECISION";
+    | "HR_DECISION"
+    | "EXCHANGE";
   title: string;
   description: string;
   timestamp: string;
@@ -44,7 +45,8 @@ type FilterTab =
   | "SALARY_RAISE"
   | "SIGNATURE"
   | "ADMIN_ANNOUNCEMENT"
-  | "HR_DECISION";
+  | "HR_DECISION"
+  | "EXCHANGE";
 
 function formatLeaveTypeLabel(type?: string, other?: string): string {
   if (!type) return "Non précisé";
@@ -75,14 +77,23 @@ export default function AdminNotificationsPage() {
       try {
         setLoading(true);
 
-        // 1. Détection du rôle de l'utilisateur connecté
+        // 1. Détection du profil de l'utilisateur connecté
         const meRes = await fetch("/api/auth/me", { cache: "no-store" });
         let role = "EMPLOYEE";
         let subscriptionSummary: any = null;
+        let myEmail = "";
+        let myFullName = "";
+        let myEmpNum = "";
+        let myUserId = "";
+
         if (meRes.ok) {
           const meData = await meRes.json();
-          if (meData?.user?.role) {
-            role = meData.user.role;
+          if (meData?.user) {
+            if (meData.user.role) role = meData.user.role;
+            if (meData.user.id) myUserId = String(meData.user.id).toLowerCase();
+            if (meData.user.email) myEmail = String(meData.user.email).trim().toLowerCase();
+            if (meData.user.name) myFullName = String(meData.user.name).trim().toLowerCase();
+            if (meData.user.employeeNumber) myEmpNum = String(meData.user.employeeNumber).trim().toLowerCase();
           }
           subscriptionSummary = meData?.subscriptionSummary || null;
         }
@@ -187,8 +198,39 @@ export default function AdminNotificationsPage() {
               : [];
 
             if (isMounted && rawRequests.length > 0) {
+              const isMyRequest = (r: any): boolean => {
+                if (myUserId) {
+                  if (r.employeeId && String(r.employeeId).toLowerCase() === myUserId) return true;
+                  if (r.userId && String(r.userId).toLowerCase() === myUserId) return true;
+                }
+
+                const rEmail = (r.contactEmail || "").trim().toLowerCase();
+                if (rEmail && myEmail) {
+                  return rEmail === myEmail;
+                }
+
+                const rEmpNum = (r.employeeNumber || "").trim().toLowerCase();
+                if (rEmpNum && myEmpNum) {
+                  return rEmpNum === myEmpNum;
+                }
+
+                const rFullName = `${r.firstName || ""} ${r.lastName || ""}`.trim().toLowerCase();
+                const rEmpName = (r.employeeName || "").trim().toLowerCase();
+                if (myFullName) {
+                  if (rFullName && rFullName === myFullName) return true;
+                  if (rEmpName && rEmpName === myFullName) return true;
+                }
+
+                return false;
+              };
+
               const mapped: NotificationItem[] = rawRequests
-                .filter((r: any) => !r.decisionComment?.includes("[ADMIN_ARCHIVED]"))
+                .filter((r: any) => {
+                  if (r.decisionComment?.includes("[ADMIN_ARCHIVED]")) return false;
+                  // Exclure les requêtes effectuées par le compte de l'utilisateur connecté
+                  if (isMyRequest(r)) return false;
+                  return true;
+                })
                 .map((r: any) => {
                   const empName =
                     r.employeeName ||
@@ -258,6 +300,45 @@ export default function AdminNotificationsPage() {
                 })
                 .filter((n: NotificationItem) => !dismissedIds.has(n.id));
               adminNotifs.push(...mappedTx);
+            }
+          }
+        } catch (_) {}
+
+        // 6. Échanges administratifs (Documents officiels reçus)
+        try {
+          const exchRes = await fetch("/api/admin/exchanges/received");
+          if (exchRes.ok) {
+            const exchData = await exchRes.json();
+            const docs = Array.isArray(exchData?.documents) ? exchData.documents : [];
+            if (isMounted && docs.length > 0) {
+              const mappedExch: NotificationItem[] = docs
+                .map((d: any) => {
+                  const notifId = `exch-${d.recipientRecordId}`;
+                  const isUnread = d.status !== "VIEWED";
+                  const formattedDate = d.createdAt
+                    ? new Date(d.createdAt).toLocaleDateString("fr-FR", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })
+                    : "Récent";
+                  return {
+                    id: notifId,
+                    category: "EXCHANGE",
+                    title: `Document administratif reçu — ${d.fileName}`,
+                    description: `${d.senderName} (${d.senderEmail}) vous a transmis le document officiel « ${d.fileName} » dans votre coffre-fort sécurisé. Statut : ${
+                      d.status === "VIEWED" ? "Consulté" : "Disponible (Non encore consulté)"
+                    }.`,
+                    timestamp: formattedDate,
+                    link: `/admin/exchanges?docId=${d.documentId}`,
+                    unread: isUnread && !readIds.has(notifId),
+                    meta: `Échanges administratifs • Transmis par ${d.senderName}`,
+                  };
+                })
+                .filter((n: NotificationItem) => !dismissedIds.has(n.id));
+              adminNotifs.push(...mappedExch);
             }
           }
         } catch (_) {}
@@ -419,6 +500,7 @@ export default function AdminNotificationsPage() {
       if (filterTab === "FINANCIAL" && n.category !== "FINANCIAL") return false;
       if (filterTab === "SALARY_RAISE" && n.category !== "SALARY_RAISE") return false;
       if (filterTab === "SIGNATURE" && n.category !== "SIGNATURE") return false;
+      if (filterTab === "EXCHANGE" && n.category !== "EXCHANGE") return false;
 
       // Search filter
       if (searchQuery.trim()) {
@@ -546,6 +628,17 @@ export default function AdminNotificationsPage() {
             </button>
 
             <button
+              onClick={() => setFilterTab("EXCHANGE")}
+              className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
+                filterTab === "EXCHANGE"
+                  ? "bg-[#062653] text-white"
+                  : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653]"
+              }`}
+            >
+              Échanges ({notifications.filter((n) => n.category === "EXCHANGE").length})
+            </button>
+
+            <button
               onClick={() => setFilterTab("SYSTEM")}
               className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${
                 filterTab === "SYSTEM"
@@ -638,6 +731,8 @@ export default function AdminNotificationsPage() {
                           ? "bg-[#062653] text-[#FF7900]"
                           : n.category === "HR_DECISION"
                           ? "bg-blue-50 text-blue-800"
+                          : n.category === "EXCHANGE"
+                          ? "bg-[#062653] text-[#FF7900]"
                           : "bg-[#F4F6F9] text-[#263445]"
                       }`}
                     >
@@ -655,6 +750,8 @@ export default function AdminNotificationsPage() {
                         ? "Communication officielle"
                         : n.category === "HR_DECISION"
                         ? "Décision RH"
+                        : n.category === "EXCHANGE"
+                        ? "Échanges administratifs"
                         : "Système"}
                     </span>
                     <h3 className="text-xs font-bold text-[#062653]">{n.title}</h3>

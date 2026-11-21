@@ -381,7 +381,7 @@ export default function SalaryRaiseRequestsPage() {
 
       showSystemToast("Document PDF officiel téléchargé avec succès !");
     } catch (err: any) {
-      console.error("Erreur PDF:", err);
+      console.warn("Avertissement PDF:", err);
       showSystemToast(err?.message || "Erreur lors de la génération du PDF", "error");
     } finally {
       setIsGeneratingPdf(false);
@@ -602,6 +602,14 @@ export default function SalaryRaiseRequestsPage() {
             Lorsqu'une revalorisation ou un nouveau salaire vous est attribué, vous recevez automatiquement une
             notification officielle par <strong>WhatsApp</strong> et par <strong>Email</strong> avec la date d'effet.
           </p>
+        </div>
+        <div className="pt-2">
+          <Link
+            href="/admin/requests"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-[#062653] text-white text-xs font-bold rounded-xl hover:bg-[#031B3A] transition-colors cursor-pointer"
+          >
+            Retourner à mes requêtes
+          </Link>
         </div>
       </div>
     );

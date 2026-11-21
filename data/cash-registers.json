@@ -189,6 +189,76 @@
       "isActive": true,
       "createdAt": 1794600609964,
       "updatedAt": 1794600609964
+    },
+    {
+      "id": "rub-preset-1-e9daa9",
+      "organizationId": "org-octacore-1612",
+      "name": "PAIEMENT HTG",
+      "currency": "HTG",
+      "orderIndex": 1,
+      "isActive": true,
+      "createdAt": 1795268860783,
+      "updatedAt": 1795268860783
+    },
+    {
+      "id": "rub-preset-2-0050e1",
+      "organizationId": "org-octacore-1612",
+      "name": "PAIEMENT USD",
+      "currency": "USD",
+      "orderIndex": 2,
+      "isActive": true,
+      "createdAt": 1795268860783,
+      "updatedAt": 1795268860783
+    },
+    {
+      "id": "rub-preset-3-219a4f",
+      "organizationId": "org-octacore-1612",
+      "name": "ZELLE OU CASH APP",
+      "currency": "USD",
+      "orderIndex": 3,
+      "isActive": true,
+      "createdAt": 1795268860783,
+      "updatedAt": 1795268860783
+    },
+    {
+      "id": "rub-preset-4-c98350",
+      "organizationId": "org-octacore-1612",
+      "name": "VIREMENT UB HTG",
+      "currency": "HTG",
+      "orderIndex": 4,
+      "isActive": true,
+      "createdAt": 1795268860783,
+      "updatedAt": 1795268860783
+    },
+    {
+      "id": "rub-preset-5-4c3f77",
+      "organizationId": "org-octacore-1612",
+      "name": "VIREMENT UB USD",
+      "currency": "USD",
+      "orderIndex": 5,
+      "isActive": true,
+      "createdAt": 1795268860783,
+      "updatedAt": 1795268860783
+    },
+    {
+      "id": "rub-preset-6-ea6a86",
+      "organizationId": "org-octacore-1612",
+      "name": "VIREMENT SOG HTG",
+      "currency": "HTG",
+      "orderIndex": 6,
+      "isActive": true,
+      "createdAt": 1795268860783,
+      "updatedAt": 1795268860783
+    },
+    {
+      "id": "rub-preset-7-3b3002",
+      "organizationId": "org-octacore-1612",
+      "name": "VIREMENT SOG USD",
+      "currency": "USD",
+      "orderIndex": 7,
+      "isActive": true,
+      "createdAt": 1795268860783,
+      "updatedAt": 1795268860783
     }
   ],
   "entries": [

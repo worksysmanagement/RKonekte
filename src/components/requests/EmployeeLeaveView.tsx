@@ -78,7 +78,17 @@ function getCachedProfile(): EmployeeProfile | null {
   }
 }
 
-export function EmployeeLeaveView() {
+export interface EmployeeLeaveViewProps {
+  onBackToList?: () => void;
+  onSubmitted?: () => void;
+  hideHeaderTabs?: boolean;
+}
+
+export function EmployeeLeaveView({
+  onBackToList,
+  onSubmitted,
+  hideHeaderTabs = false,
+}: EmployeeLeaveViewProps = {}) {
   const [activeTab, setActiveTab] = useState<"form" | "history">("form");
   const [profile, setProfile] = useState<EmployeeProfile | null>(() => getCachedProfile());
   const [myRequests, setMyRequests] = useState<LeaveRequestItem[]>([]);
@@ -116,7 +126,7 @@ export function EmployeeLeaveView() {
   // Section 1 : Informations sur l'Employé
   const [lastName, setLastName] = useState(() => getCachedProfile()?.lastName || "");
   const [firstName, setFirstName] = useState(() => getCachedProfile()?.firstName || "");
-  const [employeeNumber, setEmployeeNumber] = useState(() => getCachedProfile()?.employeeNumber || "");
+  const [employeeNumber, setEmployeeNumber] = useState(() => getCachedProfile()?.employeeNumber || "DIR-ADMIN");
   const [department, setDepartment] = useState(() => getCachedProfile()?.department || "");
   const [position, setPosition] = useState(() => getCachedProfile()?.position || "");
 
@@ -184,6 +194,7 @@ export function EmployeeLeaveView() {
       if (p.lastName) setLastName(p.lastName);
       if (p.firstName) setFirstName(p.firstName);
       if (p.employeeNumber) setEmployeeNumber(p.employeeNumber);
+      else if (!employeeNumber) setEmployeeNumber("DIR-ADMIN");
       if (p.department) setDepartment(p.department);
       if (p.position) setPosition(p.position);
       if (p.phone) setContactPhone(p.phone);
@@ -485,9 +496,16 @@ export function EmployeeLeaveView() {
       setTypedSignatureText("");
       clearSignature();
       setConfirmed(false);
-      // Reload requests and switch to history
-      loadMyRequests();
-      setActiveTab("history");
+
+      if (onSubmitted) {
+        onSubmitted();
+      } else if (onBackToList) {
+        onBackToList();
+      } else {
+        // Reload requests and switch to history
+        loadMyRequests();
+        setActiveTab("history");
+      }
     } catch (err: any) {
       showSystemToast("Erreur réseau. Veuillez réessayer.", "error");
     } finally {
@@ -528,93 +546,111 @@ export function EmployeeLeaveView() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Profil Header Collaborateur */}
-      <div className="bg-white rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
-        <div>
-          <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
-            Mon Espace Congés
-          </h1>
-          <p className="text-xs text-[#64748B] mt-0.5">
-            Soumettez une demande en 1 clic et suivez les validations de la Direction.
-          </p>
+      {/* Bouton Retour pour Administration */}
+      {onBackToList && (
+        <div className="flex items-center justify-between pb-1">
+          <button
+            type="button"
+            onClick={onBackToList}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-[#062653] hover:bg-slate-100 shadow-xs transition-all cursor-pointer border border-slate-200/80"
+          >
+            <ArrowLeft className="w-4 h-4 text-emerald-600" />
+            <span>Retour à la liste des demandes de congé</span>
+          </button>
         </div>
+      )}
 
-        {/* Informations fixes pré-remplies (sans background, texte en gras) */}
-        <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#062653]">
-          <div className="flex items-center gap-1.5">
-            <span>Matricule :</span>
-            {profile?.employeeNumber ? (
-              <strong className="text-[#FF7900] font-mono font-bold">
-                {profile.employeeNumber}
-              </strong>
-            ) : (
-              <span className="inline-block w-24 h-3.5 bg-slate-200 animate-pulse rounded-sm" />
-            )}
+      {/* Profil Header Collaborateur */}
+      {!hideHeaderTabs && (
+        <div className="bg-white rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4 print:hidden">
+          <div>
+            <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
+              Mon Espace Congés
+            </h1>
+            <p className="text-xs text-[#64748B] mt-0.5">
+              Soumettez une demande en 1 clic et suivez les validations de la Direction.
+            </p>
           </div>
-          <span className="text-slate-300 font-normal">|</span>
-          <div className="flex items-center gap-1.5">
-            <Building className="w-3.5 h-3.5 text-slate-500" />
-            {profile?.branch ? (
-              <span>{profile.branch}</span>
-            ) : (
-              <span className="inline-block w-20 h-3.5 bg-slate-200 animate-pulse rounded-sm" />
-            )}
-          </div>
-          <span className="text-slate-300 font-normal">|</span>
-          <div className="flex items-center gap-1.5">
-            <Briefcase className="w-3.5 h-3.5 text-slate-500" />
-            {profile?.position ? (
-              <span>{profile.position}</span>
-            ) : (
-              <span>Employé</span>
-            )}
+
+          {/* Informations fixes pré-remplies (sans background, texte en gras) */}
+          <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#062653]">
+            <div className="flex items-center gap-1.5">
+              <span>Matricule :</span>
+              {profile?.employeeNumber ? (
+                <strong className="text-[#FF7900] font-mono font-bold">
+                  {profile.employeeNumber}
+                </strong>
+              ) : (
+                <span className="inline-block w-24 h-3.5 bg-slate-200 animate-pulse rounded-sm" />
+              )}
+            </div>
+            <span className="text-slate-300 font-normal">|</span>
+            <div className="flex items-center gap-1.5">
+              <Building className="w-3.5 h-3.5 text-slate-500" />
+              {profile?.branch ? (
+                <span>{profile.branch}</span>
+              ) : (
+                <span className="inline-block w-20 h-3.5 bg-slate-200 animate-pulse rounded-sm" />
+              )}
+            </div>
+            <span className="text-slate-300 font-normal">|</span>
+            <div className="flex items-center gap-1.5">
+              <Briefcase className="w-3.5 h-3.5 text-slate-500" />
+              {profile?.position ? (
+                <span>{profile.position}</span>
+              ) : (
+                <span>Employé</span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Navigation Onglets Très Simple */}
-      <div className="flex items-center gap-2 pb-1 print:hidden">
-        <button
-          onClick={() => setActiveTab("form")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
-            activeTab === "form"
-              ? "bg-[#062653] text-white shadow-xs"
-              : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653] hover:bg-slate-200/70"
-          }`}
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nouvelle demande</span>
-        </button>
+      {!hideHeaderTabs && (
+        <div className="flex items-center gap-2 pb-1 print:hidden">
+          <button
+            onClick={() => setActiveTab("form")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+              activeTab === "form"
+                ? "bg-[#062653] text-white shadow-xs"
+                : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653] hover:bg-slate-200/70"
+            }`}
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nouvelle demande</span>
+          </button>
 
-        <button
-          onClick={() => {
-            setActiveTab("history");
-            loadMyRequests();
-          }}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all relative ${
-            activeTab === "history"
-              ? "bg-[#062653] text-white shadow-xs"
-              : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653] hover:bg-slate-200/70"
-          }`}
-        >
-          <svg className="w-4 h-4 shrink-0" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="8" cy="8" r="8" fill="#F59E0B" />
-            <path d="M8 4V8.2L10.8 9.8" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>Mes demandes</span>
-          {visibleRequests.length > 0 && (
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                activeTab === "history"
-                  ? "bg-emerald-500 text-white"
-                  : "bg-slate-200 text-slate-700"
-              }`}
-            >
-              {visibleRequests.length}
-            </span>
-          )}
-        </button>
-      </div>
+          <button
+            onClick={() => {
+              setActiveTab("history");
+              loadMyRequests();
+            }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all relative ${
+              activeTab === "history"
+                ? "bg-[#062653] text-white shadow-xs"
+                : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653] hover:bg-slate-200/70"
+            }`}
+          >
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="8" cy="8" r="8" fill="#F59E0B" />
+              <path d="M8 4V8.2L10.8 9.8" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>Mes demandes</span>
+            {visibleRequests.length > 0 && (
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  activeTab === "history"
+                    ? "bg-emerald-500 text-white"
+                    : "bg-slate-200 text-slate-700"
+                }`}
+              >
+                {visibleRequests.length}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* TAB 1: FORMULAIRE OFFICIEL DE L'ENTREPRISE */}
       {activeTab === "form" && (
@@ -668,16 +704,16 @@ export function EmployeeLeaveView() {
                     <label className="block text-xs font-semibold text-[#263445]">
                       Numéro d'Employé : <span className="text-rose-500">*</span>
                     </label>
-                    <span className="text-[10px] text-[#64748B] italic">Non modifiable</span>
+                    <span className="text-[10px] text-[#64748B] italic">Matricule officiel</span>
                   </div>
                   <input
                     type="text"
                     required
-                    readOnly
-                    tabIndex={-1}
                     value={employeeNumber}
-                    title="Le numéro d'employé officiel (matricule) est attribué par l'administration et ne peut pas être modifié."
-                    className="w-full px-3.5 py-2.5 bg-slate-100 rounded-xl text-xs text-[#062653] font-mono font-bold cursor-not-allowed select-none focus:outline-none"
+                    onChange={(e) => setEmployeeNumber(e.target.value)}
+                    placeholder="Matricule (ex: EB-SIEGE-101)"
+                    title="Le numéro d'employé officiel (matricule) attribué par l'administration."
+                    className="w-full px-3.5 py-2.5 bg-[#F4F6F9] focus:bg-white rounded-xl text-xs text-[#062653] font-mono font-bold outline-hidden"
                   />
                 </div>
                 <div>
@@ -1056,7 +1092,16 @@ export function EmployeeLeaveView() {
             </div>
 
             {/* Bouton de Soumission Vert */}
-            <div className="pt-2 flex items-center justify-end">
+            <div className="pt-2 flex items-center justify-end gap-3">
+              {onBackToList && (
+                <button
+                  type="button"
+                  onClick={onBackToList}
+                  className="px-5 py-3 bg-[#F4F6F9] hover:bg-slate-200/70 text-[#64748B] text-xs font-semibold rounded-xl cursor-pointer transition-all"
+                >
+                  Annuler
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={submitting || !isFormValid}

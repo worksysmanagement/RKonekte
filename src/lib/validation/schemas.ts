@@ -151,30 +151,30 @@ export type EmployeeInput = z.infer<typeof employeeSchema>;
 // ----------------------------------------------------
 // USER SCHEMAS (Org Users)
 // ----------------------------------------------------
+export const SYSTEM_USER_ROLES = [
+  "SUPER_ADMIN",
+  "ORGANIZATION_ADMIN",
+  "EMPLOYEE",
+] as const;
+
 export const createOrgUserSchema = z.object({
   name: z.string().trim().min(2, "Le nom est obligatoire"),
   email: z.string().trim().email("Email invalide"),
   password: z.string().min(8, "Le mot de passe doit contenir au moins 8 caractères"),
-  role: z.string().min(1, "Le rôle est obligatoire"),
+  role: z.enum(["ORGANIZATION_ADMIN", "EMPLOYEE"], {
+    errorMap: () => ({ message: "Le rôle doit être soit Administrateur, soit Employé / Collaborateur" }),
+  }),
   branchId: z.string().trim().optional().nullable(),
 });
 
 export type CreateOrgUserInput = z.infer<typeof createOrgUserSchema>;
 
-export const SYSTEM_USER_ROLES = [
-  "ORGANIZATION_ADMIN",
-  "ADMINISTRATEUR",
-  "RH",
-  "SECRETARY",
-  "BRANCH_MANAGER",
-  "FINANCIAL_MANAGER",
-  "CASHIER",
-  "EMPLOYEE",
-] as const;
-
 export const updateUserRoleSchema = z
   .object({
-    role: z.string().trim().min(1, "Le rôle système est obligatoire"),
+    role: z.enum(["ORGANIZATION_ADMIN", "EMPLOYEE"], {
+      errorMap: () => ({ message: "Le rôle doit être soit Administrateur, soit Employé / Collaborateur" }),
+    }),
+    permissions: z.record(z.string(), z.any()).optional().nullable(),
   })
   .strict();
 

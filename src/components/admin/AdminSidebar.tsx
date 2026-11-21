@@ -30,7 +30,7 @@ import { useSidebar } from "./SidebarContext";
 import { ModuleKey, TabPermission } from "@/lib/types/roles";
 
 interface AdminSidebarProps {
-  role?: "SUPER_ADMIN" | "ORGANIZATION_ADMIN" | "SECRETARY" | "FINANCIAL_MANAGER" | "BRANCH_MANAGER" | "EMPLOYEE" | "CASHIER" | string;
+  role?: "SUPER_ADMIN" | "ORGANIZATION_ADMIN" | "EMPLOYEE" | string;
   organizationName?: string;
 }
 
@@ -89,34 +89,33 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
     setActiveRole(initialRole);
   }, [initialRole]);
 
-  useEffect(() => {
-    let isMounted = true;
+  const fetchMyPermissions = () => {
     fetch("/api/admin/my-permissions")
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (isMounted) {
-          if (data?.role) {
-            setActiveRole(data.role);
-          }
-          if (data?.permissions) {
-            setPermissions(data.permissions);
-          }
+        if (data?.role) {
+          setActiveRole(data.role);
+        }
+        if (data?.permissions) {
+          setPermissions(data.permissions);
         }
       })
       .catch(() => {});
-    return () => {
-      isMounted = false;
-    };
+  };
+
+  useEffect(() => {
+    fetchMyPermissions();
+    if (typeof window !== "undefined") {
+      const handler = () => fetchMyPermissions();
+      window.addEventListener("rkonekte_permissions_updated", handler);
+      return () => window.removeEventListener("rkonekte_permissions_updated", handler);
+    }
   }, []);
 
   const role = activeRole;
 
-  // Role flags
+  // Rôles stricts : 3 types de comptes
   const isSuperAdmin = role === "SUPER_ADMIN";
-  const isOrgAdmin = role === "ORGANIZATION_ADMIN" || (!role && !permissions) || isSuperAdmin;
-  const isSecretary = role === "SECRETARY";
-  const isFinancial = role === "FINANCIAL_MANAGER";
-  const isBranch = role === "BRANCH_MANAGER";
   const isEmployee =
     role === "EMPLOYEE" ||
     role === "COLLABORATEUR" ||
@@ -126,154 +125,74 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
       (role.toLowerCase().includes("employ") ||
         role.toLowerCase().includes("collab") ||
         role.toLowerCase().includes("caissier") ||
-        role.toLowerCase().includes("cashier")));
+        role.toLowerCase().includes("cashier") ||
+        (!role.toLowerCase().includes("admin") &&
+          !role.toLowerCase().includes("pdg") &&
+          role !== "SUPER_ADMIN" &&
+          role !== "ORGANIZATION_ADMIN")));
+  const isOrgAdmin = !isEmployee && (role === "ORGANIZATION_ADMIN" || isSuperAdmin);
+  const isCashier = isEmployee;
 
-  // Helper to check sub-tab permission
-  const isSubTabAllowed = (moduleKey: ModuleKey, subTabId: string, fallback: boolean) => {
-    if (isSuperAdmin || isOrgAdmin) return true;
-    const perm = permissions?.[moduleKey];
-    if (!perm) return fallback;
-    if (!perm.view && !perm.create) return false;
-    if (Array.isArray(perm.subTabs)) {
-      return perm.subTabs.includes(subTabId);
+  // Permissions dynamiques par onglet (respecte les cases cochées de l'utilisateur)
+  const hasPerm = (key: ModuleKey, fallback: boolean) => {
+    if (permissions && permissions[key] !== undefined) {
+      return Boolean(permissions[key]?.view);
     }
     return fallback;
   };
 
-  // Permission rules per module (governed dynamically by admin via DB, with strict defaults)
-  const canSeeDashboard = permissions?.dashboard
-    ? permissions.dashboard.view
-    : isEmployee
-    ? false
-    : true;
+  // Règles d'accès personnalisables par onglet :
+  const canSeeDashboard = hasPerm("dashboard", isOrgAdmin);
 
-  // Requests: By default visible for employee (Congé, Signature d'autorisation, Augmentation de salaire)
-  const canSeeLeaves = isSubTabAllowed(
-    "requests",
-    "leaves",
-    permissions?.requests
-      ? permissions.requests.view
-      : isSuperAdmin || isOrgAdmin || isSecretary || isBranch || isEmployee
-  );
-  const canSeeSignatureAuth = isSubTabAllowed(
-    "requests",
-    "signature_auth",
-    permissions?.requests
-      ? permissions.requests.view
-      : isSuperAdmin || isOrgAdmin || isSecretary || isFinancial || isEmployee
-  );
-  const canSeeSalaryRaise = isSubTabAllowed(
-    "requests",
-    "salary_raise",
-    permissions?.requests
-      ? permissions.requests.view && (isSuperAdmin || isOrgAdmin || isSecretary || isFinancial)
-      : isSuperAdmin || isOrgAdmin || isSecretary || isFinancial
-  );
-  const canSeeRequestsSection = canSeeLeaves || canSeeSignatureAuth || canSeeSalaryRaise;
+  // 1. REQUETES (Congé, Signature d'autorisation pour tous ; Attribution de salaire STRICTEMENT pour Admin)
+  const canSeeLeaves = true;
+  const canSeeSignatureAuth = true;
+  const canSeeSalaryRaise = !isEmployee && isOrgAdmin;
+  const canSeeRequestsSection = hasPerm("requests", true);
 
-  // Employees: Hidden by default for employee
-  const canSeeEmployeesList = isSubTabAllowed(
-    "employees",
-    "list",
-    permissions?.employees
-      ? permissions.employees.view
-      : isSuperAdmin || isOrgAdmin || isSecretary || isFinancial || isBranch
-  );
-  const canSeeNewEmployee = isSubTabAllowed(
-    "employees",
-    "new",
-    permissions?.employees
-      ? permissions.employees.create
-      : isSuperAdmin || isOrgAdmin || isSecretary
-  );
-  const canSeeEmployeesSection = canSeeEmployeesList || canSeeNewEmployee;
+  // 2. EMPLOYÉS
+  const canSeeEmployeesList = isOrgAdmin || Boolean(permissions?.employees?.view);
+  const canSeeNewEmployee = isOrgAdmin || Boolean(permissions?.employees?.create);
+  const canSeeEmployeesSection = hasPerm("employees", isOrgAdmin);
 
-  // Branches: Hidden by default for employee
-  const canSeeBranchesList = isSubTabAllowed(
-    "branches",
-    "list",
-    permissions?.branches
-      ? permissions.branches.view
-      : isSuperAdmin || isOrgAdmin || isBranch
-  );
-  const canSeeNewBranch = isSubTabAllowed(
-    "branches",
-    "new",
-    permissions?.branches
-      ? permissions.branches.create
-      : isSuperAdmin || isOrgAdmin
-  );
-  const canSeeBranchesSection = canSeeBranchesList || canSeeNewBranch;
+  // 3. SUCCURSALES
+  const canSeeBranchesList = isOrgAdmin || Boolean(permissions?.branches?.view);
+  const canSeeNewBranch = isOrgAdmin || Boolean(permissions?.branches?.create);
+  const canSeeBranchesSection = hasPerm("branches", isOrgAdmin);
 
-  const isCashier =
-    role === "CASHIER" ||
-    role === "CAISSIER" ||
-    (typeof role === "string" &&
-      (role.toLowerCase().includes("caissier") || role.toLowerCase().includes("cashier")));
+  // 4. OPÉRATIONS FINANCIÈRES
+  const canSeeAccounts = isOrgAdmin || Boolean(permissions?.financial_ops?.create);
+  const canSeeBankReports = isOrgAdmin || Boolean(permissions?.financial_ops?.view);
+  const canSeeFinances = hasPerm("financial_ops", isOrgAdmin);
 
-  // Financial Operations: Hidden by default for employee & cashier (Admin / Direction only)
-  const canSeeFinancesDefault = permissions?.financial_ops
-    ? permissions.financial_ops.view
-    : (isSuperAdmin || isOrgAdmin || isFinancial) && !isEmployee && !isCashier;
-  const canSeeAccounts = isSubTabAllowed("financial_ops", "accounts", canSeeFinancesDefault);
-  const canSeeBankReports = isSubTabAllowed("financial_ops", "report", canSeeFinancesDefault);
-  const canSeeFinances = canSeeAccounts || canSeeBankReports;
+  // 5. RAPPORTS FINANCIERS / SAISIE DE CAISSE (Synthèse & Rapports Consolidés STRICTEMENT pour Admin)
+  const canSeeReportsSummary = !isEmployee && isOrgAdmin;
+  const canSeeCashierEntry = true;
+  const canSeeReports = hasPerm("financial_reports", isOrgAdmin);
 
-  // Financial Reports: Visible for SuperAdmin, OrgAdmin, Financial Manager, Cashier (or explicit permission)
-  const canSeeReportsSummaryDefault =
-    !isCashier &&
-    (isSuperAdmin ||
-      isOrgAdmin ||
-      isFinancial ||
-      (permissions?.financial_reports ? permissions.financial_reports.view : true));
+  // 6. ÉVÉNEMENTS
+  const canSeeEvents = hasPerm("events", true);
 
-  const canSeeCashierEntryDefault =
-    isSuperAdmin ||
-    isOrgAdmin ||
-    isFinancial ||
-    isCashier ||
-    (permissions?.financial_reports
-      ? permissions.financial_reports.create || permissions.financial_reports.edit || permissions.financial_reports.view
-      : true);
+  // 7. ESPACE CLIENT
+  const canSeeCustomerSpace = hasPerm("customer_space", isOrgAdmin);
 
-  const canSeeReportsSummary = isSubTabAllowed(
-    "financial_reports",
-    "reports_summary",
-    canSeeReportsSummaryDefault
-  );
-  const canSeeCashierEntry = isSubTabAllowed(
-    "financial_reports",
-    "cashier_entry",
-    canSeeCashierEntryDefault
-  );
-  const canSeeReports = canSeeReportsSummary || canSeeCashierEntry;
+  // 8. GESTION DES ACCÈS
+  const canSeeUsersList = isOrgAdmin || Boolean(permissions?.users?.view);
+  const canSeeRoles = false; // Sous-onglet Rôles & Permissions retiré car simplifié
+  const canSeeSignatures = isOrgAdmin || Boolean(permissions?.users?.view);
+  const canSeeAccess = hasPerm("users", isOrgAdmin);
 
-  // Events: Visible by default for employee
-  const canSeeEvents = permissions?.events ? permissions.events.view : true;
+  // 9. CENTRE DE NOTIFICATIONS
+  const canSeeNotifications = hasPerm("notifications", true);
 
-  // Espace Client
-  const canSeeCustomerSpace = permissions?.customer_space
-    ? permissions.customer_space.view
-    : isSuperAdmin || isOrgAdmin || isSecretary || isBranch;
+  // 10. ÉCHANGES ADMINISTRATIFS
+  const canSeeBroadcast = hasPerm("broadcast", isOrgAdmin);
 
-  // Access Management: Hidden by default for employee
-  const canSeeAccessDefault = permissions?.users ? permissions.users.view : isSuperAdmin || isOrgAdmin;
-  const canSeeUsersList = isSubTabAllowed("users", "users_list", canSeeAccessDefault);
-  const canSeeRoles = isSubTabAllowed("users", "roles", canSeeAccessDefault);
-  const canSeeSignatures = isSubTabAllowed("users", "signatures", canSeeAccessDefault);
-  const canSeeAccess = canSeeUsersList || canSeeRoles || canSeeSignatures;
-
-  // Système: Centre de notifications (visible by default)
-  const canSeeNotifications = permissions?.notifications
-    ? permissions.notifications.view
-    : true;
-
-  // Système: Configurations
-  const canSeeConfigGeneral = isSubTabAllowed("configuration", "profile", !isEmployee);
-  const canSeeProfile = isSubTabAllowed("configuration", "profile", true);
-  const canSeeSecurity = isSubTabAllowed("configuration", "security", true);
-  const canSeeConfig =
-    canSeeConfigGeneral || canSeeProfile || canSeeSecurity;
+  // 11. CONFIGURATIONS
+  const canSeeConfigGeneral = isOrgAdmin || Boolean(permissions?.configuration?.edit);
+  const canSeeProfile = true;
+  const canSeeSecurity = true;
+  const canSeeConfig = hasPerm("configuration", true);
 
   // Active state flags
   const isDashboardActive = isLinkActive("/admin/dashboard");
@@ -285,6 +204,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
   const isEventsActive = pathname.startsWith("/admin/events");
   const isCustomerSpaceActive = pathname.startsWith("/admin/espace-client");
   const isAccessActive = pathname.startsWith("/admin/users");
+  const isExchangesActive = pathname.startsWith("/admin/exchanges") || pathname.startsWith("/admin/broadcast");
   const isConfigActive = pathname.startsWith("/admin/configuration");
   const isGeneralPrefActive = pathname === "/admin/configuration";
   const isProfileActive = pathname.startsWith("/admin/configuration/profile");
@@ -643,8 +563,8 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
           {/* RAPPORTS FINANCIERS */}
           {canSeeReports && (
             <Link
-              href={isCashier ? "/admin/financial-reports?tab=entry" : "/admin/financial-reports?tab=reports"}
-              title={isCashier ? "Saisie de Caisse" : "Rapports Financiers"}
+              href={!isOrgAdmin || isEmployee ? "/admin/financial-reports?tab=entry" : "/admin/financial-reports?tab=reports"}
+              title={!isOrgAdmin || isEmployee ? "Saisie de Caisse" : "Rapports Financiers"}
               className={`w-11 h-11 mx-auto flex items-center justify-center rounded-xl transition-all duration-200 relative group cursor-pointer ${
                 isReportsActive
                   ? "bg-white/15 text-white font-bold ring-1 ring-white/20 shadow-xs"
@@ -658,7 +578,7 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                 className="w-5 h-5 object-contain shrink-0"
               />
               <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
-                {isCashier ? "Saisie de Caisse" : "Rapports Financiers"}
+                {!isOrgAdmin || isEmployee ? "Saisie de Caisse" : "Rapports Financiers"}
               </div>
             </Link>
           )}
@@ -682,6 +602,29 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
               />
               <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
                 Événements
+              </div>
+            </Link>
+          )}
+
+          {/* ÉCHANGES ADMINISTRATIFS */}
+          {canSeeBroadcast && (
+            <Link
+              href="/admin/exchanges"
+              title="Échanges administratifs"
+              className={`w-11 h-11 mx-auto flex items-center justify-center rounded-xl transition-all duration-200 relative group cursor-pointer ${
+                isExchangesActive
+                  ? "bg-white/15 text-white font-bold ring-1 ring-white/20 shadow-xs"
+                  : "text-slate-300 hover:text-white hover:bg-white/10"
+              }`}
+            >
+              <img
+                src="/icons/sidebar/exchanges.png"
+                alt=""
+                aria-hidden="true"
+                className="w-5 h-5 object-contain shrink-0"
+              />
+              <div className="hidden group-hover:flex absolute left-full ml-3 px-2.5 py-1 bg-[#031B3A] text-white text-xs font-semibold rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none items-center">
+                Échanges administratifs
               </div>
             </Link>
           )}
@@ -1056,8 +999,8 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
           </div>
         )}
 
-        {/* 6. RAPPORTS FINANCIERS */}
-        {canSeeReports && (
+        {/* 6. RAPPORTS FINANCIERS (Admin) / SAISIE DE CAISSE (Employé) */}
+        {!isEmployee && isOrgAdmin ? (
           <div>
             <button
               type="button"
@@ -1083,13 +1026,12 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
             </button>
             {openMenus.reports && (
               <div className="mt-1.5 ml-4 pl-3 space-y-1">
-                {/* Sous-onglet 1: Synthèse & Rapports Consolidés (Visible pour admin / direction financière, jamais pour caissier) */}
                 {canSeeReportsSummary && (
                   <Link
                     href="/admin/financial-reports?tab=reports"
                     className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
                       isLinkActive("/admin/financial-reports?tab=reports") ||
-                      (pathname === "/admin/financial-reports" && (!searchParams.get("tab") || searchParams.get("tab") === "reports") && !isCashier)
+                      (pathname === "/admin/financial-reports" && (!searchParams.get("tab") || searchParams.get("tab") === "reports"))
                         ? "bg-white/15 text-white font-semibold"
                         : "text-slate-300 hover:text-white hover:bg-white/5"
                     }`}
@@ -1097,13 +1039,12 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                     Synthèse & Rapports Consolidés
                   </Link>
                 )}
-                {/* Sous-onglet 2: Saisie de Caisse Journalière (Visible pour caissiers et administrateurs) */}
                 {canSeeCashierEntry && (
                   <Link
                     href="/admin/financial-reports?tab=entry"
                     className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
                       isLinkActive("/admin/financial-reports?tab=entry") ||
-                      (pathname === "/admin/financial-reports" && (searchParams.get("tab") === "entry" || isCashier))
+                      (pathname === "/admin/financial-reports" && searchParams.get("tab") === "entry")
                         ? "bg-white/15 text-white font-semibold"
                         : "text-slate-300 hover:text-white hover:bg-white/5"
                     }`}
@@ -1114,7 +1055,24 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
               </div>
             )}
           </div>
-        )}
+        ) : canSeeReports ? (
+          <div>
+            <Link
+              href="/admin/financial-reports?tab=entry"
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-[13px] font-semibold rounded-lg transition-colors text-white hover:bg-white/10 ${
+                isReportsActive ? "bg-white/10 font-bold" : "text-slate-300 hover:text-white"
+              }`}
+            >
+              <img
+                src="/icons/sidebar/financial-reports.png"
+                alt=""
+                aria-hidden="true"
+                className="w-5 h-5 object-contain shrink-0"
+              />
+              <span className="truncate">Saisie de Caisse</span>
+            </Link>
+          </div>
+        ) : null}
 
         {/* ÉVÉNEMENTS */}
         {canSeeEvents && (
@@ -1134,6 +1092,28 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                 className="w-5 h-5 object-contain shrink-0"
               />
               <span className="truncate">Événements</span>
+            </Link>
+          </div>
+        )}
+
+        {/* ÉCHANGES ADMINISTRATIFS */}
+        {canSeeBroadcast && (
+          <div>
+            <Link
+              href="/admin/exchanges"
+              className={`w-full flex items-center gap-3 px-3.5 py-2.5 text-[13px] font-semibold rounded-lg transition-colors text-white hover:bg-white/10 ${
+                isExchangesActive
+                  ? "bg-white/10 font-bold"
+                  : "text-slate-300 hover:text-white"
+              }`}
+            >
+              <img
+                src="/icons/sidebar/exchanges.png"
+                alt=""
+                aria-hidden="true"
+                className="w-5 h-5 object-contain shrink-0"
+              />
+              <span className="truncate">Échanges administratifs</span>
             </Link>
           </div>
         )}
@@ -1192,18 +1172,6 @@ export function AdminSidebar({ role: initialRole, organizationName }: AdminSideb
                     }`}
                   >
                     Liste des utilisateurs
-                  </Link>
-                )}
-                {canSeeRoles && (
-                  <Link
-                    href="/admin/users/roles"
-                    className={`block px-2.5 py-1.5 text-xs rounded-md transition-colors ${
-                      pathname.startsWith("/admin/users/roles")
-                        ? "bg-white/15 text-white font-semibold"
-                        : "text-slate-300 hover:text-white hover:bg-white/5"
-                    }`}
-                  >
-                    Rôles & Permissions
                   </Link>
                 )}
                 {canSeeSignatures && (

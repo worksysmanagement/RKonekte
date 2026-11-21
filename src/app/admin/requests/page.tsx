@@ -11,11 +11,21 @@ import {
   Eye,
   Trash2,
   CheckCircle2,
+  Check,
+  X,
+  Calendar,
+  Building2,
+  User,
+  Users,
+  Briefcase,
+  Phone,
+  Mail,
+  Clock,
+  Sparkles,
 } from "lucide-react";
 import { StatusBadge } from "@/components/ui/StatusBadge";
 
 import { EmployeeLeaveView } from "@/components/requests/EmployeeLeaveView";
-import { Check, X } from "lucide-react";
 import { showSystemToast } from "@/components/ui/SystemToast";
 
 interface RequestItem {
@@ -52,7 +62,11 @@ export default function AdminRequestsPage() {
   const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
   const [currentUserRole, setCurrentUserRole] = useState<string | null>(null);
+  const [currentUserName, setCurrentUserName] = useState<string>("");
+  const [currentUserEmail, setCurrentUserEmail] = useState<string>("");
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [adminViewMode, setAdminViewMode] = useState<"list" | "create">("list");
 
   useEffect(() => {
     fetch("/api/auth/me")
@@ -60,6 +74,8 @@ export default function AdminRequestsPage() {
       .then((data) => {
         if (data.user?.role) {
           setCurrentUserRole(data.user.role);
+          setCurrentUserName(data.user.name || "");
+          setCurrentUserEmail(data.user.email || "");
         } else {
           setCurrentUserRole("EMPLOYEE");
         }
@@ -67,6 +83,15 @@ export default function AdminRequestsPage() {
       .catch(() => {
         setCurrentUserRole("EMPLOYEE");
       });
+
+    fetch("/api/admin/my-profile")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => {
+        if (d?.profile) {
+          setUserProfile(d.profile);
+        }
+      })
+      .catch(() => {});
 
     fetch("/api/admin/branches")
       .then((r) => (r.ok ? r.json() : null))
@@ -114,7 +139,43 @@ export default function AdminRequestsPage() {
 
   const activeBranchObj = branches.find((b) => b.id === activeBranchId) || null;
 
+  const isOwnRequest = (r: any) => {
+    // 1. Check by email (exact match)
+    const reqEmail = ((r as any).contactEmail || (r as any).email || "").toLowerCase().trim();
+    const myEmail = (currentUserEmail || "").toLowerCase().trim();
+    if (reqEmail && myEmail) {
+      return reqEmail === myEmail;
+    }
+
+    // 2. Check by employeeNumber (exact match)
+    const reqEmpNum = (r.employeeNumber || "").toLowerCase().trim();
+    const myEmpNum = (userProfile?.employeeNumber || "").toLowerCase().trim();
+    if (reqEmpNum && myEmpNum) {
+      return reqEmpNum === myEmpNum;
+    }
+
+    // 3. Fallback only if email and employeeNumber are absent on either side
+    const rFullName = `${r.firstName || ""} ${r.lastName || ""}`.trim().toLowerCase();
+    const myName = currentUserName.trim().toLowerCase();
+    const userProfileFullName = `${userProfile?.firstName || ""} ${userProfile?.lastName || ""}`.trim().toLowerCase();
+    return Boolean(
+      (myName && rFullName === myName) ||
+      (userProfileFullName && rFullName === userProfileFullName)
+    );
+  };
+
   const filteredRequests = requests.filter((r) => {
+    const isOwn = isOwnRequest(r);
+
+    if (statusFilter === "MY_REQUESTS") {
+      // Dans "Mes demandes" : UNIQUEMENT les demandes de l'utilisateur connecté pour suivre l'évolution
+      if (!isOwn) return false;
+    } else {
+      // Dans "Toutes", "En attente", "Approuvées", "Refusées" :
+      // On exclut les demandes de l'administrateur lui-même car il ne peut pas s'auto-approuver
+      if (isOwn) return false;
+    }
+
     if (activeBranchId === "all" || activeBranchId === "ALL") return true;
     const brObj = branches.find((b) => b.id === activeBranchId);
     const emp = employees.find((e) => e.employeeNumber === r.employeeNumber);
@@ -136,11 +197,21 @@ export default function AdminRequestsPage() {
     try {
       const params = new URLSearchParams();
       params.set("page", p.toString());
-      params.set("limit", "10");
-      if (s !== "ALL") params.set("status", s);
+      if (s === "MY_REQUESTS") {
+        params.set("limit", "100");
+        params.set("mine", "true");
+      } else {
+        params.set("limit", "10");
+        if (s !== "ALL") params.set("status", s);
+      }
       if (q.trim()) params.set("search", q.trim());
 
       const res = await fetch(`/api/admin/requests?${params.toString()}`);
+      if (!res.ok) {
+        const errJson = await res.json().catch(() => null);
+        console.warn("Avertissement serveur récupération requêtes:", errJson);
+        return;
+      }
       const data = await res.json();
 
       if (data.items) {
@@ -150,7 +221,7 @@ export default function AdminRequestsPage() {
         setTotal(data.pagination.total);
       }
     } catch (err) {
-      console.error("Failed to load requests:", err);
+      console.warn("Avertissement réseau récupération requêtes:", err);
     } finally {
       setLoading(false);
     }
@@ -220,6 +291,26 @@ export default function AdminRequestsPage() {
     return <EmployeeLeaveView />;
   }
 
+  // Vue Plein Écran Officielle pour Nouvelle Demande de Congé Admin (Formulaire de Demande de Congé)
+  if (adminViewMode === "create") {
+    return (
+      <div className="space-y-6">
+        <EmployeeLeaveView
+          hideHeaderTabs={true}
+          onBackToList={() => {
+            setAdminViewMode("list");
+            fetchRequests(1, statusFilter, searchTerm);
+          }}
+          onSubmitted={() => {
+            setAdminViewMode("list");
+            setStatusFilter("MY_REQUESTS");
+            fetchRequests(1, "MY_REQUESTS", "");
+          }}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -241,26 +332,15 @@ export default function AdminRequestsPage() {
           </p>
         </div>
 
-        {/* Bouton Nouvelle Demande de Congé (Vert, mais grisé/désactivé pour le compte Maître/PDG) */}
-        <div className="relative group">
-          <button
-            type="button"
-            disabled={isMasterAccount}
-            className={`px-4 py-2 text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 self-start ${
-              isMasterAccount
-                ? "bg-slate-200 text-slate-400 cursor-not-allowed select-none"
-                : "bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer"
-            }`}
-          >
-            <PlusCircle className="w-4 h-4" />
-            <span>Nouvelle demande de congé</span>
-          </button>
-          {isMasterAccount && (
-            <div className="hidden group-hover:block absolute right-0 top-full mt-1.5 w-72 p-2.5 bg-[#031B3A] text-white text-[11px] rounded-lg shadow-xl z-50 pointer-events-none">
-              Compte Direction / Maître : Vous détenez l'autorité suprême de validation et ne formulez pas de demande pour vous-même.
-            </div>
-          )}
-        </div>
+        {/* Bouton Nouvelle Demande de Congé (Activé pour les administrateurs) */}
+        <button
+          type="button"
+          onClick={() => setAdminViewMode("create")}
+          className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xs transition-all flex items-center gap-2 self-start cursor-pointer"
+        >
+          <PlusCircle className="w-4 h-4" />
+          <span>Nouvelle demande de congé</span>
+        </button>
       </div>
 
       {/* FILTERS & SEARCH BAR */}
@@ -272,6 +352,7 @@ export default function AdminRequestsPage() {
             { id: "PENDING", label: "En attente" },
             { id: "APPROVED", label: "Approuvées" },
             { id: "REJECTED", label: "Refusées" },
+            { id: "MY_REQUESTS", label: "Mes demandes" },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -279,13 +360,19 @@ export default function AdminRequestsPage() {
                 setStatusFilter(tab.id);
                 setPage(1);
               }}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 ${
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors cursor-pointer shrink-0 flex items-center gap-1.5 ${
                 statusFilter === tab.id
                   ? "bg-[#062653] text-white"
                   : "bg-[#F4F6F9] text-[#64748B] hover:bg-slate-200/80 hover:text-[#263445]"
               }`}
             >
-              {tab.label}
+              {tab.id === "MY_REQUESTS" && (
+                <svg className="w-4 h-4 shrink-0" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <circle cx="8" cy="8" r="8" fill="#F59E0B" />
+                  <path d="M8 4V8.2L10.8 9.8" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              )}
+              <span>{tab.label}</span>
             </button>
           ))}
         </div>

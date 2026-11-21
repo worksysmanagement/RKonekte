@@ -15,9 +15,10 @@ export async function GET() {
 
     // Resolve live role from DB
     let liveRole = session.role;
+    let liveUser: any = null;
     if (session.id && session.role !== "SUPER_ADMIN") {
       try {
-        const liveUser =
+        liveUser =
           (await getUserById(session.id)) ||
           (session.email ? await getUserByEmail(session.email) : null);
         if (liveUser && liveUser.role) {
@@ -26,11 +27,31 @@ export async function GET() {
       } catch (_) {}
     }
 
-    // Super Admin and Organization Admin have full permissions by design
+    // If user has specific per-user tab permissions configured directly, respect them!
+    if (liveUser?.permissions) {
+      try {
+        const parsedCustomPerms = JSON.parse(liveUser.permissions);
+        if (parsedCustomPerms && typeof parsedCustomPerms === "object") {
+          return NextResponse.json({
+            role: liveRole,
+            roleName:
+              liveRole === "ORGANIZATION_ADMIN"
+                ? "Administrateur"
+                : liveRole === "SUPER_ADMIN"
+                ? "Super Administrateur"
+                : "Employé / Collaborateur",
+            permissions: parsedCustomPerms,
+            isCustom: true,
+          });
+        }
+      } catch (_) {}
+    }
+
+    // Super Admin and Organization Admin have full permissions by default
     if (liveRole === "SUPER_ADMIN" || liveRole === "ORGANIZATION_ADMIN") {
       return NextResponse.json({
         role: liveRole,
-        roleName: liveRole === "SUPER_ADMIN" ? "Super Administrateur" : "PDG / Propriétaire",
+        roleName: liveRole === "SUPER_ADMIN" ? "Super Administrateur" : "Administrateur",
         permissions: ALL_ALLOWED_PERMS,
       });
     }
@@ -65,6 +86,7 @@ export async function GET() {
       users: { view: false, create: false, edit: false, delete: false },
       notifications: { view: true, create: false, edit: false, delete: false },
       configuration: { view: true, create: false, edit: true, delete: false },
+      broadcast: { view: false, create: false, edit: false, delete: false },
     };
 
     const isCashier = liveRole === "CASHIER" || liveRole === "CAISSIER";

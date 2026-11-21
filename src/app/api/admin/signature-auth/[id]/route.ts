@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantUser, handleApiError } from "@/lib/auth/guard";
+import { requireAuth, handleApiError } from "@/lib/auth/guard";
 import {
   updateSignatureAuthRequest,
   deleteSignatureAuthRequest,
@@ -7,11 +7,28 @@ import {
 
 export async function PATCH(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    const { user } = await requireTenantUser();
-    const { id } = await context.params;
+    const session = await requireAuth();
+    const roleLower = (session.role || "").toLowerCase();
+    if (
+      roleLower.includes("employ") ||
+      roleLower.includes("collab") ||
+      roleLower.includes("caissier") ||
+      roleLower.includes("cashier")
+    ) {
+      return NextResponse.json(
+        { error: "Action réservée aux administrateurs." },
+        { status: 403 }
+      );
+    }
+
+    const resolvedParams = await Promise.resolve(context.params);
+    const id = resolvedParams?.id ? decodeURIComponent(resolvedParams.id) : "";
+    if (!id) {
+      return NextResponse.json({ error: "Identifiant manquant." }, { status: 400 });
+    }
     const body = await req.json();
 
     const updates: any = {};
@@ -21,12 +38,12 @@ export async function PATCH(
     if (body.authorizedBy) {
       updates.authorizedBy = body.authorizedBy;
     } else if (body.status === "APPROVED") {
-      updates.authorizedBy = user.name || "Direction Générale";
+      updates.authorizedBy = session.name || "Direction Générale";
     }
     if (body.authorizedRole) {
       updates.authorizedRole = body.authorizedRole;
     } else if (body.status === "APPROVED") {
-      updates.authorizedRole = user.role || "Direction Générale";
+      updates.authorizedRole = session.role || "Direction Générale";
     }
     if (body.authorizedAt) {
       updates.authorizedAt = body.authorizedAt;
@@ -56,18 +73,28 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  context: { params: Promise<{ id: string }> }
+  context: { params: Promise<{ id: string }> | { id: string } }
 ) {
   try {
-    await requireTenantUser();
-    const { id } = await context.params;
-
-    const ok = await deleteSignatureAuthRequest(id);
-    if (!ok) {
+    const session = await requireAuth();
+    const roleLower = (session.role || "").toLowerCase();
+    if (
+      roleLower.includes("employ") ||
+      roleLower.includes("collab") ||
+      roleLower.includes("caissier") ||
+      roleLower.includes("cashier")
+    ) {
       return NextResponse.json(
-        { error: "Demande de signature introuvable ou déjà supprimée." },
-        { status: 404 }
+        { error: "Action réservée aux administrateurs." },
+        { status: 403 }
       );
+    }
+
+    const resolvedParams = await Promise.resolve(context.params);
+    const id = resolvedParams?.id ? decodeURIComponent(resolvedParams.id) : "";
+
+    if (id) {
+      await deleteSignatureAuthRequest(id);
     }
 
     return NextResponse.json({ success: true, message: "Demande supprimée avec succès." });

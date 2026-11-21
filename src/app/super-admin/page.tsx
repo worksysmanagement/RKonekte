@@ -83,12 +83,9 @@ function formatFrDateTime(timestampMs?: number | null): string {
 
 function getRoleBadgeLabel(role?: string | null): string {
   if (!role) return "Aucun compte";
-  if (role === "ORGANIZATION_ADMIN") return "PDG / Admin";
-  if (role === "SECRETARY") return "Secrétaire";
-  if (role === "FINANCIAL_MANAGER") return "Resp. Financier";
-  if (role === "BRANCH_MANAGER") return "Chef Succursale";
-  if (role === "CASHIER" || role === "CAISSIER") return "Caissier(ère)";
-  if (role === "EMPLOYEE" || role === "COLLABORATEUR") return "Employé";
+  if (role === "SUPER_ADMIN") return "Super Admin";
+  if (role === "ORGANIZATION_ADMIN" || role === "ADMINISTRATEUR") return "Admin";
+  if (role === "EMPLOYEE" || role === "COLLABORATEUR" || role === "CASHIER" || role === "SECRETARY") return "Employé";
   return role;
 }
 

@@ -32,36 +32,12 @@ import {
 
 const ASSIGNED_ROLES = [
   {
-    value: "ORGANIZATION_ADMIN",
-    label: "Président Directeur Général (PDG) / Propriétaire — Direction",
-  },
-  {
-    value: "ADMINISTRATEUR",
-    label: "Administrateur — Direction",
-  },
-  {
-    value: "RH",
-    label: "Ressources Humaines (RH) — Management",
-  },
-  {
-    value: "SECRETARY",
-    label: "Secrétaire — Opérationnel",
-  },
-  {
-    value: "BRANCH_MANAGER",
-    label: "Responsable de Succursale — Management",
-  },
-  {
-    value: "FINANCIAL_MANAGER",
-    label: "Responsable Financier / Comptable — Management",
-  },
-  {
-    value: "CASHIER",
-    label: "Caissier(e) — Opérationnel",
-  },
-  {
     value: "EMPLOYEE",
-    label: "Collaborateur / Employé — Opérationnel",
+    label: "Employé / Collaborateur (5 onglets opérationnels)",
+  },
+  {
+    value: "ORGANIZATION_ADMIN",
+    label: "Administrateur (Tous les accès)",
   },
 ];
 

@@ -1,11 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
-import { requireTenantUser, handleApiError } from "@/lib/auth/guard";
+import { requireTenantUser, requireAuth, handleApiError } from "@/lib/auth/guard";
 import { listLeaveRequests, createLeaveRequest } from "@/lib/services/leave-requests";
 import { getTenantDashboardMetrics } from "@/lib/services/audit";
+import { getSupabaseAdminClient } from "@/lib/supabase/server";
 
 export async function GET(req: NextRequest) {
   try {
-    const { organizationId, user } = await requireTenantUser();
+    let organizationId: string;
+    let user: any;
+    try {
+      const tenant = await requireTenantUser();
+      organizationId = tenant.organizationId;
+      user = tenant.user;
+    } catch (authErr) {
+      const session = await requireAuth();
+      if (session.role === "SUPER_ADMIN") {
+        user = session;
+        const orgIdParam = req.nextUrl.searchParams.get("organizationId");
+        if (orgIdParam) {
+          organizationId = orgIdParam;
+        } else {
+          const supabase = getSupabaseAdminClient();
+          const { data: orgData } = await supabase
+            .from("organizations")
+            .select("id")
+            .eq("status", "ACTIVE")
+            .limit(1)
+            .maybeSingle();
+          organizationId = orgData?.id || session.organizationId || "";
+        }
+      } else {
+        throw authErr;
+      }
+    }
 
     const { searchParams } = new URL(req.url);
     const mode = searchParams.get("mode");
@@ -33,13 +60,21 @@ export async function GET(req: NextRequest) {
       user.role?.toLowerCase().includes("caissier") ||
       user.role?.toLowerCase().includes("cashier");
 
+    const isMine = status === "MY_REQUESTS" || searchParams.get("mine") === "true";
+    const effectiveStatus = status === "MY_REQUESTS" ? "ALL" : status;
+    const effectiveEmail = isMine
+      ? (requestedEmail || user.email)
+      : isEmployee
+      ? (user.email || requestedEmail)
+      : requestedEmail;
+
     const result = await listLeaveRequests(organizationId, {
       page,
       limit,
-      status,
+      status: effectiveStatus,
       search,
       employeeNumber: isEmployee ? (requestedEmpNum || undefined) : requestedEmpNum,
-      contactEmail: isEmployee ? (user.email || requestedEmail) : requestedEmail,
+      contactEmail: effectiveEmail,
     });
 
     return NextResponse.json({

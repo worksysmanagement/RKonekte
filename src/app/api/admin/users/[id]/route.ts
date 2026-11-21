@@ -126,8 +126,20 @@ export async function PATCH(
       );
     }
 
-    // 6. Persist updated system role
-    const updatedUser = await updateUserRole(organizationId, id, resolvedRole);
+    const permissionsPayload =
+      parseResult.data.permissions !== undefined
+        ? parseResult.data.permissions === null
+          ? null
+          : JSON.stringify(parseResult.data.permissions)
+        : undefined;
+
+    // 6. Persist updated system role and permissions
+    const updatedUser = await updateUserRole(
+      organizationId,
+      id,
+      resolvedRole,
+      permissionsPayload
+    );
 
     // Synchronize session cookie immediately if the acting user updated their own role
     if (id === sessionUser.id && updatedUser.role !== sessionUser.role) {

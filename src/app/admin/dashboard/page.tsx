@@ -189,10 +189,23 @@ export default function AdminDashboardPage() {
         }
 
         if (metricsData.metrics) setMetrics(metricsData.metrics);
-        if (requestsData.items) setRequests(requestsData.items);
-        if (employeesData.employees) setEmployees(employeesData.employees);
-        if (branchesData.branches) setBranches(branchesData.branches);
-        if (usersData.users) setUsers(usersData.users);
+        if (requestsData.items && Array.isArray(requestsData.items)) setRequests(requestsData.items);
+        if (employeesData.employees && Array.isArray(employeesData.employees)) setEmployees(employeesData.employees);
+        if (branchesData.branches && Array.isArray(branchesData.branches)) {
+          setBranches(branchesData.branches);
+          if (
+            activeBranchId !== "all" &&
+            activeBranchId !== "ALL" &&
+            !branchesData.branches.some((b: any) => b.id === activeBranchId)
+          ) {
+            setActiveBranchId("all");
+            if (typeof window !== "undefined") {
+              localStorage.setItem("rk_active_branch", "all");
+              document.cookie = "rk_active_branch=all; path=/; max-age=31536000";
+            }
+          }
+        }
+        if (usersData.users && Array.isArray(usersData.users)) setUsers(usersData.users);
         if (permsData?.permissions) setUserPermissions(permsData.permissions);
         if (permsData?.role) setUserRole(permsData.role);
       } catch (err) {
@@ -227,20 +240,43 @@ export default function AdminDashboardPage() {
     return branches.find((b) => b.id === activeBranchId) || null;
   }, [branches, activeBranchId]);
 
+  // If activeBranchId does not resolve to an existing branch, fallback to all (consolidated)
+  const isAllBranches =
+    !activeBranchId ||
+    activeBranchId === "all" ||
+    activeBranchId === "ALL" ||
+    !activeBranchObj;
+
+  // Auto-heal activeBranchId if it points to a non-existent branch
+  useEffect(() => {
+    if (activeBranchId !== "all" && activeBranchId !== "ALL") {
+      if (branches.length === 0 || !branches.some((b) => b.id === activeBranchId)) {
+        setActiveBranchId("all");
+        if (typeof window !== "undefined") {
+          localStorage.setItem("rk_active_branch", "all");
+          document.cookie = "rk_active_branch=all; path=/; max-age=31536000";
+          window.dispatchEvent(
+            new CustomEvent("branchChange", { detail: { branchId: "all" } })
+          );
+        }
+      }
+    }
+  }, [branches, activeBranchId]);
+
   const branchEmployees = useMemo(() => {
-    if (activeBranchId === "all" || activeBranchId === "ALL") return employees;
-    const brObj = branches.find((b) => b.id === activeBranchId);
+    if (isAllBranches) return employees;
+    const brObj = activeBranchObj;
     return employees.filter(
       (e: EmployeeItem) =>
         e.branchId === activeBranchId ||
         (brObj && e.branch === brObj.name) ||
         (brObj?.name && e.branch?.toLowerCase().includes(brObj.name.toLowerCase()))
     );
-  }, [employees, activeBranchId, branches]);
+  }, [employees, isAllBranches, activeBranchId, activeBranchObj]);
 
   const branchRequests = useMemo(() => {
-    if (activeBranchId === "all" || activeBranchId === "ALL") return requests;
-    const brObj = branches.find((b) => b.id === activeBranchId);
+    if (isAllBranches) return requests;
+    const brObj = activeBranchObj;
     const empNumbers = new Set(branchEmployees.map((e: EmployeeItem) => e.employeeNumber));
     return requests.filter(
       (r: RequestItem) =>
@@ -248,22 +284,29 @@ export default function AdminDashboardPage() {
         (brObj && r.branch === brObj.name) ||
         (r.employeeNumber && empNumbers.has(r.employeeNumber))
     );
-  }, [requests, activeBranchId, branches, branchEmployees]);
+  }, [requests, isAllBranches, activeBranchId, activeBranchObj, branchEmployees]);
 
   const branchUsers = useMemo(() => {
-    if (activeBranchId === "all" || activeBranchId === "ALL") return users;
-    return users.filter((u: UserItem) => u.branchId === activeBranchId);
-  }, [users, activeBranchId]);
+    if (isAllBranches) return users;
+    // When a branch is selected, include users assigned to that branch PLUS global organization administrators
+    return users.filter(
+      (u: UserItem) =>
+        u.branchId === activeBranchId ||
+        !u.branchId ||
+        u.role === "ORGANIZATION_ADMIN" ||
+        u.role === "SUPER_ADMIN"
+    );
+  }, [users, isAllBranches, activeBranchId]);
 
   const effectiveMetrics = useMemo(() => {
-    if (activeBranchId === "all" || activeBranchId === "ALL") return metrics;
+    if (isAllBranches) return metrics;
     return {
       total: branchRequests.length,
       pending: branchRequests.filter((r: RequestItem) => r.status === "PENDING").length,
       approved: branchRequests.filter((r: RequestItem) => r.status === "APPROVED").length,
       rejected: branchRequests.filter((r: RequestItem) => r.status === "REJECTED").length,
     };
-  }, [metrics, activeBranchId, branchRequests]);
+  }, [metrics, isAllBranches, branchRequests]);
 
   // Filter requests based on active modal
   const filteredRequests =

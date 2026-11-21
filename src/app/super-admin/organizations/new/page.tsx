@@ -22,12 +22,9 @@ const EMPLOYEE_RANGES = [
 ];
 
 const ROLES = [
-  "Président Directeur Général (PDG)",
-  "Fondateur / Propriétaire",
-  "Directeur Général (DG) / Gérant",
-  "Directeur des Ressources Humaines (DRH)",
-  "Directeur Administratif et Financier (DAF)",
-  "Autre Responsable Exécutif",
+  "PDG",
+  "Directeur Général",
+  "Administrateur",
 ];
 
 export default function NewOrganizationPage() {
@@ -38,7 +35,7 @@ export default function NewOrganizationPage() {
     address: "",
     employeeRange: "6 à 20 employés",
     applicantName: "",
-    applicantRole: "Président Directeur Général (PDG)",
+    applicantRole: "PDG",
   });
 
   const [saving, setSaving] = useState(false);
@@ -214,7 +211,7 @@ export default function NewOrganizationPage() {
                   address: "",
                   employeeRange: "6 à 20 employés",
                   applicantName: "",
-                  applicantRole: "Président Directeur Général (PDG)",
+                  applicantRole: "PDG",
                 });
               }}
               className="px-5 py-2.5 bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-50 text-xs font-semibold rounded-xl transition-colors cursor-pointer"
@@ -364,6 +361,9 @@ export default function NewOrganizationPage() {
                     </option>
                   ))}
                 </select>
+                <p className="text-[11px] text-[#64748B] mt-1">
+                  Ce compte bénéficiera de tous les droits et accès d'administrateur dans le système.
+                </p>
               </div>
             </div>
           </div>

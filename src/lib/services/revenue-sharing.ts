@@ -7,7 +7,12 @@ import {
   users,
 } from "@/db/schema";
 import { eq, desc, and } from "drizzle-orm";
-import { sendEmail, generateRevenueSharingProposalEmail, generateRevenueSharingApprovedEmail } from "@/lib/notifications/email";
+import { getSupabaseAdminClient } from "@/lib/supabase/server";
+import {
+  sendEmail,
+  generateRevenueSharingProposalEmail,
+  generateRevenueSharingApprovedEmail,
+} from "@/lib/notifications/email";
 
 export interface RevenueSharingConfigItem {
   id: string;
@@ -61,6 +66,104 @@ export interface RevenueSharingMetrics {
   currency: string;
 }
 
+function hasSupabaseCredentials(): boolean {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || process.env.SUPABASE_URL;
+  const key =
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.SUPABASE_SECRET_KEY ||
+    process.env.SUPABASE_SERVICE_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ||
+    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ||
+    process.env.SUPABASE_ANON_KEY;
+  return Boolean(url && key);
+}
+
+function shouldUseSupabase(dbInstance?: any): boolean {
+  return !dbInstance && hasSupabaseCredentials();
+}
+
+function buildDefaultConfig(now: number): RevenueSharingConfigItem {
+  return {
+    id: "default",
+    technoziPct: 60,
+    developerPct: 40,
+    directorEmail: null,
+    directorName: "Directeur Général TECHNOZI",
+    developerEmail: "pitonrodjy@gmail.com",
+    developerName: "Rodjy Piton (Développeur)",
+    effectiveFrom: now,
+    updatedAt: now,
+    updatedByUserId: null,
+    updatedByName: "Système RKonekte",
+  };
+}
+
+function mapSupabaseConfig(row: any, now: number): RevenueSharingConfigItem {
+  return {
+    id: row.id || "default",
+    technoziPct: Number(row.technozi_pct ?? 60),
+    developerPct: Number(row.developer_pct ?? 40),
+    directorEmail: row.director_email || null,
+    directorName: row.director_name || null,
+    developerEmail: row.developer_email || null,
+    developerName: row.developer_name || null,
+    effectiveFrom: Number(row.effective_from || now),
+    updatedAt: Number(row.updated_at || now),
+    updatedByUserId: row.updated_by_user_id || null,
+    updatedByName: row.updated_by_name || null,
+  };
+}
+
+function mapSupabaseProposal(r: any): RevenueSharingProposalItem {
+  return {
+    id: r.id,
+    previousTechnoziPct: Number(r.previous_technozi_pct),
+    previousDeveloperPct: Number(r.previous_developer_pct),
+    proposedTechnoziPct: Number(r.proposed_technozi_pct),
+    proposedDeveloperPct: Number(r.proposed_developer_pct),
+    status: r.status,
+    proposedByUserId: r.proposed_by_user_id,
+    proposedByName: r.proposed_by_name,
+    proposedByEmail: r.proposed_by_email,
+    targetEmail: r.target_email,
+    targetName: r.target_name || null,
+    validationToken: r.validation_token,
+    note: r.note || null,
+    validatedByUserId: r.validated_by_user_id || null,
+    validatedByName: r.validated_by_name || null,
+    validatedByEmail: r.validated_by_email || null,
+    validatedAt: r.validated_at != null ? Number(r.validated_at) : null,
+    rejectionReason: r.rejection_reason || null,
+    createdAt: Number(r.created_at),
+    updatedAt: Number(r.updated_at),
+  };
+}
+
+function mapSqliteProposal(r: any): RevenueSharingProposalItem {
+  return {
+    id: r.id,
+    previousTechnoziPct: Number(r.previousTechnoziPct),
+    previousDeveloperPct: Number(r.previousDeveloperPct),
+    proposedTechnoziPct: Number(r.proposedTechnoziPct),
+    proposedDeveloperPct: Number(r.proposedDeveloperPct),
+    status: r.status,
+    proposedByUserId: r.proposedByUserId,
+    proposedByName: r.proposedByName,
+    proposedByEmail: r.proposedByEmail,
+    targetEmail: r.targetEmail,
+    targetName: r.targetName || null,
+    validationToken: r.validationToken,
+    note: r.note || null,
+    validatedByUserId: r.validatedByUserId || null,
+    validatedByName: r.validatedByName || null,
+    validatedByEmail: r.validatedByEmail || null,
+    validatedAt: r.validatedAt ? Number(r.validatedAt) : null,
+    rejectionReason: r.rejectionReason || null,
+    createdAt: Number(r.createdAt),
+    updatedAt: Number(r.updatedAt),
+  };
+}
+
 /**
  * Récupère la configuration active du partage des revenus.
  * Si elle n'existe pas encore, initialise à 60% TECHNOZI / 40% Développeur.
@@ -68,9 +171,48 @@ export interface RevenueSharingMetrics {
 export async function getActiveRevenueSharingConfig(
   dbInstance?: any
 ): Promise<RevenueSharingConfigItem> {
-  const db = dbInstance || getDb();
   const now = Date.now();
 
+  if (shouldUseSupabase(dbInstance)) {
+    try {
+      const supabase = getSupabaseAdminClient();
+      const { data: row, error } = await supabase
+        .from("revenue_sharing_configs")
+        .select("*")
+        .eq("id", "default")
+        .maybeSingle();
+
+      if (error) throw error;
+
+      if (!row) {
+        const initial = buildDefaultConfig(now);
+        await supabase.from("revenue_sharing_configs").upsert({
+          id: initial.id,
+          technozi_pct: initial.technoziPct,
+          developer_pct: initial.developerPct,
+          director_email: initial.directorEmail,
+          director_name: initial.directorName,
+          developer_email: initial.developerEmail,
+          developer_name: initial.developerName,
+          effective_from: initial.effectiveFrom,
+          updated_at: initial.updatedAt,
+          updated_by_user_id: initial.updatedByUserId,
+          updated_by_name: initial.updatedByName,
+        });
+        return initial;
+      }
+
+      return mapSupabaseConfig(row, now);
+    } catch (err) {
+      // Fallback to local SQLite if Supabase is unreachable in local/offline environments
+      if (process.env.VERCEL) {
+        console.error("Supabase getActiveRevenueSharingConfig error:", err);
+        return buildDefaultConfig(now);
+      }
+    }
+  }
+
+  const db = dbInstance || getDb();
   const [row] = await db
     .select()
     .from(revenueSharingConfigs)
@@ -78,21 +220,7 @@ export async function getActiveRevenueSharingConfig(
     .limit(1);
 
   if (!row) {
-    // Initialisation par défaut : 60% TECHNOZI / 40% Développeur
-    const initial: RevenueSharingConfigItem = {
-      id: "default",
-      technoziPct: 60,
-      developerPct: 40,
-      directorEmail: null,
-      directorName: "Directeur Général TECHNOZI",
-      developerEmail: "pitonrodjy@gmail.com",
-      developerName: "Rodjy Piton (Développeur)",
-      effectiveFrom: now,
-      updatedAt: now,
-      updatedByUserId: null,
-      updatedByName: "Système RKonekte",
-    };
-
+    const initial = buildDefaultConfig(now);
     try {
       await db.insert(revenueSharingConfigs).values({
         id: initial.id,
@@ -140,9 +268,49 @@ export async function updateRevenueSharingParties(
   user: { id: string; name: string },
   dbInstance?: any
 ): Promise<RevenueSharingConfigItem> {
+  const now = Date.now();
+
+  if (shouldUseSupabase(dbInstance)) {
+    const supabase = getSupabaseAdminClient();
+    await getActiveRevenueSharingConfig(); // Assure existence
+
+    const updates: Record<string, any> = {
+      updated_at: now,
+      updated_by_user_id: user.id,
+      updated_by_name: user.name,
+    };
+
+    if (params.directorEmail !== undefined) {
+      updates.director_email = params.directorEmail
+        ? params.directorEmail.trim().toLowerCase()
+        : null;
+    }
+    if (params.directorName !== undefined) {
+      updates.director_name = params.directorName ? params.directorName.trim() : null;
+    }
+    if (params.developerEmail !== undefined) {
+      updates.developer_email = params.developerEmail
+        ? params.developerEmail.trim().toLowerCase()
+        : null;
+    }
+    if (params.developerName !== undefined) {
+      updates.developer_name = params.developerName ? params.developerName.trim() : null;
+    }
+
+    const { error } = await supabase
+      .from("revenue_sharing_configs")
+      .update(updates)
+      .eq("id", "default");
+
+    if (error) {
+      throw new Error(`Erreur de mise à jour des coordonnées: ${error.message}`);
+    }
+
+    return getActiveRevenueSharingConfig();
+  }
+
   const db = dbInstance || getDb();
   await getActiveRevenueSharingConfig(db); // Assure existence
-  const now = Date.now();
 
   const updates: any = {
     updatedAt: now,
@@ -210,8 +378,8 @@ export async function createRevenueSharingProposal(
   proposer: { id: string; name: string; email: string },
   dbInstance?: any
 ): Promise<RevenueSharingProposalItem> {
-  const db = dbInstance || getDb();
-  const currentConfig = await getActiveRevenueSharingConfig(db);
+  const useSupa = shouldUseSupabase(dbInstance);
+  const currentConfig = await getActiveRevenueSharingConfig(dbInstance);
 
   const tPct = Math.round(Number(params.proposedTechnoziPct) * 100) / 100;
   const dPct = Math.round(Number(params.proposedDeveloperPct) * 100) / 100;
@@ -242,7 +410,6 @@ export async function createRevenueSharingProposal(
   const proposerEmailLower = proposer.email.toLowerCase().trim();
 
   if (!targetEmail) {
-    // Si le proposant est le développeur, le destinataire est le directeur
     if (
       currentConfig.developerEmail &&
       proposerEmailLower === currentConfig.developerEmail.toLowerCase().trim()
@@ -258,16 +425,33 @@ export async function createRevenueSharingProposal(
 
   // Si toujours pas défini, chercher dans les autres SuperAdmins actifs
   if (!targetEmail) {
-    const allAdmins = await db
-      .select({ email: users.email })
-      .from(users)
-      .where(and(eq(users.role, "SUPER_ADMIN"), eq(users.status, "ACTIVE")));
+    if (useSupa) {
+      const supabase = getSupabaseAdminClient();
+      const { data: allAdmins } = await supabase
+        .from("users")
+        .select("email")
+        .eq("role", "SUPER_ADMIN")
+        .eq("status", "ACTIVE");
 
-    const other = allAdmins.find(
-      (a: any) => a.email && a.email.toLowerCase().trim() !== proposerEmailLower
-    );
-    if (other) {
-      targetEmail = other.email.toLowerCase().trim();
+      const other = (allAdmins || []).find(
+        (a: any) => a.email && a.email.toLowerCase().trim() !== proposerEmailLower
+      );
+      if (other) {
+        targetEmail = other.email.toLowerCase().trim();
+      }
+    } else {
+      const db = dbInstance || getDb();
+      const allAdmins = await db
+        .select({ email: users.email })
+        .from(users)
+        .where(and(eq(users.role, "SUPER_ADMIN"), eq(users.status, "ACTIVE")));
+
+      const other = allAdmins.find(
+        (a: any) => a.email && a.email.toLowerCase().trim() !== proposerEmailLower
+      );
+      if (other) {
+        targetEmail = other.email.toLowerCase().trim();
+      }
     }
   }
 
@@ -283,23 +467,17 @@ export async function createRevenueSharingProposal(
     );
   }
 
-  // Annuler les propositions en attente précédentes
   const now = Date.now();
-  await db
-    .update(revenueSharingProposals)
-    .set({ status: "CANCELLED", updatedAt: now })
-    .where(eq(revenueSharingProposals.status, "PENDING"));
-
   const proposalId = `revprop-${crypto.randomUUID()}`;
   const validationToken = crypto.randomUUID();
 
-  const proposalRow = {
+  const proposalRow: RevenueSharingProposalItem = {
     id: proposalId,
     previousTechnoziPct: currentConfig.technoziPct,
     previousDeveloperPct: currentConfig.developerPct,
     proposedTechnoziPct: tPct,
     proposedDeveloperPct: dPct,
-    status: "PENDING" as const,
+    status: "PENDING",
     proposedByUserId: proposer.id,
     proposedByName: proposer.name,
     proposedByEmail: proposerEmailLower,
@@ -316,7 +494,84 @@ export async function createRevenueSharingProposal(
     updatedAt: now,
   };
 
-  await db.insert(revenueSharingProposals).values(proposalRow);
+  if (useSupa) {
+    const supabase = getSupabaseAdminClient();
+    await supabase
+      .from("revenue_sharing_proposals")
+      .update({ status: "CANCELLED", updated_at: now })
+      .eq("status", "PENDING");
+
+    const { error: insertErr } = await supabase.from("revenue_sharing_proposals").insert({
+      id: proposalRow.id,
+      previous_technozi_pct: proposalRow.previousTechnoziPct,
+      previous_developer_pct: proposalRow.previousDeveloperPct,
+      proposed_technozi_pct: proposalRow.proposedTechnoziPct,
+      proposed_developer_pct: proposalRow.proposedDeveloperPct,
+      status: proposalRow.status,
+      proposed_by_user_id: proposalRow.proposedByUserId,
+      proposed_by_name: proposalRow.proposedByName,
+      proposed_by_email: proposalRow.proposedByEmail,
+      target_email: proposalRow.targetEmail,
+      target_name: proposalRow.targetName,
+      validation_token: proposalRow.validationToken,
+      note: proposalRow.note,
+      validated_by_user_id: null,
+      validated_by_name: null,
+      validated_by_email: null,
+      validated_at: null,
+      rejection_reason: null,
+      created_at: now,
+      updated_at: now,
+    });
+
+    if (insertErr) {
+      throw new Error(`Impossible d'enregistrer la proposition: ${insertErr.message}`);
+    }
+
+    try {
+      await supabase.from("audit_logs").insert({
+        id: `log-${crypto.randomUUID()}`,
+        organization_id: null,
+        leave_request_id: null,
+        user_id: proposer.id,
+        action: "REVENUE_SHARING_PROPOSED",
+        old_status: `${currentConfig.technoziPct}/${currentConfig.developerPct}`,
+        new_status: `${tPct}/${dPct}`,
+        metadata: JSON.stringify({
+          proposalId,
+          targetEmail,
+          note: params.note?.trim(),
+        }),
+        created_at: now,
+      });
+    } catch (_) {}
+  } else {
+    const db = dbInstance || getDb();
+    await db
+      .update(revenueSharingProposals)
+      .set({ status: "CANCELLED", updatedAt: now })
+      .where(eq(revenueSharingProposals.status, "PENDING"));
+
+    await db.insert(revenueSharingProposals).values(proposalRow);
+
+    try {
+      await db.insert(auditLogs).values({
+        id: `log-${crypto.randomUUID()}`,
+        organizationId: null,
+        leaveRequestId: null,
+        userId: proposer.id,
+        action: "REVENUE_SHARING_PROPOSED" as any,
+        oldStatus: `${currentConfig.technoziPct}/${currentConfig.developerPct}`,
+        newStatus: `${tPct}/${dPct}`,
+        metadata: JSON.stringify({
+          proposalId,
+          targetEmail,
+          note: params.note?.trim(),
+        }),
+        createdAt: now,
+      });
+    } catch (_) {}
+  }
 
   // Construction de l'URL de validation
   const baseUrl =
@@ -350,28 +605,7 @@ export async function createRevenueSharingProposal(
     console.error("Échec de l'envoi de l'e-mail de proposition de répartition:", err);
   }
 
-  // Journalisation d'audit
-  try {
-    await db.insert(auditLogs).values({
-      id: `log-${crypto.randomUUID()}`,
-      organizationId: null,
-      leaveRequestId: null,
-      userId: proposer.id,
-      action: "REVENUE_SHARING_PROPOSED" as any,
-      oldStatus: `${currentConfig.technoziPct}/${currentConfig.developerPct}`,
-      newStatus: `${tPct}/${dPct}`,
-      metadata: JSON.stringify({
-        proposalId,
-        targetEmail,
-        note: params.note?.trim(),
-      }),
-      createdAt: now,
-    });
-  } catch (_) {}
-
-  return {
-    ...proposalRow,
-  };
+  return proposalRow;
 }
 
 /**
@@ -389,14 +623,30 @@ export async function validateRevenueSharingProposal(
   validator: { id: string; name: string; email: string },
   dbInstance?: any
 ): Promise<RevenueSharingProposalItem> {
-  const db = dbInstance || getDb();
+  const useSupa = shouldUseSupabase(dbInstance);
   const now = Date.now();
 
-  const [proposal] = await db
-    .select()
-    .from(revenueSharingProposals)
-    .where(eq(revenueSharingProposals.id, params.proposalId))
-    .limit(1);
+  let proposal: RevenueSharingProposalItem | null = null;
+
+  if (useSupa) {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("revenue_sharing_proposals")
+      .select("*")
+      .eq("id", params.proposalId)
+      .maybeSingle();
+
+    if (error) throw new Error(`Erreur de chargement de la proposition: ${error.message}`);
+    proposal = data ? mapSupabaseProposal(data) : null;
+  } else {
+    const db = dbInstance || getDb();
+    const [row] = await db
+      .select()
+      .from(revenueSharingProposals)
+      .where(eq(revenueSharingProposals.id, params.proposalId))
+      .limit(1);
+    proposal = row ? mapSqliteProposal(row) : null;
+  }
 
   if (!proposal) {
     throw new Error("Proposition introuvable.");
@@ -412,10 +662,7 @@ export async function validateRevenueSharingProposal(
   const validatorEmail = validator.email.toLowerCase().trim();
   const proposerEmail = proposal.proposedByEmail.toLowerCase().trim();
 
-  if (
-    validator.id === proposal.proposedByUserId ||
-    validatorEmail === proposerEmail
-  ) {
+  if (validator.id === proposal.proposedByUserId || validatorEmail === proposerEmail) {
     throw new Error(
       "Action non autorisée : vous ne pouvez pas valider votre propre proposition. La validation doit impérativement être effectuée par l'autre partie (Directeur ou Développeur)."
     );
@@ -423,36 +670,66 @@ export async function validateRevenueSharingProposal(
 
   if (params.action === "REJECT") {
     const reason = params.rejectionReason?.trim() || "Proposition refusée par l'autre partie.";
-    await db
-      .update(revenueSharingProposals)
-      .set({
-        status: "REJECTED",
-        validatedByUserId: validator.id,
-        validatedByName: validator.name,
-        validatedByEmail: validatorEmail,
-        validatedAt: now,
-        rejectionReason: reason,
-        updatedAt: now,
-      })
-      .where(eq(revenueSharingProposals.id, params.proposalId));
 
-    // Audit log
-    try {
-      await db.insert(auditLogs).values({
-        id: `log-${crypto.randomUUID()}`,
-        organizationId: null,
-        leaveRequestId: null,
-        userId: validator.id,
-        action: "REVENUE_SHARING_REJECTED" as any,
-        oldStatus: `${proposal.proposedTechnoziPct}/${proposal.proposedDeveloperPct}`,
-        newStatus: "REJECTED",
-        metadata: JSON.stringify({
-          proposalId: proposal.id,
-          reason,
-        }),
-        createdAt: now,
-      });
-    } catch (_) {}
+    if (useSupa) {
+      const supabase = getSupabaseAdminClient();
+      const { error } = await supabase
+        .from("revenue_sharing_proposals")
+        .update({
+          status: "REJECTED",
+          validated_by_user_id: validator.id,
+          validated_by_name: validator.name,
+          validated_by_email: validatorEmail,
+          validated_at: now,
+          rejection_reason: reason,
+          updated_at: now,
+        })
+        .eq("id", params.proposalId);
+
+      if (error) throw new Error(`Erreur lors du rejet: ${error.message}`);
+
+      try {
+        await supabase.from("audit_logs").insert({
+          id: `log-${crypto.randomUUID()}`,
+          organization_id: null,
+          leave_request_id: null,
+          user_id: validator.id,
+          action: "REVENUE_SHARING_REJECTED",
+          old_status: `${proposal.proposedTechnoziPct}/${proposal.proposedDeveloperPct}`,
+          new_status: "REJECTED",
+          metadata: JSON.stringify({ proposalId: proposal.id, reason }),
+          created_at: now,
+        });
+      } catch (_) {}
+    } else {
+      const db = dbInstance || getDb();
+      await db
+        .update(revenueSharingProposals)
+        .set({
+          status: "REJECTED",
+          validatedByUserId: validator.id,
+          validatedByName: validator.name,
+          validatedByEmail: validatorEmail,
+          validatedAt: now,
+          rejectionReason: reason,
+          updatedAt: now,
+        })
+        .where(eq(revenueSharingProposals.id, params.proposalId));
+
+      try {
+        await db.insert(auditLogs).values({
+          id: `log-${crypto.randomUUID()}`,
+          organizationId: null,
+          leaveRequestId: null,
+          userId: validator.id,
+          action: "REVENUE_SHARING_REJECTED" as any,
+          oldStatus: `${proposal.proposedTechnoziPct}/${proposal.proposedDeveloperPct}`,
+          newStatus: "REJECTED",
+          metadata: JSON.stringify({ proposalId: proposal.id, reason }),
+          createdAt: now,
+        });
+      } catch (_) {}
+    }
 
     return {
       ...proposal,
@@ -467,51 +744,102 @@ export async function validateRevenueSharingProposal(
   }
 
   // ACTION : APPROVE -> Activation immédiate de la nouvelle clé
-  await db
-    .update(revenueSharingProposals)
-    .set({
-      status: "APPROVED",
-      validatedByUserId: validator.id,
-      validatedByName: validator.name,
-      validatedByEmail: validatorEmail,
-      validatedAt: now,
-      rejectionReason: null,
-      updatedAt: now,
-    })
-    .where(eq(revenueSharingProposals.id, params.proposalId));
+  if (useSupa) {
+    const supabase = getSupabaseAdminClient();
+    const { error: propErr } = await supabase
+      .from("revenue_sharing_proposals")
+      .update({
+        status: "APPROVED",
+        validated_by_user_id: validator.id,
+        validated_by_name: validator.name,
+        validated_by_email: validatorEmail,
+        validated_at: now,
+        rejection_reason: null,
+        updated_at: now,
+      })
+      .eq("id", params.proposalId);
 
-  // Met à jour la configuration active
-  await db
-    .update(revenueSharingConfigs)
-    .set({
-      technoziPct: proposal.proposedTechnoziPct,
-      developerPct: proposal.proposedDeveloperPct,
-      effectiveFrom: now,
-      updatedAt: now,
-      updatedByUserId: validator.id,
-      updatedByName: validator.name,
-    })
-    .where(eq(revenueSharingConfigs.id, "default"));
+    if (propErr) throw new Error(`Erreur lors de l'approbation: ${propErr.message}`);
 
-  // Audit log
-  try {
-    await db.insert(auditLogs).values({
-      id: `log-${crypto.randomUUID()}`,
-      organizationId: null,
-      leaveRequestId: null,
-      userId: validator.id,
-      action: "REVENUE_SHARING_APPROVED" as any,
-      oldStatus: `${proposal.previousTechnoziPct}/${proposal.previousDeveloperPct}`,
-      newStatus: `${proposal.proposedTechnoziPct}/${proposal.proposedDeveloperPct}`,
-      metadata: JSON.stringify({
-        proposalId: proposal.id,
-        proposer: proposal.proposedByName,
-        validator: validator.name,
+    await getActiveRevenueSharingConfig(); // Ensure row exists
+    const { error: cfgErr } = await supabase
+      .from("revenue_sharing_configs")
+      .update({
+        technozi_pct: proposal.proposedTechnoziPct,
+        developer_pct: proposal.proposedDeveloperPct,
+        effective_from: now,
+        updated_at: now,
+        updated_by_user_id: validator.id,
+        updated_by_name: validator.name,
+      })
+      .eq("id", "default");
+
+    if (cfgErr) throw new Error(`Erreur lors de l'activation de la clé: ${cfgErr.message}`);
+
+    try {
+      await supabase.from("audit_logs").insert({
+        id: `log-${crypto.randomUUID()}`,
+        organization_id: null,
+        leave_request_id: null,
+        user_id: validator.id,
+        action: "REVENUE_SHARING_APPROVED",
+        old_status: `${proposal.previousTechnoziPct}/${proposal.previousDeveloperPct}`,
+        new_status: `${proposal.proposedTechnoziPct}/${proposal.proposedDeveloperPct}`,
+        metadata: JSON.stringify({
+          proposalId: proposal.id,
+          proposer: proposal.proposedByName,
+          validator: validator.name,
+          effectiveFrom: now,
+        }),
+        created_at: now,
+      });
+    } catch (_) {}
+  } else {
+    const db = dbInstance || getDb();
+    await db
+      .update(revenueSharingProposals)
+      .set({
+        status: "APPROVED",
+        validatedByUserId: validator.id,
+        validatedByName: validator.name,
+        validatedByEmail: validatorEmail,
+        validatedAt: now,
+        rejectionReason: null,
+        updatedAt: now,
+      })
+      .where(eq(revenueSharingProposals.id, params.proposalId));
+
+    await db
+      .update(revenueSharingConfigs)
+      .set({
+        technoziPct: proposal.proposedTechnoziPct,
+        developerPct: proposal.proposedDeveloperPct,
         effectiveFrom: now,
-      }),
-      createdAt: now,
-    });
-  } catch (_) {}
+        updatedAt: now,
+        updatedByUserId: validator.id,
+        updatedByName: validator.name,
+      })
+      .where(eq(revenueSharingConfigs.id, "default"));
+
+    try {
+      await db.insert(auditLogs).values({
+        id: `log-${crypto.randomUUID()}`,
+        organizationId: null,
+        leaveRequestId: null,
+        userId: validator.id,
+        action: "REVENUE_SHARING_APPROVED" as any,
+        oldStatus: `${proposal.previousTechnoziPct}/${proposal.previousDeveloperPct}`,
+        newStatus: `${proposal.proposedTechnoziPct}/${proposal.proposedDeveloperPct}`,
+        metadata: JSON.stringify({
+          proposalId: proposal.id,
+          proposer: proposal.proposedByName,
+          validator: validator.name,
+          effectiveFrom: now,
+        }),
+        createdAt: now,
+      });
+    } catch (_) {}
+  }
 
   // Envoi de confirmation par e-mail aux deux parties
   const baseUrl =
@@ -530,7 +858,6 @@ export async function validateRevenueSharingProposal(
       dashboardUrl,
     });
 
-    // Envoi au proposant
     await sendEmail({
       to: proposal.proposedByEmail,
       subject: confirmationEmail.subject,
@@ -538,7 +865,6 @@ export async function validateRevenueSharingProposal(
       text: confirmationEmail.text,
     });
 
-    // Envoi au validateur si adresse distincte
     if (validatorEmail && validatorEmail !== proposal.proposedByEmail) {
       await sendEmail({
         to: validatorEmail,
@@ -571,6 +897,32 @@ export async function cancelRevenueSharingProposal(
   callerId: string,
   dbInstance?: any
 ): Promise<void> {
+  if (shouldUseSupabase(dbInstance)) {
+    const supabase = getSupabaseAdminClient();
+    const { data, error } = await supabase
+      .from("revenue_sharing_proposals")
+      .select("*")
+      .eq("id", proposalId)
+      .maybeSingle();
+
+    if (error) throw new Error(`Erreur de chargement: ${error.message}`);
+    if (!data) throw new Error("Proposition introuvable.");
+    if (data.status !== "PENDING") {
+      throw new Error("Seule une proposition en attente peut être annulée.");
+    }
+    if (data.proposed_by_user_id !== callerId) {
+      throw new Error("Seul l'auteur de la proposition peut l'annuler.");
+    }
+
+    const { error: updErr } = await supabase
+      .from("revenue_sharing_proposals")
+      .update({ status: "CANCELLED", updated_at: Date.now() })
+      .eq("id", proposalId);
+
+    if (updErr) throw new Error(`Erreur lors de l'annulation: ${updErr.message}`);
+    return;
+  }
+
   const db = dbInstance || getDb();
   const [proposal] = await db
     .select()
@@ -601,11 +953,26 @@ export async function snapshotRevenueForRenewal(
   amount: number,
   dbInstance?: any
 ): Promise<RevenueSplitResult> {
-  const db = dbInstance || getDb();
-  const config = await getActiveRevenueSharingConfig(db);
+  const config = await getActiveRevenueSharingConfig(dbInstance);
   const split = calculateRevenueSplit(amount, config);
   const now = Date.now();
 
+  if (shouldUseSupabase(dbInstance)) {
+    const supabase = getSupabaseAdminClient();
+    await supabase
+      .from("subscription_renewals")
+      .update({
+        revenue_technozi_pct: split.technoziPct,
+        revenue_developer_pct: split.developerPct,
+        revenue_technozi_amount: split.technoziAmount,
+        revenue_developer_amount: split.developerAmount,
+        revenue_calculated_at: now,
+      })
+      .eq("id", renewalId);
+    return split;
+  }
+
+  const db = dbInstance || getDb();
   await db
     .update(subscriptionRenewals)
     .set({
@@ -626,20 +993,76 @@ export async function snapshotRevenueForRenewal(
 export async function getRevenueSharingMetrics(
   dbInstance?: any
 ): Promise<RevenueSharingMetrics> {
-  const db = dbInstance || getDb();
+  let approvedRenewals: Array<{
+    amountExpected: number;
+    revenueTechnoziAmount: number | null;
+    revenueDeveloperAmount: number | null;
+  }> = [];
 
-  const approvedRenewals = await db
-    .select({
-      id: subscriptionRenewals.id,
-      amountExpected: subscriptionRenewals.amountExpected,
-      currency: subscriptionRenewals.currency,
-      revenueTechnoziAmount: subscriptionRenewals.revenueTechnoziAmount,
-      revenueDeveloperAmount: subscriptionRenewals.revenueDeveloperAmount,
-      revenueTechnoziPct: subscriptionRenewals.revenueTechnoziPct,
-      revenueDeveloperPct: subscriptionRenewals.revenueDeveloperPct,
-    })
-    .from(subscriptionRenewals)
-    .where(eq(subscriptionRenewals.status, "APPROVED"));
+  if (shouldUseSupabase(dbInstance)) {
+    try {
+      const supabase = getSupabaseAdminClient();
+      const { data, error } = await supabase
+        .from("subscription_renewals")
+        .select("id, amount_expected, currency, revenue_technozi_amount, revenue_developer_amount")
+        .eq("status", "APPROVED");
+
+      if (error) throw error;
+
+      approvedRenewals = (data || []).map((r: any) => ({
+        amountExpected: Number(r.amount_expected) || 0,
+        revenueTechnoziAmount:
+          r.revenue_technozi_amount != null ? Number(r.revenue_technozi_amount) : null,
+        revenueDeveloperAmount:
+          r.revenue_developer_amount != null ? Number(r.revenue_developer_amount) : null,
+      }));
+    } catch (err) {
+      if (process.env.VERCEL) {
+        console.error("Supabase getRevenueSharingMetrics error:", err);
+        return {
+          totalApprovedRevenue: 0,
+          totalTechnoziAmount: 0,
+          totalDeveloperAmount: 0,
+          approvedTransactionsCount: 0,
+          currency: "USD",
+        };
+      }
+      const db = getDb();
+      const rows = await db
+        .select({
+          amountExpected: subscriptionRenewals.amountExpected,
+          revenueTechnoziAmount: subscriptionRenewals.revenueTechnoziAmount,
+          revenueDeveloperAmount: subscriptionRenewals.revenueDeveloperAmount,
+        })
+        .from(subscriptionRenewals)
+        .where(eq(subscriptionRenewals.status, "APPROVED"));
+      approvedRenewals = rows.map((r: any) => ({
+        amountExpected: Number(r.amountExpected) || 0,
+        revenueTechnoziAmount:
+          r.revenueTechnoziAmount != null ? Number(r.revenueTechnoziAmount) : null,
+        revenueDeveloperAmount:
+          r.revenueDeveloperAmount != null ? Number(r.revenueDeveloperAmount) : null,
+      }));
+    }
+  } else {
+    const db = dbInstance || getDb();
+    const rows = await db
+      .select({
+        amountExpected: subscriptionRenewals.amountExpected,
+        revenueTechnoziAmount: subscriptionRenewals.revenueTechnoziAmount,
+        revenueDeveloperAmount: subscriptionRenewals.revenueDeveloperAmount,
+      })
+      .from(subscriptionRenewals)
+      .where(eq(subscriptionRenewals.status, "APPROVED"));
+
+    approvedRenewals = rows.map((r: any) => ({
+      amountExpected: Number(r.amountExpected) || 0,
+      revenueTechnoziAmount:
+        r.revenueTechnoziAmount != null ? Number(r.revenueTechnoziAmount) : null,
+      revenueDeveloperAmount:
+        r.revenueDeveloperAmount != null ? Number(r.revenueDeveloperAmount) : null,
+    }));
+  }
 
   let totalRevenue = 0;
   let totalTechnozi = 0;
@@ -649,13 +1072,10 @@ export async function getRevenueSharingMetrics(
     const amt = Number(r.amountExpected) || 0;
     totalRevenue += amt;
 
-    // Si le snapshot existe déjà
     if (r.revenueTechnoziAmount !== null && r.revenueTechnoziAmount !== undefined) {
       totalTechnozi += Number(r.revenueTechnoziAmount) || 0;
       totalDeveloper += Number(r.revenueDeveloperAmount) || 0;
     } else {
-      // Pour les transactions historiques antérieures à l'introduction du module,
-      // appliquer la répartition par défaut 60/40 de manière protégée
       const legacySplit = calculateRevenueSplit(amt, { technoziPct: 60, developerPct: 40 });
       totalTechnozi += legacySplit.technoziAmount;
       totalDeveloper += legacySplit.developerAmount;
@@ -677,32 +1097,30 @@ export async function getRevenueSharingMetrics(
 export async function listRevenueSharingProposals(
   dbInstance?: any
 ): Promise<RevenueSharingProposalItem[]> {
+  if (shouldUseSupabase(dbInstance)) {
+    try {
+      const supabase = getSupabaseAdminClient();
+      const { data, error } = await supabase
+        .from("revenue_sharing_proposals")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+
+      return (data || []).map(mapSupabaseProposal);
+    } catch (err) {
+      if (process.env.VERCEL) {
+        console.error("Supabase listRevenueSharingProposals error:", err);
+        return [];
+      }
+    }
+  }
+
   const db = dbInstance || getDb();
   const rows = await db
     .select()
     .from(revenueSharingProposals)
     .orderBy(desc(revenueSharingProposals.createdAt));
 
-  return rows.map((r: any) => ({
-    id: r.id,
-    previousTechnoziPct: Number(r.previousTechnoziPct),
-    previousDeveloperPct: Number(r.previousDeveloperPct),
-    proposedTechnoziPct: Number(r.proposedTechnoziPct),
-    proposedDeveloperPct: Number(r.proposedDeveloperPct),
-    status: r.status,
-    proposedByUserId: r.proposedByUserId,
-    proposedByName: r.proposedByName,
-    proposedByEmail: r.proposedByEmail,
-    targetEmail: r.targetEmail,
-    targetName: r.targetName || null,
-    validationToken: r.validationToken,
-    note: r.note || null,
-    validatedByUserId: r.validatedByUserId || null,
-    validatedByName: r.validatedByName || null,
-    validatedByEmail: r.validatedByEmail || null,
-    validatedAt: r.validatedAt ? Number(r.validatedAt) : null,
-    rejectionReason: r.rejectionReason || null,
-    createdAt: Number(r.createdAt),
-    updatedAt: Number(r.updatedAt),
-  }));
+  return rows.map(mapSqliteProposal);
 }

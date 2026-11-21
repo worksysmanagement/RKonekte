@@ -1941,3 +1941,89 @@ export function generateRevenueSharingApprovedEmail(params: {
 
   return { subject, html, text };
 }
+
+export function generateAdministrativeDocumentNotificationEmail(params: {
+  recipientName: string;
+  senderName: string;
+  companyName: string;
+  documentNames: string[];
+  transmissionDate: string;
+  viewUrl: string;
+}): { subject: string; html: string; text: string } {
+  const recipient = (params.recipientName || "Administrateur").trim();
+  const sender = (params.senderName || "Un administrateur").trim();
+  const company = (params.companyName || "Votre entreprise").trim();
+  const docCount = params.documentNames.length;
+  const isMultiple = docCount > 1;
+
+  const subject = `[${company}] ${sender} vous a transmis ${
+    isMultiple ? `${docCount} documents administratifs` : `un document administratif`
+  }`;
+
+  const docListHtml = params.documentNames
+    .map(
+      (name) =>
+        `<li style="padding: 6px 0; font-size: 13px; color: #062653; font-weight: 600;">
+          📄 ${escapeEmailHtml(name)}
+        </li>`
+    )
+    .join("");
+
+  const bodyHtml = `
+    <div style="margin-bottom: 16px;">
+      <span style="font-size: 10px; font-weight: 700; text-transform: uppercase; color: #ff7900; letter-spacing: 0.5px; display: block; margin-bottom: 2px;">
+        Échanges Administratifs • Transmission Sécurisée
+      </span>
+      <h3 style="margin: 0; color: #062653; font-size: 16px; font-weight: 700;">
+        Nouveau${isMultiple ? "x documents administratifs reçus" : " document administratif reçu"}
+      </h3>
+    </div>
+
+    <p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #0f172a;">
+      Bonjour <strong>${escapeEmailHtml(recipient)}</strong>,
+    </p>
+
+    <p style="margin: 0 0 14px 0; font-size: 14px; line-height: 1.6; color: #334155;">
+      <strong>${escapeEmailHtml(sender)}</strong> vous a transmis ${
+        isMultiple ? `les ${docCount} documents administratifs suivants` : `le document administratif suivant`
+      } au sein de votre espace <strong>${escapeEmailHtml(company)}</strong> :
+    </p>
+
+    <div style="border-radius: 10px; padding: 14px 18px; margin: 16px 0; border: 1px solid #e2e8f0;">
+      <ul style="margin: 0; padding-left: 18px; list-style-type: none;">
+        ${docListHtml}
+      </ul>
+      <div style="margin-top: 10px; font-size: 11px; color: #64748b; border-top: 1px solid #e2e8f0; padding-top: 8px;">
+        Date de transmission : <strong>${escapeEmailHtml(params.transmissionDate)}</strong>
+      </div>
+    </div>
+
+    <p style="margin: 0 0 16px 0; font-size: 13px; line-height: 1.5; color: #475569;">
+      Cliquez sur le bouton ci-dessous pour accéder directement à votre espace et consulter le document :
+    </p>
+  `;
+
+  const html = renderTransactionalEmailLayout({
+    title: subject,
+    preheader: `${sender} vous a transmis un document sur RKonekte.`,
+    bodyHtml,
+    ctaLabel: "Consulter le document sur RKonekte",
+    ctaUrl: params.viewUrl,
+    footerText: `Transmission administrative interne réservée aux administrateurs de ${company}.`,
+  });
+
+  const text = [
+    `TRANSMISSION DE DOCUMENT ADMINISTRATIF — ${company}`,
+    "",
+    `Bonjour ${recipient},`,
+    "",
+    `${sender} vous a transmis le(s) document(s) suivant(s) :`,
+    ...params.documentNames.map((name) => `- ${name}`),
+    "",
+    `Date de transmission : ${params.transmissionDate}`,
+    "",
+    `Consulter le document sur RKonekte : ${params.viewUrl}`,
+  ].join("\n");
+
+  return { subject, html, text };
+}

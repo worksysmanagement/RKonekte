@@ -71,9 +71,9 @@ const EMPLOYEE_RANGES = [
 ];
 
 const ROLES = [
-  "Président Directeur Général (PDG)",
-  "Fondateur / Propriétaire",
-  "Directeur Général (DG) / Gérant",
+  "PDG",
+  "Directeur Général",
+  "Administrateur",
 ];
 
 function AuthContent() {
@@ -352,7 +352,7 @@ function AuthContent() {
     address: "",
     employeeRange: "6 à 20 employés",
     applicantName: "",
-    applicantRole: "Président Directeur Général (PDG)",
+    applicantRole: "PDG",
     // Honeypot anti-robot fields
     hp_website: "",
     hp_phone_trap: "",
@@ -1686,6 +1686,9 @@ function AuthContent() {
                             </option>
                           ))}
                         </select>
+                        <p className="text-[11px] text-[#64748B] mt-1">
+                          Ce compte bénéficiera de tous les droits et accès d'administrateur dans le système.
+                        </p>
                       </div>
                     </div>
                   </div>

@@ -23,12 +23,10 @@ export const APP_CONFIG = {
     { id: "wallet", name: "WALLET", currency: "HTG" },
   ],
 
-  // Rôles utilisateurs
+  // Rôles utilisateurs stricts (3 types de comptes)
   roles: {
-    SUPER_ADMIN: { label: "Super Administrateur", description: "Accès global à toutes les organisations" },
-    ORGANIZATION_ADMIN: { label: "Administrateur d'Entreprise", description: "Gestion complète de l'entreprise" },
-    SECRETARY: { label: "Secrétaire / RH", description: "Gestion des employés et traitement des congés" },
-    FINANCIAL_MANAGER: { label: "Responsable Financier", description: "Gestion des opérations et rapports financiers" },
-    BRANCH_MANAGER: { label: "Responsable de Succursale", description: "Gestion des employés de sa succursale" },
+    SUPER_ADMIN: { label: "Super Administrateur", description: "Accès global plateforme & organisations" },
+    ORGANIZATION_ADMIN: { label: "Administrateur", description: "Gestion complète de l'entreprise (tous les accès)" },
+    EMPLOYEE: { label: "Employé / Collaborateur", description: "Accès restreint aux 5 onglets opérationnels" },
   },
 };

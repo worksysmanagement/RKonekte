@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useCallback } from "react";
 import {
   FileText,
   Clock,
@@ -27,6 +27,7 @@ import {
   Minimize2,
   PenTool,
   Sparkles,
+  ArrowLeft,
 } from "lucide-react";
 import { showSystemToast } from "@/components/ui/SystemToast";
 import {
@@ -82,22 +83,22 @@ export const SAMPLE_PDF_DATA_URL =
   "data:application/pdf;base64,JVBERi0xLjQKJeLjz9MKMSAwIG9iajw8L1R5cGUvQ2F0YWxvZy9QYWdlcyAyIDAgUj4+ZW5kb2JqCjIgMCBvYmo8PC9UeXBlL1BhZ2VzL0tpZHNbMyAwIFJdL0NvdW50IDE+PmVuZG9iagozIDAgb2JqPDwvVHlwZS9QYWdlL1BhcmVudCAyIDAgUi9NZWRpYUJveFswIDAgNTk1IDg0Ml0vQ29udGVudHMgNCAwIFI+PmVuZG9iago0IDAgb2JqPDwvTGVuZ3RoIDU1Pj5zdHJlYW0KQVQKL0YxIDI0IFRmCjEwMCA3NTAgVGQKKEF1dG9yaXNhdGlvbiBkZSBTaWduYXR1cmUgUktvbmVrdGUpIFRqCkVUCmVuZHN0cmVhbQplbmRvYmoKeHJlZgowIDUKMDAwMDAwMDAwMCA2NTUzNSBmIAowMDAwMDAwMDE4IDAwMDAwIG4gCjAwMDAwMDAwNjggMDAwMDAgbiAKMDAwMDAwMDEyNSAwMDAwMCBuIAowMDAwMDAwMjE5IDAwMDAwIG4gCnRyYWlsZXIKPDwvU2l6ZSA1L1Jvb3QgMSAwIFI+PgpzdGFydHhyZWYKMzI1CiUlRU9G";
 
 function deduplicateRequests(items: SignatureAuthRequest[]): SignatureAuthRequest[] {
-  const seen = new Set<string>();
-  const result: SignatureAuthRequest[] = [];
-  let counter = 1;
+  const byId = new Map<string, SignatureAuthRequest>();
   for (const item of items) {
-    let id = item.id;
-    if (!id || seen.has(id)) {
-      while (seen.has(`SIG-2026-${String(counter).padStart(3, "0")}`)) {
-        counter++;
+    if (!item.id) continue;
+    const existing = byId.get(item.id);
+    if (!existing) {
+      byId.set(item.id, item);
+    } else {
+      // Si l'une des entrées a été signée ou refusée, conserver prioritairement ce statut officiel
+      if (item.status === "APPROVED" || item.status === "REJECTED") {
+        byId.set(item.id, item);
+      } else if (existing.status !== "APPROVED" && existing.status !== "REJECTED") {
+        byId.set(item.id, item);
       }
-      id = `SIG-2026-${String(counter).padStart(3, "0")}`;
-      counter++;
     }
-    seen.add(id);
-    result.push({ ...item, id });
   }
-  return result;
+  return Array.from(byId.values());
 }
 
 function formatFileSize(bytes: number): string {
@@ -116,7 +117,17 @@ function getCachedProfile(): EmployeeProfile | null {
   }
 }
 
-export function EmployeeSignatureAuthView() {
+export interface EmployeeSignatureAuthViewProps {
+  onBackToList?: () => void;
+  onSubmitted?: () => void;
+  hideHeaderTabs?: boolean;
+}
+
+export function EmployeeSignatureAuthView({
+  onBackToList,
+  onSubmitted,
+  hideHeaderTabs = false,
+}: EmployeeSignatureAuthViewProps = {}) {
   const [activeTab, setActiveTab] = useState<"form" | "history">("form");
   const [profile, setProfile] = useState<EmployeeProfile | null>(() => getCachedProfile());
   const [userName, setUserName] = useState<string>("");
@@ -262,24 +273,48 @@ export function EmployeeSignatureAuthView() {
     };
   }, []);
 
-  // Load requests from server API with localStorage caching
-  const loadRequests = async () => {
+  // Load requests from server API with live synchronization & localStorage caching
+  const loadRequests = useCallback(async () => {
     try {
-      const res = await fetch("/api/admin/signature-auth");
+      const q = new URLSearchParams();
+      q.set("_t", Date.now().toString());
+      if (profile?.employeeNumber) {
+        q.set("employeeNumber", profile.employeeNumber);
+      }
+      const res = await fetch(`/api/admin/signature-auth?${q.toString()}`, {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (res.ok) {
         const data = await res.json();
         if (data.requests && Array.isArray(data.requests)) {
-          const myItems = profile?.employeeNumber
-            ? data.requests.filter(
-                (r: SignatureAuthRequest) =>
-                  r.employeeNumber === profile.employeeNumber ||
-                  r.applicantName === `${profile.firstName} ${profile.lastName}`
-              )
+          const norm = (str?: string) =>
+            (str || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+          const myEmpNum = norm(profile?.employeeNumber);
+          const myFullName = norm(`${profile?.firstName || ""} ${profile?.lastName || ""}`);
+          const currentName = norm(userName);
+
+          const myItems = (myEmpNum || myFullName || currentName)
+            ? data.requests.filter((r: SignatureAuthRequest) => {
+                const rNum = norm(r.employeeNumber);
+                const rName = norm(r.applicantName);
+                if (myEmpNum && rNum && myEmpNum === rNum) return true;
+                if (myFullName && (rName.includes(myFullName) || myFullName.includes(rName))) return true;
+                if (currentName && (rName.includes(currentName) || currentName.includes(rName))) return true;
+                return false;
+              })
             : data.requests;
+
           const clean = deduplicateRequests(myItems);
           setMyRequests(clean);
+
+          // Store sanitized copy (omit huge base64 pdfUrl > 500KB to prevent QuotaExceededError in localStorage)
           try {
-            localStorage.setItem(STORAGE_KEY, JSON.stringify(data.requests));
+            const lightList = data.requests.map((r: SignatureAuthRequest) => ({
+              ...r,
+              pdfUrl: (r.pdfUrl && r.pdfUrl.length > 500000) ? undefined : r.pdfUrl,
+            }));
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(lightList));
           } catch (_) {}
           return;
         }
@@ -291,22 +326,82 @@ export function EmployeeSignatureAuthView() {
       const saved = localStorage.getItem(STORAGE_KEY);
       if (saved) {
         const parsed: SignatureAuthRequest[] = JSON.parse(saved);
-        const myItems = profile?.employeeNumber
-          ? parsed.filter(
-              (r) =>
-                r.employeeNumber === profile.employeeNumber ||
-                r.applicantName === `${profile.firstName} ${profile.lastName}`
-            )
+        const norm = (str?: string) =>
+          (str || "").toLowerCase().trim().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+        const myEmpNum = norm(profile?.employeeNumber);
+        const myFullName = norm(`${profile?.firstName || ""} ${profile?.lastName || ""}`);
+        const currentName = norm(userName);
+
+        const myItems = (myEmpNum || myFullName || currentName)
+          ? parsed.filter((r: SignatureAuthRequest) => {
+              const rNum = norm(r.employeeNumber);
+              const rName = norm(r.applicantName);
+              if (myEmpNum && rNum && myEmpNum === rNum) return true;
+              if (myFullName && (rName.includes(myFullName) || myFullName.includes(rName))) return true;
+              if (currentName && (rName.includes(currentName) || currentName.includes(rName))) return true;
+              return false;
+            })
           : parsed;
+
         const clean = deduplicateRequests(myItems);
         setMyRequests(clean);
       }
     } catch (_) {}
-  };
+  }, [profile?.employeeNumber, profile?.firstName, profile?.lastName, userName]);
 
   useEffect(() => {
     loadRequests();
-  }, [profile]);
+
+    // 1. Cross-tab storage sync
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === "rkonekte_signature_last_sync" || e.key === STORAGE_KEY) {
+        loadRequests();
+      }
+    };
+    window.addEventListener("storage", handleStorageChange);
+
+    // 2. Custom window event
+    const handleCustomUpdate = () => {
+      loadRequests();
+    };
+    window.addEventListener("rkonekte_signature_updated", handleCustomUpdate);
+
+    // 3. BroadcastChannel (modern browsers cross-tab)
+    let channel: BroadcastChannel | null = null;
+    try {
+      if (typeof BroadcastChannel !== "undefined") {
+        channel = new BroadcastChannel("rkonekte_signature_sync");
+        channel.onmessage = () => {
+          loadRequests();
+        };
+      }
+    } catch (_) {}
+
+    // 4. Window focus / tab visibility
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        loadRequests();
+      }
+    };
+    window.addEventListener("focus", loadRequests);
+    document.addEventListener("visibilitychange", handleVisibility);
+
+    // 5. Periodic background polling (every 4 seconds) to guarantee fresh status without manual reload
+    const interval = setInterval(loadRequests, 4000);
+
+    return () => {
+      window.removeEventListener("storage", handleStorageChange);
+      window.removeEventListener("rkonekte_signature_updated", handleCustomUpdate);
+      window.removeEventListener("focus", loadRequests);
+      document.removeEventListener("visibilitychange", handleVisibility);
+      clearInterval(interval);
+      if (channel) {
+        try {
+          channel.close();
+        } catch (_) {}
+      }
+    };
+  }, [loadRequests]);
 
   const handleFileProcess = (file: File) => {
     if (file.type !== "application/pdf" && !file.name.toLowerCase().endsWith(".pdf")) {
@@ -446,14 +541,43 @@ export function EmployeeSignatureAuthView() {
           status: "PENDING",
         };
         const updated = deduplicateRequests([newReq, ...allRequests]);
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
+        try {
+          const lightUpdated = updated.map((r: any) => ({
+            ...r,
+            pdfUrl: (r.pdfUrl && r.pdfUrl.length > 500000) ? undefined : r.pdfUrl,
+          }));
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(lightUpdated));
+        } catch (_) {}
       }
+
+      // Diffuser la synchronisation immédiate inter-onglets
+      try {
+        localStorage.setItem("rkonekte_signature_last_sync", Date.now().toString());
+      } catch (_) {}
+      try {
+        window.dispatchEvent(
+          new CustomEvent("rkonekte_signature_updated", { detail: { id: newReq?.id } })
+        );
+      } catch (_) {}
+      try {
+        if (typeof BroadcastChannel !== "undefined") {
+          const bc = new BroadcastChannel("rkonekte_signature_sync");
+          bc.postMessage({ type: "SYNC", id: newReq?.id });
+          bc.close();
+        }
+      } catch (_) {}
 
       showSystemToast(`Demande de signature (Réf: ${newReq.id}) transmise avec succès à la Direction !`);
       setUploadedPdf(null);
       setDescription("");
-      await loadRequests();
-      setActiveTab("history");
+      if (onSubmitted) {
+        onSubmitted();
+      } else if (onBackToList) {
+        onBackToList();
+      } else {
+        await loadRequests();
+        setActiveTab("history");
+      }
     } catch (err) {
       showSystemToast("Erreur lors de l'enregistrement de la demande.", "error");
     } finally {
@@ -489,93 +613,111 @@ export function EmployeeSignatureAuthView() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto">
-      {/* Header Collaborateur */}
-      <div className="bg-white rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div>
-          <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
-            Signature d'autorisation
-          </h1>
-          <p className="text-xs text-[#64748B] mt-0.5">
-            Téléversez un document PDF et renseignez le motif pour validation et signature officielle par la Direction.
-          </p>
+      {/* Bouton Retour pour Administration */}
+      {onBackToList && (
+        <div className="flex items-center justify-between pb-1">
+          <button
+            type="button"
+            onClick={onBackToList}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold bg-white text-[#062653] hover:bg-slate-100 shadow-xs transition-all cursor-pointer border border-slate-200/80"
+          >
+            <ArrowLeft className="w-4 h-4 text-emerald-600" />
+            <span>Retour à la liste des autorisations</span>
+          </button>
         </div>
+      )}
 
-        {/* Informations du collaborateur */}
-        <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#062653]">
-          <div className="flex items-center gap-1.5">
-            <span>Matricule :</span>
-            {profile?.employeeNumber ? (
-              <strong className="text-[#FF7900] font-mono font-bold">
-                {profile.employeeNumber}
-              </strong>
-            ) : (
-              <span className="inline-block w-24 h-3.5 bg-slate-200 animate-pulse rounded-sm" />
-            )}
+      {/* Header Collaborateur */}
+      {!hideHeaderTabs && (
+        <div className="bg-white rounded-2xl p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-[#062653] tracking-tight">
+              Signature d'autorisation
+            </h1>
+            <p className="text-xs text-[#64748B] mt-0.5">
+              Téléversez un document PDF et renseignez le motif pour validation et signature officielle par la Direction.
+            </p>
           </div>
-          <span className="text-slate-300 font-normal">|</span>
-          <div className="flex items-center gap-1.5">
-            <Building className="w-3.5 h-3.5 text-slate-500" />
-            {profile?.branch ? (
-              <span>{profile.branch}</span>
-            ) : (
-              <span className="inline-block w-20 h-3.5 bg-slate-200 animate-pulse rounded-sm" />
-            )}
-          </div>
-          <span className="text-slate-300 font-normal">|</span>
-          <div className="flex items-center gap-1.5">
-            <Briefcase className="w-3.5 h-3.5 text-slate-500" />
-            {profile?.position ? (
-              <span>{profile.position}</span>
-            ) : (
-              <span>Employé</span>
-            )}
+
+          {/* Informations du collaborateur */}
+          <div className="flex flex-wrap items-center gap-2 text-xs font-bold text-[#062653]">
+            <div className="flex items-center gap-1.5">
+              <span>Matricule :</span>
+              {profile?.employeeNumber ? (
+                <strong className="text-[#FF7900] font-mono font-bold">
+                  {profile.employeeNumber}
+                </strong>
+              ) : (
+                <span className="inline-block w-24 h-3.5 bg-slate-200 animate-pulse rounded-sm" />
+              )}
+            </div>
+            <span className="text-slate-300 font-normal">|</span>
+            <div className="flex items-center gap-1.5">
+              <Building className="w-3.5 h-3.5 text-slate-500" />
+              {profile?.branch ? (
+                <span>{profile.branch}</span>
+              ) : (
+                <span className="inline-block w-20 h-3.5 bg-slate-200 animate-pulse rounded-sm" />
+              )}
+            </div>
+            <span className="text-slate-300 font-normal">|</span>
+            <div className="flex items-center gap-1.5">
+              <Briefcase className="w-3.5 h-3.5 text-slate-500" />
+              {profile?.position ? (
+                <span>{profile.position}</span>
+              ) : (
+                <span>Employé</span>
+              )}
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Onglets Faciles */}
-      <div className="flex items-center gap-2 pb-1">
-        <button
-          onClick={() => setActiveTab("form")}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-            activeTab === "form"
-              ? "bg-[#062653] text-white shadow-xs"
-              : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653] hover:bg-slate-200/70"
-          }`}
-        >
-          <Plus className="w-4 h-4" />
-          <span>Nouvelle demande de signature</span>
-        </button>
+      {!hideHeaderTabs && (
+        <div className="flex items-center gap-2 pb-1">
+          <button
+            onClick={() => setActiveTab("form")}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+              activeTab === "form"
+                ? "bg-[#062653] text-white shadow-xs"
+                : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653] hover:bg-slate-200/70"
+            }`}
+          >
+            <Plus className="w-4 h-4" />
+            <span>Nouvelle demande de signature</span>
+          </button>
 
-        <button
-          onClick={() => {
-            setActiveTab("history");
-            loadRequests();
-          }}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer relative ${
-            activeTab === "history"
-              ? "bg-[#062653] text-white shadow-xs"
-              : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653] hover:bg-slate-200/70"
-          }`}
-        >
-          <svg className="w-4 h-4 shrink-0" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <circle cx="8" cy="8" r="8" fill="#F59E0B" />
-            <path d="M8 4V8.2L10.8 9.8" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-          <span>Mes signatures</span>
-          {visibleRequests.length > 0 && (
-            <span
-              className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
-                activeTab === "history"
-                  ? "bg-emerald-500 text-white"
-                  : "bg-slate-200 text-slate-700"
-              }`}
-            >
-              {visibleRequests.length}
-            </span>
-          )}
-        </button>
-      </div>
+          <button
+            onClick={() => {
+              setActiveTab("history");
+              loadRequests();
+            }}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all cursor-pointer relative ${
+              activeTab === "history"
+                ? "bg-[#062653] text-white shadow-xs"
+                : "bg-[#F4F6F9] text-[#64748B] hover:text-[#062653] hover:bg-slate-200/70"
+            }`}
+          >
+            <svg className="w-4 h-4 shrink-0" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="8" cy="8" r="8" fill="#F59E0B" />
+              <path d="M8 4V8.2L10.8 9.8" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            <span>Mes signatures</span>
+            {visibleRequests.length > 0 && (
+              <span
+                className={`px-1.5 py-0.2 rounded-full text-[10px] font-bold ${
+                  activeTab === "history"
+                    ? "bg-emerald-500 text-white"
+                    : "bg-slate-200 text-slate-700"
+                }`}
+              >
+                {visibleRequests.length}
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* FORMULAIRE DIRECT : ÉDITEUR WORD COMPLET + UPLOAD PDF EN DESSOUS + MOTIF */}
       {activeTab === "form" && (
@@ -789,23 +931,34 @@ export function EmployeeSignatureAuthView() {
                 </div>
               </div>
 
-              <button
-                type="submit"
-                disabled={submitting || !isFormValid}
-                className="w-full sm:w-auto px-7 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
-              >
-                {submitting ? (
-                  <>
-                    <RefreshCw className="w-4 h-4 animate-spin" />
-                    <span>Génération et envoi du document...</span>
-                  </>
-                ) : (
-                  <>
-                    <FileSignature className="w-4 h-4" />
-                    <span>Demander la signature d'autorisation</span>
-                  </>
+              <div className="flex items-center gap-2">
+                {onBackToList && (
+                  <button
+                    type="button"
+                    onClick={onBackToList}
+                    className="px-5 py-3 bg-[#F4F6F9] hover:bg-slate-200/70 text-[#64748B] text-xs font-semibold rounded-xl cursor-pointer transition-all"
+                  >
+                    Annuler
+                  </button>
                 )}
-              </button>
+                <button
+                  type="submit"
+                  disabled={submitting || !isFormValid}
+                  className="w-full sm:w-auto px-7 py-3 bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 disabled:bg-slate-200 disabled:text-slate-400 disabled:cursor-not-allowed disabled:shadow-none text-white font-bold text-xs rounded-xl shadow-lg shadow-emerald-600/20 transition-all flex items-center justify-center gap-2 cursor-pointer active:scale-95"
+                >
+                  {submitting ? (
+                    <>
+                      <RefreshCw className="w-4 h-4 animate-spin" />
+                      <span>Génération et envoi du document...</span>
+                    </>
+                  ) : (
+                    <>
+                      <FileSignature className="w-4 h-4" />
+                      <span>Demander la signature d'autorisation</span>
+                    </>
+                  )}
+                </button>
+              </div>
             </div>
           </form>
         </div>

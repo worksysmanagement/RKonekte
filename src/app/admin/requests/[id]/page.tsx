@@ -42,6 +42,13 @@ export default function AdminRequestDetailPage() {
   const [notifications, setNotifications] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [currentUser, setCurrentUser] = useState<{
+    id?: string;
+    email?: string;
+    name?: string;
+    employeeNumber?: string;
+    role?: string;
+  } | null>(null);
 
   // Modal State
   const [modalType, setModalType] = useState<"APPROVE" | "REJECT" | null>(null);
@@ -69,7 +76,7 @@ export default function AdminRequestDetailPage() {
       downloadPdfBlob(blob, fileName);
       showSystemToast("Feuille officielle téléchargée en PDF avec succès !");
     } catch (err) {
-      console.error("Erreur génération PDF:", err);
+      console.warn("Avertissement génération PDF:", err);
       showSystemToast("Erreur lors de la génération du PDF.", "error");
     } finally {
       setDownloadingPdf(false);
@@ -84,7 +91,7 @@ export default function AdminRequestDetailPage() {
       const { blob } = await generateLeaveRequestPdfBlob(sheetRef.current, fileName);
       printPdfDocument(blob);
     } catch (err) {
-      console.error("Erreur impression PDF:", err);
+      console.warn("Avertissement impression PDF:", err);
       window.print();
     } finally {
       setPrintingPdf(false);
@@ -118,7 +125,52 @@ export default function AdminRequestDetailPage() {
 
   useEffect(() => {
     loadData();
+    async function loadCurrentUser() {
+      try {
+        const res = await fetch("/api/auth/me");
+        if (res.ok) {
+          const data = await res.json();
+          if (data?.user) setCurrentUser(data.user);
+        }
+      } catch (_) {}
+    }
+    loadCurrentUser();
   }, [id]);
+
+  const isOwnRequest = (() => {
+    if (!request || !currentUser) return false;
+
+    // Check by user ID / employee ID directly
+    if (
+      currentUser.id &&
+      (request.employeeId === currentUser.id || request.userId === currentUser.id)
+    ) {
+      return true;
+    }
+
+    // 1. Check by email (exact match between different accounts)
+    const reqEmail = (request.contactEmail || "").toLowerCase().trim();
+    const curEmail = (currentUser.email || "").toLowerCase().trim();
+    if (reqEmail && curEmail) {
+      return reqEmail === curEmail;
+    }
+
+    // 2. Check by employeeNumber
+    const reqEmpNum = (request.employeeNumber || "").toLowerCase().trim();
+    const curEmpNum = (currentUser.employeeNumber || "").toLowerCase().trim();
+    if (reqEmpNum && curEmpNum) {
+      return reqEmpNum === curEmpNum;
+    }
+
+    // 3. Fallback only if email and employeeNumber are absent on either side
+    if (currentUser.name) {
+      const rFullName = `${request.firstName || ""} ${request.lastName || ""}`.trim().toLowerCase();
+      const myName = currentUser.name.trim().toLowerCase();
+      return rFullName === myName;
+    }
+
+    return false;
+  })();
 
   // Client fallback for employee signature snapshot
   useEffect(() => {
@@ -269,7 +321,7 @@ export default function AdminRequestDetailPage() {
 
       showSystemToast("PDF généré et téléchargé pour l'envoi WhatsApp !");
     } catch (err) {
-      console.error("Erreur génération PDF:", err);
+      console.warn("Avertissement génération PDF:", err);
       window.open(waUrl, "_blank", "noopener,noreferrer");
       showSystemToast("Lien WhatsApp ouvert.", "info");
     } finally {
@@ -793,41 +845,65 @@ export default function AdminRequestDetailPage() {
       {/* 3. EN DESSOUS DE LA FEUILLE : BOUTONS APPROUVER ET REFUSER (UNIQUEMENT QUAND EN ATTENTE) */}
       {isPending && (
         <div className="max-w-4xl mx-auto print:hidden">
-          <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5 animate-in fade-in">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7900] bg-[#FFF4EB] px-2 py-0.5 rounded">
-                  Décision Administrative
-                </span>
-                <span className="text-xs text-slate-400">• Formulaire en attente de visa</span>
+          {isOwnRequest ? (
+            <div className="bg-amber-50/80 border border-amber-200 rounded-2xl shadow-sm p-6 sm:p-7 flex flex-col sm:flex-row sm:items-center justify-between gap-5 animate-in fade-in">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-amber-800 bg-amber-100 px-2 py-0.5 rounded">
+                    Votre propre demande de congé
+                  </span>
+                  <span className="text-xs text-amber-700 font-medium">• En attente de visa</span>
+                </div>
+                <h3 className="text-base font-bold text-[#062653] mt-1">
+                  En attente d'approbation par un autre administrateur
+                </h3>
+                <p className="text-xs text-slate-600 mt-0.5 max-w-xl">
+                  Conformément aux règles de conformité et de séparation des pouvoirs, vous ne pouvez pas approuver ou refuser votre propre demande de congé. Un autre administrateur ou la Direction Générale doit l'examiner et y apposer son visa.
+                </p>
               </div>
-              <h3 className="text-base font-bold text-[#062653] mt-1">
-                Traiter cette demande de congé
-              </h3>
-              <p className="text-xs text-slate-500 mt-0.5">
-                Après avoir examiné la feuille dûment remplie ci-dessus, confirmez l'approbation ou le refus officiel pour <strong>{request.firstName} {request.lastName}</strong>.
-              </p>
-            </div>
 
-            <div className="flex items-center gap-3 shrink-0">
-              <button
-                type="button"
-                onClick={() => setModalType("REJECT")}
-                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
-              >
-                <XCircle className="w-4 h-4" />
-                Refuser
-              </button>
-              <button
-                type="button"
-                onClick={() => setModalType("APPROVE")}
-                className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
-              >
-                <CheckCircle2 className="w-4 h-4" />
-                Approuver
-              </button>
+              <div className="flex items-center gap-2 px-3.5 py-2 bg-white text-amber-900 rounded-xl border border-amber-200/90 text-xs font-bold shrink-0 shadow-2xs">
+                <Clock className="w-4 h-4 text-[#FF7900]" />
+                <span>En attente de visa d'un tiers</span>
+              </div>
             </div>
-          </div>
+          ) : (
+            <div className="bg-white rounded-2xl shadow-md p-6 sm:p-8 flex flex-col sm:flex-row sm:items-center justify-between gap-5 animate-in fade-in">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-[#FF7900] bg-[#FFF4EB] px-2 py-0.5 rounded">
+                    Décision Administrative
+                  </span>
+                  <span className="text-xs text-slate-400">• Formulaire en attente de visa</span>
+                </div>
+                <h3 className="text-base font-bold text-[#062653] mt-1">
+                  Traiter cette demande de congé
+                </h3>
+                <p className="text-xs text-slate-500 mt-0.5">
+                  Après avoir examiné la feuille dûment remplie ci-dessus, confirmez l'approbation ou le refus officiel pour <strong>{request.firstName} {request.lastName}</strong>.
+                </p>
+              </div>
+
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setModalType("REJECT")}
+                  className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <XCircle className="w-4 h-4" />
+                  Refuser
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setModalType("APPROVE")}
+                  className="px-6 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold rounded-xl shadow-xs transition-all flex items-center gap-2 cursor-pointer active:scale-95"
+                >
+                  <CheckCircle2 className="w-4 h-4" />
+                  Approuver
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

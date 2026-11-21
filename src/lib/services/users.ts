@@ -22,6 +22,7 @@ export async function listOrgUsers(
       email: users.email,
       role: users.role,
       status: users.status,
+      permissions: users.permissions,
       lastLoginAt: users.lastLoginAt,
       lastSeenAt: users.lastSeenAt,
       createdAt: users.createdAt,
@@ -81,6 +82,7 @@ export async function createOrgUser(
       email: users.email,
       role: users.role,
       status: users.status,
+      permissions: users.permissions,
       lastLoginAt: users.lastLoginAt,
       lastSeenAt: users.lastSeenAt,
       createdAt: users.createdAt,
@@ -123,8 +125,22 @@ export async function updateUserRole(
   organizationId: string,
   userId: string,
   role: string,
+  permissionsOrDb?: string | null | any,
   dbInstance?: any
 ): Promise<Omit<User, "passwordHash">> {
+  let permissions: string | null | undefined = undefined;
+  let db = dbInstance;
+  if (
+    permissionsOrDb &&
+    typeof permissionsOrDb === "object" &&
+    typeof permissionsOrDb.select === "function"
+  ) {
+    db = permissionsOrDb;
+    permissions = undefined;
+  } else {
+    permissions = permissionsOrDb;
+  }
+
   const cleanRole = role.trim();
   if (!cleanRole) {
     throw new Error("Le rôle système est obligatoire");
@@ -133,11 +149,10 @@ export async function updateUserRole(
     throw new Error("Attribution du rôle Super Administrateur interdite");
   }
 
-  if (!dbInstance) {
-    return await supabaseDb.users.updateRole(organizationId, userId, cleanRole);
+  if (!db) {
+    return await supabaseDb.users.updateRole(organizationId, userId, cleanRole, permissions);
   }
 
-  const db = dbInstance;
   const [target] = await db
     .select()
     .from(users)
@@ -173,9 +188,14 @@ export async function updateUserRole(
   }
 
   const now = Date.now();
+  const updateData: any = { role: cleanRole, updatedAt: now };
+  if (permissions !== undefined) {
+    updateData.permissions = permissions;
+  }
+
   await db
     .update(users)
-    .set({ role: cleanRole, updatedAt: now })
+    .set(updateData)
     .where(and(eq(users.id, userId), eq(users.organizationId, organizationId)));
 
   const [updated] = await db
@@ -187,6 +207,7 @@ export async function updateUserRole(
       email: users.email,
       role: users.role,
       status: users.status,
+      permissions: users.permissions,
       lastLoginAt: users.lastLoginAt,
       lastSeenAt: users.lastSeenAt,
       createdAt: users.createdAt,
