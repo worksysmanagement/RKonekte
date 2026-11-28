@@ -6,6 +6,7 @@ import { hashPassword } from "@/lib/auth/password";
 import { clearStoppedNoticeCookie, setSessionCookie } from "@/lib/auth/session";
 import { resolveAppOrigin } from "@/lib/notifications/email";
 import { recordUserLoginActivity } from "@/lib/services/user-activity";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import {
   addCalendarMonths,
   getPlatformSubscriptionSettings,
@@ -17,6 +18,15 @@ import {
  */
 export async function GET(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    const rateLimit = checkRateLimit(`verify_company_get:${ip}`, 30, 60);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Trop de requêtes. Veuillez patienter une minute." },
+        { status: 429 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const token = searchParams.get("token");
 
@@ -116,6 +126,15 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    const rateLimit = checkRateLimit(`verify_company_post:${ip}`, 10, 300);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Trop de tentatives. Veuillez patienter quelques minutes." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { token, password } = body;
 

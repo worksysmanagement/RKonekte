@@ -37,3 +37,9 @@ Thumbs.db
 # Local database (optional, omit if migrating via D1 in production)
 local.sqlite
 local.sqlite-journal
+
+# Data storage and uploaded sensitive user documents
+data/secure-storage/
+data/secure-storage/**
+*.dat
+

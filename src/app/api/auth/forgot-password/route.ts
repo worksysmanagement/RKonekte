@@ -8,9 +8,19 @@ import {
 import { getDb } from "@/lib/db/client";
 import { users, organizations, auditLogs } from "@/db/schema";
 import { eq } from "drizzle-orm";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    const rateLimit = checkRateLimit(`forgot_pw:${ip}`, 5, 300);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Trop de demandes de réinitialisation. Veuillez patienter 5 minutes." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const email = (body.email || "").toString().trim().toLowerCase();
 

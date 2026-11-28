@@ -6,6 +6,7 @@ import { eq, desc } from "drizzle-orm";
 import { hashPassword } from "@/lib/auth/password";
 import { hashToken } from "@/lib/security/tokens";
 import { validateStrongPassword } from "@/lib/validation/password";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 import {
   clearSessionCookie,
   clearStoppedNoticeCookie,
@@ -20,6 +21,15 @@ import { recordUserLoginActivity } from "@/lib/services/user-activity";
  */
 export async function GET(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    const rateLimit = checkRateLimit(`reset_pw_get:${ip}`, 30, 60);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Trop de requêtes. Veuillez patienter une minute." },
+        { status: 429 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const token = searchParams.get("token");
 
@@ -132,6 +142,15 @@ export async function GET(req: NextRequest) {
  */
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    const rateLimit = checkRateLimit(`reset_pw_post:${ip}`, 10, 300);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Trop de tentatives de modification de mot de passe. Veuillez patienter 5 minutes." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const { token, password } = body;
 

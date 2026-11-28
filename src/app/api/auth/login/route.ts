@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db/client";
 import { users, organizations } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, inArray } from "drizzle-orm";
 import { verifyPassword } from "@/lib/auth/password";
 import {
   clearSessionCookie,
@@ -53,39 +53,25 @@ export async function POST(req: NextRequest) {
 
     try {
       const supabase = (await import("@/lib/supabase/server")).getSupabaseAdminClient();
-      const { data: dbUsers, error: sbErr } = await supabase.from("users").select("*");
-      if (sbErr) {
-        console.error("Supabase select users error:", sbErr);
-      }
-      if (dbUsers && dbUsers.length > 0) {
-        const found = dbUsers.find(
-          (u) => emailVariations.includes((u.email || "").toLowerCase().trim())
-        );
-        if (found) {
+      // Targeted lookup by email (never full table scan)
+      for (const candidateEmail of emailVariations) {
+        const { data: directUsers, error: sbErr } = await supabase
+          .from("users")
+          .select("*")
+          .ilike("email", candidateEmail)
+          .limit(1);
+
+        if (sbErr) {
+          console.error("Supabase user lookup error:", sbErr);
+        }
+
+        if (directUsers && directUsers.length > 0) {
           const { mapUser } = await import("@/lib/supabase/db");
-          anyUserWithEmail = mapUser(found);
-          if (found.status === "ACTIVE") {
+          anyUserWithEmail = mapUser(directUsers[0]);
+          if (directUsers[0].status === "ACTIVE") {
             user = anyUserWithEmail;
           }
-        }
-      }
-
-      // If not found in list, try direct search by email
-      if (!anyUserWithEmail) {
-        for (const candidateEmail of emailVariations) {
-          const { data: directUsers } = await supabase
-            .from("users")
-            .select("*")
-            .ilike("email", candidateEmail)
-            .limit(1);
-          if (directUsers && directUsers.length > 0) {
-            const { mapUser } = await import("@/lib/supabase/db");
-            anyUserWithEmail = mapUser(directUsers[0]);
-            if (directUsers[0].status === "ACTIVE") {
-              user = anyUserWithEmail;
-            }
-            break;
-          }
+          break;
         }
       }
     } catch (sbErr) {
@@ -97,11 +83,13 @@ export async function POST(req: NextRequest) {
       try {
         const db = getDb();
         if (db) {
-          const allUsers = await db.select().from(users);
-          const found = allUsers.find(
-            (u) => emailVariations.includes((u.email || "").toLowerCase().trim())
-          );
-          if (found) {
+          const matchingUsers = await db
+            .select()
+            .from(users)
+            .where(inArray(users.email, emailVariations))
+            .limit(1);
+          if (matchingUsers && matchingUsers.length > 0) {
+            const found = matchingUsers[0];
             anyUserWithEmail = found;
             if (found.status === "ACTIVE") {
               user = found;

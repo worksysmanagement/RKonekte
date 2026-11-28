@@ -42,7 +42,7 @@ export async function GET(req: NextRequest) {
     let dbUser: any = null;
     const { data: uData, error: uIdErr } = await supabase
       .from("users")
-      .select("role, branch_id, status, password_hash")
+      .select("role, branch_id, status")
       .eq("id", session.id)
       .maybeSingle();
 
@@ -52,7 +52,7 @@ export async function GET(req: NextRequest) {
     } else if (!uIdErr && session.email) {
       const { data: uByEmail, error: uEmailErr } = await supabase
         .from("users")
-        .select("role, branch_id, status, password_hash")
+        .select("role, branch_id, status")
         .ilike("email", session.email.toLowerCase().trim())
         .maybeSingle();
       dbUser = uByEmail;

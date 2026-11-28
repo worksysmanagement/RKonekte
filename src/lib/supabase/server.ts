@@ -16,6 +16,16 @@ export function getSupabaseAdminClient() {
     );
   }
 
+  if (
+    !process.env.SUPABASE_SERVICE_ROLE_KEY &&
+    !process.env.SUPABASE_SECRET_KEY &&
+    !process.env.SUPABASE_SERVICE_KEY
+  ) {
+    console.warn(
+      '[SECURITY WARNING] SUPABASE_SERVICE_ROLE_KEY is not defined; server-side queries are using public/anon key which may be restricted by RLS.'
+    );
+  }
+
   return createClient(supabaseUrl, supabaseKey, {
     auth: {
       persistSession: false,

@@ -8,9 +8,19 @@ import {
   resolveAppOrigin,
   generateCompanyActivationEmail,
 } from "@/lib/notifications/email";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    const rateLimit = checkRateLimit(`register_company:${ip}`, 10, 900);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Trop de tentatives d'enregistrement. Veuillez réessayer plus tard." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const {
       companyName,

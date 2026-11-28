@@ -31,7 +31,20 @@ export interface StoppedNoticePayload {
 }
 
 function getSecretKey(): Uint8Array {
-  const secret = process.env.SESSION_SECRET || DEFAULT_SECRET;
+  const secret = process.env.SESSION_SECRET;
+  if (!secret) {
+    if (process.env.NODE_ENV === "production") {
+      throw new Error(
+        "CRITICAL SECURITY ERROR: SESSION_SECRET environment variable is missing in production!"
+      );
+    }
+    return new TextEncoder().encode(DEFAULT_SECRET);
+  }
+  if (process.env.NODE_ENV === "production" && secret === DEFAULT_SECRET) {
+    throw new Error(
+      "CRITICAL SECURITY ERROR: Default development SESSION_SECRET cannot be used in production!"
+    );
+  }
   return new TextEncoder().encode(secret);
 }
 

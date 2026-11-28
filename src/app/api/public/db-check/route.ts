@@ -16,24 +16,14 @@ export async function GET() {
 
   try {
     const supabase = getSupabaseAdminClient();
-    const { data: orgs, error: orgErr } = await supabase
+    const { error: pingErr } = await supabase
       .from("organizations")
-      .select("id, name, slug, status")
-      .order("name", { ascending: true });
+      .select("id")
+      .limit(1);
 
-    if (orgErr) {
-      supabaseStatus.error = orgErr.message;
-      throw new Error(orgErr.message);
-    }
-
-    const { data: userList, error: userErr } = await supabase
-      .from("users")
-      .select("id, email, role, status")
-      .order("email", { ascending: true });
-
-    if (userErr) {
-      supabaseStatus.error = userErr.message;
-      throw new Error(userErr.message);
+    if (pingErr) {
+      supabaseStatus.error = "Erreur de communication avec la base de données.";
+      throw new Error(pingErr.message);
     }
 
     supabaseStatus.connected = true;
@@ -44,10 +34,7 @@ export async function GET() {
       database: "SUPABASE CLOUD",
       message: "Connexion directe à la base de données Supabase opérationnelle !",
       supabase: supabaseStatus,
-      organizationsCount: orgs?.length || 0,
-      organizations: orgs || [],
-      usersCount: userList?.length || 0,
-      users: userList || [],
+      timestamp: new Date().toISOString(),
     });
   } catch (err: any) {
     return NextResponse.json(
@@ -56,7 +43,7 @@ export async function GET() {
         connected: false,
         database: "SUPABASE CLOUD",
         supabase: supabaseStatus,
-        error: err?.message || String(err),
+        error: "Erreur de connexion à la base de données",
       },
       { status: 500 }
     );

@@ -1,21 +1,42 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getDb } from "@/lib/db/client";
-import { employees } from "@/db/schema";
+import { employees, organizations } from "@/db/schema";
 import { eq, and, asc, sql } from "drizzle-orm";
+import { checkRateLimit } from "@/lib/security/rate-limit";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for") || "127.0.0.1";
+    const rateLimit = checkRateLimit(`public_employees:${ip}`, 45, 60);
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        { error: "Trop de requêtes. Veuillez patienter une minute." },
+        { status: 429 }
+      );
+    }
+
     const url = new URL(req.url);
     const organizationId = url.searchParams.get("organizationId");
 
-    if (!organizationId) {
+    if (!organizationId || organizationId.length > 100) {
       return NextResponse.json({ employees: [] });
     }
 
     try {
       const supabase = (await import("@/lib/supabase/server")).getSupabaseAdminClient();
+      // Verify organization is active
+      const { data: orgData } = await supabase
+        .from("organizations")
+        .select("id, status, service_stopped")
+        .eq("id", organizationId)
+        .maybeSingle();
+
+      if (!orgData || orgData.status !== "ACTIVE" || orgData.service_stopped) {
+        return NextResponse.json({ employees: [] });
+      }
+
       const { data: supaEmps } = await supabase
         .from("employees")
         .select("id, employee_number, first_name, last_name, department, position, phone, email")
